@@ -1,0 +1,35 @@
+<resources>
+    <string name="app_name">应用消息捕获</string>
+    <string name="service_name">应用消息捕获服务</string>
+    <string name="app_title">应用消息捕获</string>
+    <string name="empty_message">暂无捕获的消息</string>
+    <string name="enable_service_hint">请前往系统设置开启通知访问权限，以启用消息捕获功能</string>
+    <string name="goto_settings">前往设置</string>
+    <string name="total_count">已捕获 %d 条消息</string>
+    <string name="clear_all">清空全部</string>
+    <string name="message_from">来自：%s</string>
+    <string name="message_content">内容：%s</string>
+    <string name="message_time">时间：%s</string>
+    <string name="search_hint">搜索应用或消息内容</string>
+    <string name="service_status_ok">消息捕获服务运行中</string>
+    <string name="service_status_disconnected">服务未连接，点击重新激活</string>
+    <string name="service_status_no_permission">未授权通知访问权限</string>
+    <string name="battery_optimization_title">电池优化提醒</string>
+    <string name="battery_optimization_desc">为避免后台被系统清理导致消息捕获中断，建议关闭对本应用的电池优化。</string>
+    <string name="battery_optimization_action">关闭电池优化</string>
+    <string name="battery_optimization_dismiss">暂不</string>
+    <string name="rebind_success">服务已重新激活</string>
+    <string name="new_messages_badge">%d 条新消息</string>
+    <string name="scroll_to_top">回到顶部</string>
+    <string name="export">导出</string>
+    <string name="export_json">导出 JSON</string>
+    <string name="export_csv">导出 CSV</string>
+    <string name="export_success">导出成功</string>
+    <string name="share">分享</string>
+    <string name="filter_apps">筛选应用</string>
+    <string name="filter_apps_desc">选择要显示的应用（不选则显示全部）</string>
+    <string name="select_all">全部勾选</string>
+    <string name="deselect_all">取消全选</string>
+    <string name="today">今天</string>
+    <string name="yesterday">昨天</string>
+</resources>

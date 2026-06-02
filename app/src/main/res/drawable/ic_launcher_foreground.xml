@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- White rounded message card -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,26 h52 a10,10 0 0,1 10,10 v40 a10,10 0 0,1 -10,10 h-52 a10,10 0 0,1 -10,-10 v-40 a10,10 0 0,1 10,-10 z" />
+
+    <!-- First orange text line -->
+    <path
+        android:fillColor="#F5A623"
+        android:pathData="M38,40 h32 v4 h-32 z" />
+
+    <!-- Second orange text line -->
+    <path
+        android:fillColor="#F5A623"
+        android:pathData="M38,50 h22 v4 h-22 z" />
+
+    <!-- Purple unread dot badge -->
+    <path
+        android:fillColor="#7C5CFC"
+        android:pathData="M78,70 a8,8 0 1,1 0,16 a8,8 0 1,1 0,-16 z" />
+
+</vector>
