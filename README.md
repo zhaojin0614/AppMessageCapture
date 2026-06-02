@@ -27,17 +27,6 @@
 - **🎨 精美UI** — 温暖橙色 + 现代紫色配色，大圆角卡片设计，应用图标显示
 - **🛡️ 智能过滤** — 自动过滤系统幽灵通知、前台服务通知、媒体播放通知
 
-## 📸 界面预览
-
-> 请将截图放入项目根目录或 `screenshots/` 文件夹后，取消下方注释：
-
-<!--
-<p align="center">
-  <img src="screenshots/screenshot_main.png" width="280" alt="主界面"/>
-  <img src="screenshots/screenshot_filter.png" width="280" alt="筛选界面"/>
-</p>
--->
-
 ## 🏗️ 技术栈
 
 | 技术 | 版本 | 用途 |
@@ -131,7 +120,3 @@ limitations under the License.
 ```
 
 ---
-
-<p align="center">
-  如果这个项目对你有帮助，欢迎 ⭐ Star 支持！
-</p>
