@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Service that listens to system notifications and persists them locally.
@@ -21,6 +22,7 @@ import kotlinx.coroutines.launch
 class MessageCaptureService : NotificationListenerService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val billMutex = kotlinx.coroutines.sync.Mutex()
 
     companion object {
         @Volatile
@@ -86,9 +88,10 @@ class MessageCaptureService : NotificationListenerService() {
         if (extras.containsKey(Notification.EXTRA_MEDIA_SESSION)) return
 
         val appName = try {
-            val appInfo = packageManager.getApplicationInfo(packageName, 0)
-            packageManager.getApplicationLabel(appInfo).toString()
-        } catch (e: PackageManager.NameNotFoundException) {
+            val appInfo = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
+            val label = packageManager.getApplicationLabel(appInfo)
+            if (!label.isNullOrBlank()) label.toString() else packageName
+        } catch (e: Exception) {
             packageName
         }
 
@@ -97,12 +100,17 @@ class MessageCaptureService : NotificationListenerService() {
             appName = appName,
             title = title,
             content = content,
-            timestamp = System.currentTimeMillis()
+            timestamp = if (sbn.postTime > 0) sbn.postTime else System.currentTimeMillis()
         )
 
-        val dao = (application as AppMessageCaptureApplication).database.notificationDao()
+        val app = application as AppMessageCaptureApplication
+        val dao = app.database.notificationDao()
         serviceScope.launch {
             dao.insert(entity)
+            // Auto-extract bill from payment notifications (serialized to avoid race conditions)
+            billMutex.withLock {
+                tryExtractBill(app, sbn, title, content, appName)
+            }
         }
     }
 
@@ -150,8 +158,161 @@ class MessageCaptureService : NotificationListenerService() {
             (content.contains("停止应用") || content.contains("了解详情") || content.contains("后台运行"))
         ) return true
         if (title.contains("正在运行") && content.contains("停止应用")) return true
+        if (content.contains("视频通话中")) return true
         // Stock Android
         if (content.contains("Running in background") || content.contains("Tap for more info")) return true
         return false
+    }
+
+    /**
+     * Try to extract payment/expense info from known payment apps.
+     */
+    private suspend fun tryExtractBill(
+        app: AppMessageCaptureApplication,
+        sbn: StatusBarNotification,
+        title: String,
+        content: String,
+        appName: String
+    ) {
+        val packageName = sbn.packageName ?: return
+        val fullText = "$title $content"
+
+        when (packageName) {
+            "com.tencent.mm" -> {               // WeChat
+                // WeChat pay notifications MUST have title containing payment keywords
+                val validTitle = title.contains("微信支付")
+                if (!validTitle) return
+            }
+            "com.eg.android.AlipayGphone" -> {   // Alipay
+                // Title or content must contain Alipay/payment keywords
+                val validTitle = title.contains("交易提醒")
+                val validContent = content.contains("支出")
+                if (!validTitle || !validContent) return
+            }
+            "com.sankuai.meituan",
+            "com.sankuai.meituan.takeoutnew" -> { // Meituan
+                // Exclude non-expense notifications like rewards, coupons, refunds
+                val validTitle = title.contains("付款")
+                if (!validTitle) return
+            }
+            "com.dianping.v1" -> { }             // Dianping
+            "com.jd.jrapp" -> { }                // JD Finance
+            "com.baidu.wallet" -> { }           // Baidu Wallet
+            else -> return
+        }
+
+        // Keywords that indicate a payment/expense notification
+        val paymentKeywords = listOf("付款", "支付", "消费", "支出", "扣款", "已付", "交易", "订单已支付", "收款")
+        val hasPaymentKeyword = paymentKeywords.any { fullText.contains(it) }
+        if (!hasPaymentKeyword) return
+
+        val amount = extractAmount(fullText) ?: return
+
+        // Guess category from content keywords
+        val category = guessCategory(fullText, appName)
+
+        val bill = com.aifactory.appmessagecapture.data.BillEntity(
+            amount = amount,
+            appName = appName,
+            packageName = packageName,
+            title = title,
+            content = content,
+            category = category,
+            timestamp = if (sbn.postTime > 0) sbn.postTime else System.currentTimeMillis()
+        )
+
+        val dao = app.database.billDao()
+        val since = System.currentTimeMillis() - 5_000
+
+        // 1. Same-app deduplication: if same app posted a bill with same amount recently, skip
+        val sameAppDuplicate = dao.findRecentByAmountAndPackage(amount, packageName, since)
+        if (sameAppDuplicate != null) return
+
+        // 2. Cross-app merging: if a different app posted a bill with same amount recently, merge them
+        val existing = dao.findRecentByAmount(amount, since)
+        if (existing != null && existing.packageName != packageName) {
+            // Merge with weight-based priority
+            val existingWeight = getAppWeight(existing.packageName)
+            val currentWeight = getAppWeight(packageName)
+
+            val mergedBill = if (currentWeight > existingWeight) {
+                // Current app has higher weight -> becomes primary
+                existing.copy(
+                    appName = appName,
+                    packageName = packageName,
+                    title = title,
+                    category = category,
+                    secondaryAppName = existing.appName,
+                    secondaryPackageName = existing.packageName,
+                    content = content
+                )
+            } else {
+                // Existing app has higher or equal weight -> stays primary
+                existing.copy(
+                    secondaryAppName = appName,
+                    secondaryPackageName = packageName
+                )
+            }
+            dao.update(mergedBill)
+        } else {
+            dao.insert(bill)
+        }
+    }
+
+    /**
+     * Extract monetary amount from Chinese payment notification text.
+     * Supports formats like: ¥14.40, 14.40元, 已支付14.4, etc.
+     */
+    private fun extractAmount(text: String): Double? {
+        // Pattern 1: ¥14.40 or ¥ 14.40
+        val pattern1 = Regex("""[¥￥]\s*(\d+(?:\.\d{1,2})?)""")
+        // Pattern 2: 14.40元 or 14.4元
+        val pattern2 = Regex("""(\d+(?:\.\d{1,2})?)\s*[元円]""")
+        // Pattern 3: generic number with decimal (fallback)
+        val pattern3 = Regex("""(\d+\.\d{1,2})""")
+
+        pattern1.find(text)?.groupValues?.get(1)?.toDoubleOrNull()?.let { return it }
+        pattern2.find(text)?.groupValues?.get(1)?.toDoubleOrNull()?.let { return it }
+        pattern3.find(text)?.groupValues?.get(1)?.toDoubleOrNull()?.let { return it }
+        return null
+    }
+
+    /**
+     * Guess expense category from notification text.
+     */
+    private fun guessCategory(text: String, appName: String): String {
+        val lower = text.lowercase()
+        return when {
+            lower.contains("外卖") || lower.contains("餐饮") || lower.contains("美食") ||
+                    lower.contains("餐厅") || lower.contains("快餐") || appName.contains("美团") -> "餐饮"
+            lower.contains("打车") || lower.contains("滴滴") || lower.contains("出行") ||
+                    lower.contains("地铁") || lower.contains("公交") || lower.contains("骑行") -> "交通"
+            lower.contains("电影") || lower.contains("娱乐") || lower.contains("游戏") ||
+                    lower.contains("会员") -> "娱乐"
+            lower.contains("超市") || lower.contains("购物") || lower.contains("商城") ||
+                    lower.contains("淘宝") || lower.contains("京东") || lower.contains("拼多多") -> "购物"
+            lower.contains("水电") || lower.contains("话费") || lower.contains("宽带") ||
+                    lower.contains("燃气") || lower.contains("物业") -> "生活缴费"
+            lower.contains("医疗") || lower.contains("药店") || lower.contains("挂号") -> "医疗"
+            else -> "其他"
+        }
+    }
+
+    /**
+     * App weight for merge priority.
+     * Higher weight = primary app when merging bills.
+     * E.g. Meituan (merchant) > WeChat Pay (payment channel).
+     */
+    private fun getAppWeight(packageName: String): Int {
+        return when (packageName) {
+            "com.sankuai.meituan",
+            "com.sankuai.meituan.takeoutnew" -> 100 // Meituan
+            "com.dianping.v1" -> 90                  // Dianping
+            "com.jd.jrapp" -> 80                     // JD Finance
+            "com.baidu.wallet" -> 70                 // Baidu Wallet
+            "com.eg.android.AlipayGphone" -> 50      // Alipay
+            "com.tencent.mm" -> 40                   // WeChat
+            else -> 0
+        }
     }
 }

@@ -1,16 +1,20 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.aifactory.appmessagecapture.ui
 
 import android.content.Intent
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +41,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Notifications
@@ -76,10 +81,17 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -90,9 +102,15 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.R
 import com.aifactory.appmessagecapture.data.NotificationEntity
+import com.aifactory.appmessagecapture.ui.components.SwipeableItem
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.Date
 import java.util.Locale
 
@@ -103,18 +121,74 @@ sealed class NotificationListItem {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(viewModel: NotificationViewModel = viewModel()) {
+fun MainScreen(
+    modifier: Modifier = Modifier,
+    viewModel: NotificationViewModel = viewModel()
+) {
     val context = LocalContext.current
     val notifications by viewModel.notifications.collectAsState()
+    val count by viewModel.notificationCount.collectAsState()
     val unreadCount by viewModel.unreadCount.collectAsState()
+    val todayCount by viewModel.todayCount.collectAsState()
     val allApps by viewModel.allApps.collectAsState()
-    val blockedApps by viewModel.blockedApps.collectAsState()
+    val filteredApps by viewModel.filteredApps.collectAsState()
+    val selectedIds by viewModel.selectedIds.collectAsState()
+    val isSelectionMode by viewModel.isSelectionMode.collectAsState()
     var showClearDialog by remember { mutableStateOf(false) }
+    var showDeleteSelectedDialog by remember { mutableStateOf(false) }
+    var notificationToDelete by remember { mutableStateOf<NotificationEntity?>(null) }
     var showFilterDialog by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+
+    // Pull-down stats panel
+    val pullOffset = remember { Animatable(0f) }
+    val maxPullOffsetPx = with(LocalDensity.current) { 80.dp.toPx() }
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                val delta = available.y
+                if (delta > 0 && listState.firstVisibleItemIndex == 0 &&
+                    listState.firstVisibleItemScrollOffset == 0 &&
+                    pullOffset.value < maxPullOffsetPx
+                ) {
+                    scope.launch {
+                        pullOffset.snapTo(
+                            (pullOffset.value + delta).coerceAtMost(maxPullOffsetPx)
+                        )
+                    }
+                    return Offset(0f, delta)
+                }
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                // 不再通过下滑收回面板，仅由松手时自动收回
+                return Offset.Zero
+            }
+        }
+    }
+
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (!listState.isScrollInProgress && pullOffset.value > 0f) {
+            // 松手时自动收回，不再保留展开状态
+            pullOffset.animateTo(0f, animationSpec = tween(250))
+        }
+    }
+
+    // Auto collapse stats panel when list scrolls away from top
+    LaunchedEffect(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) {
+        if ((listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0) && pullOffset.value > 0f) {
+            pullOffset.animateTo(0f, animationSpec = tween(200))
+        }
+    }
 
     // Scroll-to-top visibility
     val showScrollToTop by remember {
@@ -146,29 +220,39 @@ fun MainScreen(viewModel: NotificationViewModel = viewModel()) {
     }
 
     Scaffold(
+        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isSelectionMode) {
                         Text(
-                            text = stringResource(R.string.app_title),
+                            text = "已选择 ${selectedIds.size} 项",
                             style = MaterialTheme.typography.headlineMedium,
                             color = MaterialTheme.colorScheme.onBackground,
                             fontWeight = FontWeight.Bold
                         )
-                        if (unreadCount > 0) {
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(top = 2.dp)
-                            ) {
-                                Text(
-                                    text = unreadCount.toString(),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                )
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = stringResource(R.string.app_title),
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (unreadCount > 0) {
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                ) {
+                                    Text(
+                                        text = unreadCount.toString(),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -178,50 +262,76 @@ fun MainScreen(viewModel: NotificationViewModel = viewModel()) {
                     titleContentColor = MaterialTheme.colorScheme.onBackground
                 ),
                 actions = {
-                    // Mark all as read
-                    if (unreadCount > 0) {
-                        IconButton(onClick = { viewModel.markAllAsRead() }) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = "一键已读",
-                                tint = MaterialTheme.colorScheme.primary
+                    if (isSelectionMode) {
+                        TextButton(onClick = {
+                            val visibleIds = notifications.map { it.id }
+                            if (selectedIds.containsAll(visibleIds)) {
+                                viewModel.exitSelectionMode()
+                            } else {
+                                viewModel.selectAll(visibleIds)
+                            }
+                        }) {
+                            Text(
+                                text = if (selectedIds.containsAll(notifications.map { it.id })) "取消全选" else "全选",
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
-                    }
-                    // Export button
-                    IconButton(onClick = { showExportDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Default.SaveAlt,
-                            contentDescription = stringResource(R.string.export),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    // Filter button
-                    BadgedBox(
-                        badge = {
-                            if (blockedApps.isNotEmpty()) {
-                                Badge(containerColor = MaterialTheme.colorScheme.secondary)
-                            }
-                        }
-                    ) {
-                        IconButton(onClick = { showFilterDialog = true }) {
+                        IconButton(onClick = { showDeleteSelectedDialog = true }) {
                             Icon(
-                                imageVector = Icons.Default.FilterList,
-                                contentDescription = stringResource(R.string.filter_apps),
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "删除选中",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                        IconButton(onClick = { viewModel.exitSelectionMode() }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "取消",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                    }
-                    // Settings button
-                    IconButton(onClick = {
-                        val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                        startActivity(context, intent, null)
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    } else {
+                        if (unreadCount > 0) {
+                            IconButton(onClick = { viewModel.markAllAsRead() }) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "一键已读",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                        IconButton(onClick = { showExportDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.SaveAlt,
+                                contentDescription = stringResource(R.string.export),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        BadgedBox(
+                            badge = {
+                                if (filteredApps.isNotEmpty()) {
+                                    Badge(containerColor = MaterialTheme.colorScheme.secondary)
+                                }
+                            }
+                        ) {
+                            IconButton(onClick = { showFilterDialog = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.FilterList,
+                                    contentDescription = stringResource(R.string.filter_apps),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        IconButton(onClick = {
+                            val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                            startActivity(context, intent, null)
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             )
@@ -269,11 +379,21 @@ fun MainScreen(viewModel: NotificationViewModel = viewModel()) {
                 .padding(innerPadding)
                 .background(MaterialTheme.colorScheme.background)
         ) {
+            // Pull-down stats panel
+            PullDownStatsPanel(
+                pullOffset = pullOffset.value,
+                maxPullOffset = maxPullOffsetPx,
+                count = count,
+                unreadCount = unreadCount,
+                todayCount = todayCount,
+                appCount = allApps.size
+            )
+
             // Search bar
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 shadowElevation = 0.dp
@@ -332,8 +452,10 @@ fun MainScreen(viewModel: NotificationViewModel = viewModel()) {
             } else {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .nestedScroll(nestedScrollConnection),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(
@@ -347,10 +469,30 @@ fun MainScreen(viewModel: NotificationViewModel = viewModel()) {
                     ) { item ->
                         when (item) {
                             is NotificationListItem.Header -> DateHeader(item.date)
-                            is NotificationListItem.Item -> NotificationCard(
-                                notification = item.notification,
-                                onClick = { viewModel.markAsRead(item.notification.id) }
-                            )
+                            is NotificationListItem.Item -> SwipeableItem(
+                                isSelectionMode = isSelectionMode,
+                                onDelete = {
+                                    notificationToDelete = item.notification
+                                }
+                            ) {
+                                NotificationCard(
+                                    notification = item.notification,
+                                    isSelected = selectedIds.contains(item.notification.id),
+                                    isSelectionMode = isSelectionMode,
+                                    onClick = {
+                                        if (isSelectionMode) {
+                                            viewModel.toggleSelection(item.notification.id)
+                                        } else {
+                                            viewModel.markAsRead(item.notification.id)
+                                        }
+                                    },
+                                    onLongClick = {
+                                        if (!isSelectionMode) {
+                                            viewModel.enterSelectionMode(item.notification.id)
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -359,18 +501,31 @@ fun MainScreen(viewModel: NotificationViewModel = viewModel()) {
     }
 
     if (showClearDialog) {
+        val visibleIds = notifications.map { it.id }
+        val isFiltered = visibleIds.size < count
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
-            title = { Text("确认清空") },
-            text = { Text("确定要清空所有已捕获的消息吗？此操作不可恢复。") },
+            title = { Text(if (isFiltered) "确认删除筛选结果" else "确认清空") },
+            text = {
+                Text(
+                    if (isFiltered)
+                        "确定要删除当前筛选/搜索到的 ${visibleIds.size} 条消息吗？此操作不可恢复。"
+                    else
+                        "确定要清空所有已捕获的消息吗？此操作不可恢复。"
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.clearAll()
+                        if (isFiltered) {
+                            viewModel.deleteByIds(visibleIds)
+                        } else {
+                            viewModel.clearAll()
+                        }
                         showClearDialog = false
                     }
                 ) {
-                    Text("清空", color = MaterialTheme.colorScheme.error)
+                    Text("删除", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
@@ -381,12 +536,60 @@ fun MainScreen(viewModel: NotificationViewModel = viewModel()) {
         )
     }
 
+    // Single item delete confirmation
+    if (notificationToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { notificationToDelete = null },
+            title = { Text("删除消息") },
+            text = { Text("确定要删除这条消息吗？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        notificationToDelete?.let { viewModel.deleteById(it.id) }
+                        notificationToDelete = null
+                    }
+                ) {
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { notificationToDelete = null }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    // Multi-select delete confirmation
+    if (showDeleteSelectedDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteSelectedDialog = false },
+            title = { Text("删除选中消息") },
+            text = { Text("确定要删除选中的 ${selectedIds.size} 条消息吗？此操作不可恢复。") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteSelected()
+                        showDeleteSelectedDialog = false
+                    }
+                ) {
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteSelectedDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
     if (showFilterDialog) {
         AppFilterDialog(
             apps = allApps,
-            blockedApps = blockedApps,
-            onToggle = { viewModel.toggleBlockApp(it) },
-            onToggleAll = { viewModel.toggleSelectAll(allApps) },
+            filteredApps = filteredApps,
+            onToggle = { viewModel.toggleFilterApp(it) },
+            onToggleAll = { viewModel.toggleSelectAllFilters(allApps) },
             onDismiss = { showFilterDialog = false }
         )
     }
@@ -412,6 +615,77 @@ fun MainScreen(viewModel: NotificationViewModel = viewModel()) {
     }
 }
 
+@Composable
+fun PullDownStatsPanel(
+    pullOffset: Float,
+    maxPullOffset: Float,
+    count: Int,
+    unreadCount: Int,
+    todayCount: Int,
+    appCount: Int
+) {
+    if (pullOffset <= 0f) return
+
+    val progress = (pullOffset / maxPullOffset).coerceIn(0f, 1f)
+    val panelHeight = with(LocalDensity.current) { pullOffset.toDp() }
+    val contentAlpha = progress.coerceIn(0f, 1f)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(panelHeight),
+        contentAlignment = Alignment.Center
+    ) {
+        if (contentAlpha > 0f) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                StatItem(
+                    value = count.toString(),
+                    label = "总消息",
+                    alpha = contentAlpha
+                )
+                StatItem(
+                    value = unreadCount.toString(),
+                    label = "未读",
+                    alpha = contentAlpha
+                )
+                StatItem(
+                    value = todayCount.toString(),
+                    label = "今日",
+                    alpha = contentAlpha
+                )
+                StatItem(
+                    value = appCount.toString(),
+                    label = "应用",
+                    alpha = contentAlpha
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun StatItem(value: String, label: String, alpha: Float) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = alpha)
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
+        )
+    }
+}
+
 private fun buildGroupedList(notifications: List<NotificationEntity>): List<NotificationListItem> {
     if (notifications.isEmpty()) return emptyList()
     return buildList {
@@ -432,7 +706,7 @@ fun DateHeader(date: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp),
+            .padding(vertical = 0.dp),
         horizontalArrangement = Arrangement.Center
     ) {
         Surface(
@@ -453,11 +727,15 @@ fun DateHeader(date: String) {
 @Composable
 fun NotificationCard(
     notification: NotificationEntity,
-    onClick: () -> Unit
+    isSelected: Boolean,
+    isSelectionMode: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
 
-    // Load app icon from package manager, cached by packageName
     val iconBitmap = remember(notification.packageName) {
         try {
             context.packageManager.getApplicationIcon(notification.packageName)
@@ -467,17 +745,21 @@ fun NotificationCard(
     }
 
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .animateContentSize(),
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onLongClick()
+                }
+            ),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            else MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (notification.isRead) 0.dp else 1.dp
-        ),
-        onClick = onClick
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier
@@ -485,7 +767,13 @@ fun NotificationCard(
                 .padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // App icon (real icon from package) with fallback to first letter
+            if (isSelectionMode) {
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = { onClick() },
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+            }
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -621,12 +909,12 @@ fun EmptyState() {
 @Composable
 fun AppFilterDialog(
     apps: List<com.aifactory.appmessagecapture.data.AppInfo>,
-    blockedApps: Set<String>,
+    filteredApps: Set<String>,
     onToggle: (String) -> Unit,
     onToggleAll: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val isAllSelected = blockedApps.isEmpty()
+    val isAllShown = filteredApps.isEmpty()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -634,7 +922,7 @@ fun AppFilterDialog(
         text = {
             Column {
                 Text(
-                    text = "勾选表示允许捕获和显示，取消勾选表示屏蔽该应用",
+                    text = "勾选表示在列表中显示该应用的消息，取消勾选表示隐藏",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 12.dp)
@@ -652,7 +940,7 @@ fun AppFilterDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Checkbox(
-                                checked = !blockedApps.contains(app.packageName),
+                                checked = !filteredApps.contains(app.packageName),
                                 onCheckedChange = { onToggle(app.packageName) }
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -675,7 +963,7 @@ fun AppFilterDialog(
                 onToggleAll()
             }) {
                 Text(
-                    text = if (isAllSelected)
+                    text = if (isAllShown)
                         stringResource(R.string.deselect_all)
                     else
                         stringResource(R.string.select_all)
@@ -780,11 +1068,15 @@ private fun formatTime(timestamp: Long): String {
 private fun formatShortTime(timestamp: Long): String {
     val now = System.currentTimeMillis()
     val diff = now - timestamp
-    return when {
-        diff < 60000 -> "刚刚"
-        diff < 3600000 -> "${diff / 60000}分钟前"
-        diff < 86400000 -> SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
-        diff < 172800000 -> "昨天"
-        else -> SimpleDateFormat("MM-dd", Locale.getDefault()).format(Date(timestamp))
+    if (diff < 60000) return "刚刚"
+    if (diff < 3600000) return "${diff / 60000}分钟前"
+
+    val zoned = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault())
+    val dayDiff = ChronoUnit.DAYS.between(zoned.toLocalDate(), LocalDate.now())
+    val timeStr = DateTimeFormatter.ofPattern("HH:mm").format(zoned)
+    return when (dayDiff) {
+        0L -> timeStr
+        1L -> "昨天 $timeStr"
+        else -> DateTimeFormatter.ofPattern("MM/dd HH:mm").format(zoned)
     }
 }

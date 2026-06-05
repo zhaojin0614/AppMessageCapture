@@ -8,6 +8,7 @@
     <!-- Permission to request ignoring battery optimizations (keep service alive) -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+
     <application
         android:name=".AppMessageCaptureApplication"
         android:allowBackup="true"

@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -33,21 +34,59 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
     private val prefs = PreferencesManager.getInstance(application)
 
     private val searchQuery = MutableStateFlow("")
+
+    // UI display filter (does NOT affect service capture)
+    private val _filteredApps = MutableStateFlow(prefs.getFilteredApps())
+    val filteredApps: StateFlow<Set<String>> = _filteredApps
+
+    // Service-level block (used by MessageCaptureService to skip capture)
     private val _blockedApps = MutableStateFlow(prefs.getBlockedApps())
     val blockedApps: StateFlow<Set<String>> = _blockedApps
 
+    private val _selectedIds = MutableStateFlow<Set<Long>>(emptySet())
+    val selectedIds: StateFlow<Set<Long>> = _selectedIds
+
+    val isSelectionMode: StateFlow<Boolean> = _selectedIds.map { it.isNotEmpty() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun toggleSelection(id: Long) {
+        val current = _selectedIds.value.toMutableSet()
+        if (current.contains(id)) current.remove(id) else current.add(id)
+        _selectedIds.value = current
+    }
+
+    fun enterSelectionMode(id: Long) {
+        _selectedIds.value = setOf(id)
+    }
+
+    fun exitSelectionMode() {
+        _selectedIds.value = emptySet()
+    }
+
+    fun selectAll(ids: List<Long>) {
+        _selectedIds.value = ids.toSet()
+    }
+
+    fun deleteSelected() {
+        val ids = _selectedIds.value.toList()
+        if (ids.isNotEmpty()) {
+            deleteByIds(ids)
+            _selectedIds.value = emptySet()
+        }
+    }
+
     val notifications: StateFlow<List<NotificationEntity>> = combine(
         searchQuery,
-        _blockedApps,
+        _filteredApps,
         dao.getAllNotifications()
-    ) { query, blocked, list ->
+    ) { query, filtered, list ->
         list.filter { item ->
             val matchesSearch = query.isBlank() ||
                     item.appName.contains(query, ignoreCase = true) ||
                     item.title.contains(query, ignoreCase = true) ||
                     item.content.contains(query, ignoreCase = true)
-            val notBlocked = !blocked.contains(item.packageName)
-            matchesSearch && notBlocked
+            val notFiltered = !filtered.contains(item.packageName)
+            matchesSearch && notFiltered
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -57,6 +96,17 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
     val unreadCount: StateFlow<Int> = dao.getUnreadCount()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
+    val todayCount: StateFlow<Int> = dao.getAllNotifications()
+        .map { list ->
+            val cal = java.util.Calendar.getInstance()
+            cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+            cal.set(java.util.Calendar.MINUTE, 0)
+            cal.set(java.util.Calendar.SECOND, 0)
+            cal.set(java.util.Calendar.MILLISECOND, 0)
+            val startOfDay = cal.timeInMillis
+            list.count { it.timestamp >= startOfDay }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     val allApps: StateFlow<List<AppInfo>> = dao.getAllApps()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -64,46 +114,60 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
         searchQuery.value = query
     }
 
-    fun toggleBlockApp(packageName: String) {
-        val current = blockedApps.value.toMutableSet()
+    // UI display filter methods (do NOT affect service capture)
+    fun toggleFilterApp(packageName: String) {
+        val current = filteredApps.value.toMutableSet()
         if (current.contains(packageName)) {
             current.remove(packageName)
-            prefs.unblockApp(packageName)
+            prefs.unfilterApp(packageName)
         } else {
             current.add(packageName)
-            prefs.blockApp(packageName)
+            prefs.filterApp(packageName)
         }
-        _blockedApps.value = current
+        _filteredApps.value = current
     }
 
-    fun clearBlockedApps() {
-        prefs.setBlockedApps(emptySet())
-        _blockedApps.value = emptySet()
+    fun clearFilteredApps() {
+        prefs.setFilteredApps(emptySet())
+        _filteredApps.value = emptySet()
     }
 
     /**
-     * Toggle between "select all" and "deselect all".
-     * If all apps are currently allowed -> block all.
-     * Otherwise -> allow all.
+     * Toggle between "show all" and "hide all" for display filter.
+     * If no apps are currently filtered -> filter all (hide all).
+     * Otherwise -> show all.
      */
-    fun toggleSelectAll(apps: List<AppInfo>) {
+    fun toggleSelectAllFilters(apps: List<AppInfo>) {
         val allPackages = apps.map { it.packageName }.toSet()
-        val currentBlocked = blockedApps.value
+        val currentFiltered = filteredApps.value
 
-        if (currentBlocked.isEmpty()) {
-            // All are currently allowed -> block all (deselect all)
-            prefs.setBlockedApps(allPackages)
-            _blockedApps.value = allPackages
+        if (currentFiltered.isEmpty()) {
+            // All are currently shown -> hide all (filter all)
+            prefs.setFilteredApps(allPackages)
+            _filteredApps.value = allPackages
         } else {
-            // Some or all are blocked -> allow all (select all)
-            prefs.setBlockedApps(emptySet())
-            _blockedApps.value = emptySet()
+            // Some or all are hidden -> show all
+            prefs.setFilteredApps(emptySet())
+            _filteredApps.value = emptySet()
         }
     }
 
     fun clearAll() {
         viewModelScope.launch {
             dao.deleteAll()
+        }
+    }
+
+    fun deleteById(id: Long) {
+        viewModelScope.launch {
+            dao.deleteById(id)
+        }
+    }
+
+    fun deleteByIds(ids: List<Long>) {
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            dao.deleteByIds(ids)
         }
     }
 
