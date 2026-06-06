@@ -4,17 +4,28 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.aifactory.appmessagecapture.birthday.data.BirthdayDao
+import com.aifactory.appmessagecapture.birthday.data.BirthdayEntity
+import com.aifactory.appmessagecapture.birthday.data.Converters
+import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
 
 /**
- * Room database for locally storing captured notifications.
+ * Room database for locally storing captured notifications and birthday records.
  */
-@Database(entities = [NotificationEntity::class, BillEntity::class], version = 4, exportSchema = false)
+@Database(
+    entities = [NotificationEntity::class, BillEntity::class, BirthdayEntity::class],
+    version = 5,
+    exportSchema = false
+)
+@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun notificationDao(): NotificationDao
     abstract fun billDao(): BillDao
+    abstract fun birthdayDao(): BirthdayDao
 
     companion object {
         @Volatile
@@ -26,6 +37,7 @@ abstract class AppDatabase : RoomDatabase() {
          */
         private val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
+                BirthdayLog.i("[DB Migration] Executing MIGRATION_2_3")
                 db.execSQL(
                     """
                     CREATE TABLE bills_new (
@@ -48,6 +60,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL("DROP TABLE bills")
                 db.execSQL("ALTER TABLE bills_new RENAME TO bills")
+                BirthdayLog.i("[DB Migration] MIGRATION_2_3 completed")
             }
         }
 
@@ -58,8 +71,35 @@ abstract class AppDatabase : RoomDatabase() {
          */
         private val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
+                BirthdayLog.i("[DB Migration] Executing MIGRATION_3_4")
                 db.execSQL("ALTER TABLE bills ADD COLUMN secondaryAppName TEXT")
                 db.execSQL("ALTER TABLE bills ADD COLUMN secondaryPackageName TEXT")
+                BirthdayLog.i("[DB Migration] MIGRATION_3_4 completed")
+            }
+        }
+
+        /**
+         * Migrate from v4 to v5:
+         * Added `birthdays` table for BirthdayKeeper module.
+         */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                BirthdayLog.i("[DB Migration] Executing MIGRATION_4_5: creating birthdays table")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS birthdays (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        isLunar INTEGER NOT NULL,
+                        birthYear INTEGER,
+                        birthMonth INTEGER NOT NULL,
+                        birthDay INTEGER NOT NULL,
+                        reminderType TEXT NOT NULL DEFAULT 'ON_DAY',
+                        reminderTime TEXT
+                    )
+                    """.trimIndent()
+                )
+                BirthdayLog.i("[DB Migration] MIGRATION_4_5 completed. birthdays table created.")
             }
         }
 
@@ -70,9 +110,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "notification_database"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                 INSTANCE = instance
+                BirthdayLog.i("AppDatabase initialized. Version=5")
                 instance
             }
         }

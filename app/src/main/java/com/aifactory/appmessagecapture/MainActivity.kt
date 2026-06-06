@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.Icon
@@ -21,6 +22,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.aifactory.appmessagecapture.birthday.ui.BirthdayScreen
 import com.aifactory.appmessagecapture.service.MessageCaptureService
 import com.aifactory.appmessagecapture.ui.BillScreen
 import com.aifactory.appmessagecapture.ui.MainScreen
@@ -28,7 +30,8 @@ import com.aifactory.appmessagecapture.ui.theme.AppMessageCaptureTheme
 
 enum class AppTab(val label: String, val icon: ImageVector) {
     Messages("消息", Icons.Default.Notifications),
-    Bills("记账", Icons.Default.Receipt)
+    Bills("记账", Icons.Default.Receipt),
+    Birthday("生日", Icons.Default.Cake)
 }
 
 class MainActivity : ComponentActivity() {
@@ -70,6 +73,7 @@ fun MainApp() {
         when (selectedTab) {
             0 -> MainScreen(modifier = Modifier.padding(bottom = bottomPadding))
             1 -> BillScreen(modifier = Modifier.padding(bottom = bottomPadding))
+            2 -> BirthdayScreen(modifier = Modifier.padding(bottom = bottomPadding))
         }
     }
 }

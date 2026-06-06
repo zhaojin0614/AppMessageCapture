@@ -7,6 +7,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Permission to request ignoring battery optimizations (keep service alive) -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- BirthdayKeeper: exact alarm scheduling (Android 14+ requires manual grant) -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- BirthdayKeeper: wake lock for alarm activity -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- BirthdayKeeper: full screen intent for alarm overlay -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
 
     <application
@@ -43,6 +49,21 @@
             </intent-filter>
         </service>
 
+        <!-- BirthdayKeeper: full screen alarm activity -->
+        <activity
+            android:name=".birthday.ui.AlarmActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:showOnLockScreen="true"
+            android:theme="@style/Theme.AppMessageCapture" />
+
+        <!-- BirthdayKeeper: alarm trigger receiver -->
+        <receiver
+            android:name=".birthday.service.BirthdayAlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
         <!-- Broadcast receiver for boot completion to auto-start the service -->
         <receiver
             android:name=".service.BootReceiver"
@@ -52,6 +73,31 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
+        </receiver>
+
+        <!-- BirthdayKeeper: re-schedule alarms after reboot -->
+        <receiver
+            android:name=".birthday.service.BirthdayBootReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- BirthdayKeeper: home screen widget -->
+        <receiver
+            android:name=".birthday.widget.BirthdayWidgetReceiver"
+            android:enabled="true"
+            android:exported="false"
+            android:label="生日管家">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/birthday_widget_info" />
         </receiver>
 
         <!-- FileProvider for exporting CSV/JSON files -->
