@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -34,6 +35,15 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
     private val prefs = PreferencesManager.getInstance(application)
 
     private val searchQuery = MutableStateFlow("")
+    private val _displayLimit = MutableStateFlow(30)
+
+    fun loadMore() {
+        _displayLimit.value += 30
+    }
+
+    fun refresh() {
+        _displayLimit.value = 30
+    }
 
     // UI display filter (does NOT affect service capture)
     private val _filteredApps = MutableStateFlow(prefs.getFilteredApps())
@@ -78,17 +88,19 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
     val notifications: StateFlow<List<NotificationEntity>> = combine(
         searchQuery,
         _filteredApps,
-        dao.getAllNotifications()
-    ) { query, filtered, list ->
-        list.filter { item ->
-            val matchesSearch = query.isBlank() ||
-                    item.appName.contains(query, ignoreCase = true) ||
-                    item.title.contains(query, ignoreCase = true) ||
-                    item.content.contains(query, ignoreCase = true)
-            val notFiltered = !filtered.contains(item.packageName)
-            matchesSearch && notFiltered
+        _displayLimit
+    ) { query, filtered, limit -> Triple(query, filtered, limit) }
+        .flatMapLatest { (query, filtered, limit) ->
+            val baseFlow = if (query.isBlank()) {
+                dao.getNotificationsLimit(limit)
+            } else {
+                dao.searchNotificationsLimit(query, limit)
+            }
+            baseFlow.map { list ->
+                list.filter { !filtered.contains(it.packageName) }
+            }
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val notificationCount: StateFlow<Int> = dao.getNotificationCount()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)

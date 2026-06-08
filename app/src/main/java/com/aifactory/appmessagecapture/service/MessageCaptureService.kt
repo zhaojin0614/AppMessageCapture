@@ -180,13 +180,13 @@ class MessageCaptureService : NotificationListenerService() {
         when (packageName) {
             "com.tencent.mm" -> {               // WeChat
                 // WeChat pay notifications MUST have title containing payment keywords
-                val validTitle = title.contains("微信支付")
-                if (!validTitle) return
+//                val validTitle = title.contains("微信支付")
+//                if (!validTitle) return
             }
             "com.eg.android.AlipayGphone" -> {   // Alipay
                 // Title or content must contain Alipay/payment keywords
                 val validTitle = title.contains("交易提醒")
-                val validContent = content.contains("支出")
+                val validContent = content.contains("支出") || content.contains("收入")
                 if (!validTitle || !validContent) return
             }
             "com.sankuai.meituan",
@@ -202,22 +202,24 @@ class MessageCaptureService : NotificationListenerService() {
         }
 
         // Keywords that indicate a payment/expense notification
-        val paymentKeywords = listOf("付款", "支付", "消费", "支出", "扣款", "已付", "交易", "订单已支付", "收款")
-        val hasPaymentKeyword = paymentKeywords.any { fullText.contains(it) }
+        val expenseKeywords = listOf("付款", "支付", "消费", "支出", "扣款", "已付", "交易", "订单已支付")
+        val incomeKeywords = listOf("收款", "入账", "到账", "转入", "存入", "退款", "收益", "工资", "红包")
+        val isIncome = incomeKeywords.any { fullText.contains(it) } && !expenseKeywords.any { fullText.contains(it) }
+        val hasPaymentKeyword = expenseKeywords.any { fullText.contains(it) } || incomeKeywords.any { fullText.contains(it) }
         if (!hasPaymentKeyword) return
 
         val amount = extractAmount(fullText) ?: return
 
         // Guess category from content keywords
-        val category = guessCategory(fullText, appName)
+        val category = if (isIncome) guessIncomeCategory(fullText, appName) else guessCategory(fullText, appName)
 
         val bill = com.aifactory.appmessagecapture.data.BillEntity(
             amount = amount,
             appName = appName,
             packageName = packageName,
             title = title,
-            content = content,
             category = category,
+            isIncome = isIncome,
             timestamp = if (sbn.postTime > 0) sbn.postTime else System.currentTimeMillis()
         )
 
@@ -228,34 +230,44 @@ class MessageCaptureService : NotificationListenerService() {
         val sameAppDuplicate = dao.findRecentByAmountAndPackage(amount, packageName, since)
         if (sameAppDuplicate != null) return
 
-        // 2. Cross-app merging: if a different app posted a bill with same amount recently, merge them
+        // 2. Cross-app: if a different app posted a bill with same amount recently, keep the one with higher weight
         val existing = dao.findRecentByAmount(amount, since)
         if (existing != null && existing.packageName != packageName) {
-            // Merge with weight-based priority
             val existingWeight = getAppWeight(existing.packageName)
             val currentWeight = getAppWeight(packageName)
 
-            val mergedBill = if (currentWeight > existingWeight) {
-                // Current app has higher weight -> becomes primary
-                existing.copy(
+            if (currentWeight > existingWeight) {
+                // Current app has higher weight -> replace existing with current (no merge, just replace)
+                val updatedBill = existing.copy(
                     appName = appName,
                     packageName = packageName,
                     title = title,
                     category = category,
-                    secondaryAppName = existing.appName,
-                    secondaryPackageName = existing.packageName,
-                    content = content
+                    secondaryAppName = null,
+                    secondaryPackageName = null
                 )
-            } else {
-                // Existing app has higher or equal weight -> stays primary
-                existing.copy(
-                    secondaryAppName = appName,
-                    secondaryPackageName = packageName
+                dao.update(updatedBill)
+                BillNotificationHelper.showBillRecognizedNotification(
+                    context = app,
+                    appName = updatedBill.appName,
+                    amount = updatedBill.amount,
+                    category = updatedBill.category,
+                    timestamp = updatedBill.timestamp,
+                    isIncome = updatedBill.isIncome
                 )
             }
-            dao.update(mergedBill)
+            // If existing weight >= current weight, do nothing (keep existing)
         } else {
             dao.insert(bill)
+            // 发送账单识别成功通知
+            BillNotificationHelper.showBillRecognizedNotification(
+                context = app,
+                appName = bill.appName,
+                amount = bill.amount,
+                category = bill.category,
+                timestamp = bill.timestamp,
+                isIncome = bill.isIncome
+            )
         }
     }
 
@@ -275,6 +287,21 @@ class MessageCaptureService : NotificationListenerService() {
         pattern2.find(text)?.groupValues?.get(1)?.toDoubleOrNull()?.let { return it }
         pattern3.find(text)?.groupValues?.get(1)?.toDoubleOrNull()?.let { return it }
         return null
+    }
+
+    /**
+     * Guess income category from notification text.
+     */
+    private fun guessIncomeCategory(text: String, appName: String): String {
+        val lower = text.lowercase()
+        return when {
+            lower.contains("工资") || lower.contains("薪") -> "工资"
+            lower.contains("退款") || lower.contains("退货") -> "退款"
+            lower.contains("红包") || lower.contains("利是") -> "红包"
+            lower.contains("收益") || lower.contains("利息") || lower.contains("理财") -> "理财收益"
+            lower.contains("转账") || lower.contains("转入") -> "转账"
+            else -> "其他收入"
+        }
     }
 
     /**

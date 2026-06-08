@@ -17,7 +17,7 @@ import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
  */
 @Database(
     entities = [NotificationEntity::class, BillEntity::class, BirthdayEntity::class],
-    version = 5,
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -103,6 +103,52 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Migrate from v5 to v6:
+         * Removed the `content` column from the `bills` table.
+         */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                BirthdayLog.i("[DB Migration] Executing MIGRATION_6_7: adding isIncome column to bills")
+                db.execSQL("ALTER TABLE bills ADD COLUMN isIncome INTEGER NOT NULL DEFAULT 0")
+                BirthdayLog.i("[DB Migration] MIGRATION_6_7 completed")
+            }
+        }
+
+        /**
+         * Migrate from v5 to v6:
+         * Removed the `content` column from the `bills` table.
+         */
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                BirthdayLog.i("[DB Migration] Executing MIGRATION_5_6: removing content column from bills")
+                db.execSQL(
+                    """
+                    CREATE TABLE bills_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        amount REAL NOT NULL,
+                        appName TEXT NOT NULL,
+                        packageName TEXT NOT NULL,
+                        secondaryAppName TEXT,
+                        secondaryPackageName TEXT,
+                        title TEXT NOT NULL,
+                        category TEXT NOT NULL DEFAULT '未分类',
+                        timestamp INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    INSERT INTO bills_new (id, amount, appName, packageName, secondaryAppName, secondaryPackageName, title, category, timestamp)
+                    SELECT id, amount, appName, packageName, secondaryAppName, secondaryPackageName, title, category, timestamp FROM bills
+                    """.trimIndent()
+                )
+                db.execSQL("DROP TABLE bills")
+                db.execSQL("ALTER TABLE bills_new RENAME TO bills")
+                BirthdayLog.i("[DB Migration] MIGRATION_5_6 completed")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -110,7 +156,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "notification_database"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                     .build()
                 INSTANCE = instance
                 BirthdayLog.i("AppDatabase initialized. Version=5")

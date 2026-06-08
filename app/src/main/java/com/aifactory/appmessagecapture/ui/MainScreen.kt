@@ -195,6 +195,22 @@ fun MainScreen(
         derivedStateOf { listState.firstVisibleItemIndex > 5 }
     }
 
+    // Load more when scrolling near bottom
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val layoutInfo = listState.layoutInfo
+            val totalItems = layoutInfo.totalItemsCount
+            val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            lastVisibleItem >= totalItems - 5 && totalItems > 0
+        }
+    }
+
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore) {
+            viewModel.loadMore()
+        }
+    }
+
     // Auto mark-as-read when items become visible (debounced on scroll stop)
     LaunchedEffect(notifications) {
         snapshotFlow { listState.isScrollInProgress }

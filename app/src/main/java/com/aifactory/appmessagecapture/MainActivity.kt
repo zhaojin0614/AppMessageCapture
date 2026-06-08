@@ -16,13 +16,17 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import com.aifactory.appmessagecapture.birthday.ui.BirthdayScreen
+import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
+import com.aifactory.appmessagecapture.birthday.widget.BirthdayWidget
 import com.aifactory.appmessagecapture.service.MessageCaptureService
 import com.aifactory.appmessagecapture.ui.BillScreen
 import com.aifactory.appmessagecapture.ui.MainScreen
@@ -35,23 +39,53 @@ enum class AppTab(val label: String, val icon: ImageVector) {
 }
 
 class MainActivity : ComponentActivity() {
+
+    companion object {
+        const val EXTRA_NAVIGATE_TO_TAB = "navigate_to_tab"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Wake up the notification listener service to trigger onCreate() -> requestRebind()
         val serviceIntent = Intent(this, MessageCaptureService::class.java)
         startService(serviceIntent)
         enableEdgeToEdge()
+
+        val navigateToTab = intent.getStringExtra(EXTRA_NAVIGATE_TO_TAB)
+
         setContent {
             AppMessageCaptureTheme {
-                MainApp()
+                MainApp(initialTab = navigateToTab)
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
     }
 }
 
 @Composable
-fun MainApp() {
+fun MainApp(initialTab: String? = null) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+
+    val context = LocalContext.current
+    // Widget 点击跳转：自动切换到生日 Tab，并强制刷新 widget
+    LaunchedEffect(initialTab) {
+        when (initialTab) {
+            "birthday" -> {
+                selectedTab = 2
+                try {
+                    BirthdayWidget.updateAll(context)
+                    BirthdayLog.i("[MainApp] BirthdayWidget.updateAll triggered after widget click.")
+                } catch (e: Exception) {
+                    BirthdayLog.logException("[MainApp] BirthdayWidget.updateAll", e)
+                }
+            }
+            "bills" -> selectedTab = 1
+        }
+    }
 
     Scaffold(
         bottomBar = {

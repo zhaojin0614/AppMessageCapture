@@ -49,14 +49,22 @@
             </intent-filter>
         </service>
 
+        <!-- BirthdayKeeper: widget click trampoline activity (no UI) -->
+        <activity
+            android:name=".birthday.widget.BirthdayWidgetActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:theme="@android:style/Theme.NoDisplay" />
+
         <!-- BirthdayKeeper: full screen alarm activity -->
         <activity
             android:name=".birthday.ui.AlarmActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTask"
-            android:showOnLockScreen="true"
-            android:theme="@style/Theme.AppMessageCapture" />
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar.Fullscreen" />
 
         <!-- BirthdayKeeper: alarm trigger receiver -->
         <receiver

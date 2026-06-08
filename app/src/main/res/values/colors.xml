@@ -7,4 +7,16 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- BirthdayKeeper Widget Colors (App Theme aligned) -->
+    <color name="widget_background">#FFF7F8FA</color>
+    <color name="widget_card">#FFFFFFFF</color>
+    <color name="widget_primary">#FFF5A623</color>
+    <color name="widget_primary_light">#FFFFF3E0</color>
+    <color name="widget_primary_dark">#FFE09000</color>
+    <color name="widget_secondary">#FF7C5CFC</color>
+    <color name="widget_secondary_light">#FFEDE9FE</color>
+    <color name="widget_text_primary">#FF1A1A1A</color>
+    <color name="widget_text_secondary">#FF8E8E93</color>
+    <color name="widget_text_white">#FFFFFFFF</color>
 </resources>

@@ -21,6 +21,12 @@ interface NotificationDao {
     @Query("SELECT * FROM notifications WHERE appName LIKE '%' || :query || '%' OR title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%' ORDER BY timestamp DESC")
     fun searchNotifications(query: String): Flow<List<NotificationEntity>>
 
+    @Query("SELECT * FROM notifications ORDER BY timestamp DESC LIMIT :limit")
+    fun getNotificationsLimit(limit: Int): Flow<List<NotificationEntity>>
+
+    @Query("SELECT * FROM notifications WHERE appName LIKE '%' || :query || '%' OR title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%' ORDER BY timestamp DESC LIMIT :limit")
+    fun searchNotificationsLimit(query: String, limit: Int): Flow<List<NotificationEntity>>
+
     @Query("DELETE FROM notifications WHERE id = :id")
     suspend fun deleteById(id: Long)
 
