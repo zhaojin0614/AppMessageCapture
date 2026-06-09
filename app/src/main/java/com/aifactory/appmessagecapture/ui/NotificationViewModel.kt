@@ -85,16 +85,25 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+    /**
+     * 当前显示的通知列表。
+     *
+     * 逻辑：
+     * - 无筛选时：使用 limit 动态加载（默认30条），节省性能
+     * - 有筛选时：加载全部消息再过滤，确保能显示被筛选应用的所有历史消息
+     */
     val notifications: StateFlow<List<NotificationEntity>> = combine(
         searchQuery,
         _filteredApps,
         _displayLimit
     ) { query, filtered, limit -> Triple(query, filtered, limit) }
         .flatMapLatest { (query, filtered, limit) ->
-            val baseFlow = if (query.isBlank()) {
-                dao.getNotificationsLimit(limit)
-            } else {
-                dao.searchNotificationsLimit(query, limit)
+            val hasFilter = filtered.isNotEmpty()
+            val baseFlow = when {
+                query.isBlank() && !hasFilter -> dao.getNotificationsLimit(limit)
+                query.isBlank() && hasFilter -> dao.getAllNotifications()
+                hasFilter -> dao.searchNotifications(query)
+                else -> dao.searchNotificationsLimit(query, limit)
             }
             baseFlow.map { list ->
                 list.filter { !filtered.contains(it.packageName) }
@@ -103,9 +112,6 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val notificationCount: StateFlow<Int> = dao.getNotificationCount()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-
-    val unreadCount: StateFlow<Int> = dao.getUnreadCount()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val todayCount: StateFlow<Int> = dao.getAllNotifications()
@@ -119,7 +125,27 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
             list.count { it.timestamp >= startOfDay }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
-    val allApps: StateFlow<List<AppInfo>> = dao.getAllApps()
+    /**
+     * 从当前所有通知中派生应用列表，确保与数据库实际状态一致。
+     * 同时自动清理 _filteredApps 中已不存在的无效项。
+     */
+    val allApps: StateFlow<List<AppInfo>> = dao.getAllNotifications()
+        .map { list ->
+            val apps = list
+                .map { AppInfo(it.appName, it.packageName) }
+                .distinctBy { it.packageName }
+                .sortedBy { it.appName }
+            // 清理已不存在的筛选项
+            val validPackages = apps.map { it.packageName }.toSet()
+            val currentFiltered = _filteredApps.value
+            val invalid = currentFiltered - validPackages
+            if (invalid.isNotEmpty()) {
+                val updated = currentFiltered - invalid
+                _filteredApps.value = updated
+                prefs.setFilteredApps(updated)
+            }
+            apps
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun updateSearchQuery(query: String) {
@@ -183,28 +209,9 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    fun markAsRead(id: Long) {
-        viewModelScope.launch {
-            dao.markAsRead(id)
-        }
-    }
-
-    fun markAsRead(ids: List<Long>) {
-        if (ids.isEmpty()) return
-        viewModelScope.launch {
-            dao.markAsRead(ids)
-        }
-    }
-
-    fun markAllAsRead() {
-        viewModelScope.launch {
-            dao.markAllAsRead()
-        }
-    }
-
     fun exportToJson(context: Context, onComplete: (Uri?) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
-            val list = notifications.value
+            val list = dao.getAllNotificationsOnce()
             val jsonArray = JSONArray()
             list.forEach { n ->
                 val obj = JSONObject()
@@ -214,7 +221,6 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
                 obj.put("title", n.title)
                 obj.put("content", n.content)
                 obj.put("timestamp", n.timestamp)
-                obj.put("isRead", n.isRead)
                 jsonArray.put(obj)
             }
             val file = File(context.cacheDir, "notifications_export_${System.currentTimeMillis()}.json")
@@ -226,12 +232,12 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
 
     fun exportToCsv(context: Context, onComplete: (Uri?) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
-            val list = notifications.value
+            val list = dao.getAllNotificationsOnce()
             val csv = StringBuilder()
-            csv.appendLine("ID,AppName,PackageName,Title,Content,Timestamp,IsRead")
+            csv.appendLine("ID,AppName,PackageName,Title,Content,Timestamp")
             list.forEach { n ->
                 csv.appendLine(
-                    "${n.id},${escapeCsv(n.appName)},${escapeCsv(n.packageName)},${escapeCsv(n.title)},${escapeCsv(n.content)},${formatTime(n.timestamp)},${n.isRead}"
+                    "${n.id},${escapeCsv(n.appName)},${escapeCsv(n.packageName)},${escapeCsv(n.title)},${escapeCsv(n.content)},${formatTime(n.timestamp)}"
                 )
             }
             val file = File(context.cacheDir, "notifications_export_${System.currentTimeMillis()}.csv")

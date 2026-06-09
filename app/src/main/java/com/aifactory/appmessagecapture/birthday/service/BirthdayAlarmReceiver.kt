@@ -9,6 +9,7 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.aifactory.appmessagecapture.MainActivity
 import com.aifactory.appmessagecapture.R
@@ -19,6 +20,7 @@ import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -76,15 +78,48 @@ class BirthdayAlarmReceiver : BroadcastReceiver() {
                 // 发送通知
                 showNotification(context, birthday, info)
 
-                // 启动全屏闹钟 Activity
+                // 获取 WakeLock 点亮屏幕并唤醒设备
+                val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+                val wakeLock = powerManager.newWakeLock(
+                    PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.SCREEN_DIM_WAKE_LOCK,
+                    "AppMessageCapture:BirthdayAlarm"
+                )
+                wakeLock.acquire(15 * 1000L)
+                BirthdayLog.i("[BirthdayAlarmReceiver] WakeLock acquired for 15s")
+
+                // 检查悬浮窗权限（亮屏时强制弹窗必需）
+                val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    android.provider.Settings.canDrawOverlays(context)
+                } else {
+                    true
+                }
+                BirthdayLog.i("[BirthdayAlarmReceiver] Overlay permission granted: %b", hasOverlay)
+
+                // 启动全屏闹钟 Activity —— 必须在主线程执行
+                // 有悬浮窗权限时，Android 10+ 允许后台启动 Activity，亮屏时也能直接弹窗
                 val alarmIntent = Intent(context, AlarmActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                            Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
                     putExtra(EXTRA_BIRTHDAY_ID, birthdayId)
                     putExtra(EXTRA_BIRTHDAY_NAME, birthday.name)
                     putExtra(EXTRA_AGE_TURNING, info.ageTurning ?: -1)
                 }
-                context.startActivity(alarmIntent)
-                BirthdayLog.i("[BirthdayAlarmReceiver] AlarmActivity started for id=%d", birthdayId)
+                try {
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        try {
+                            context.startActivity(alarmIntent)
+                            BirthdayLog.i("[BirthdayAlarmReceiver] AlarmActivity started for id=%d", birthdayId)
+                        } catch (e: Exception) {
+                            BirthdayLog.logException("[BirthdayAlarmReceiver] startActivity on main thread failed", e)
+                            if (!hasOverlay) {
+                                BirthdayLog.w("[BirthdayAlarmReceiver] Consider granting SYSTEM_ALERT_WINDOW permission for screen-on popup")
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    BirthdayLog.logException("[BirthdayAlarmReceiver] post to main looper failed", e)
+                }
 
                 // 为下一年重新注册闹钟
                 BirthdayAlarmScheduler.schedule(context, birthday)

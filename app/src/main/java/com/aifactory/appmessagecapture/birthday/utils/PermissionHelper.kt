@@ -43,6 +43,35 @@ object PermissionHelper {
     }
 
     /**
+     * 检查是否已授予悬浮窗权限（用于亮屏时强制弹窗）。
+     */
+    fun hasOverlayPermission(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Settings.canDrawOverlays(context)
+        } else {
+            true
+        }
+    }
+
+    /**
+     * 跳转系统设置页，让用户手动开启悬浮窗权限。
+     */
+    fun openOverlaySettings(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                }
+                context.startActivity(intent)
+                BirthdayLog.i("[$TAG] Opened overlay settings.")
+            } catch (e: Exception) {
+                BirthdayLog.logException("$TAG.openOverlaySettings", e)
+                openAppSettings(context)
+            }
+        }
+    }
+
+    /**
      * 跳转系统设置页，让用户手动开启精确闹钟权限。
      */
     fun openExactAlarmSettings(context: Context) {

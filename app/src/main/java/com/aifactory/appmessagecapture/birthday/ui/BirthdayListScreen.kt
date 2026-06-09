@@ -102,6 +102,7 @@ fun BirthdayListScreen(
     var deleteTargetId by remember { mutableStateOf<Int?>(null) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var showOverlayBanner by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -289,6 +290,8 @@ fun BirthdayListScreen(
             val needExactAlarm = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                     !PermissionHelper.hasScheduleExactAlarmPermission(context)
             showPermissionBanner = needNotification || needExactAlarm
+            showOverlayBanner = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+                    !PermissionHelper.hasOverlayPermission(context)
         }
 
         Column(modifier = Modifier.padding(innerPadding)) {
@@ -360,6 +363,17 @@ fun BirthdayListScreen(
                         showPermissionBanner = false
                     },
                     onDismiss = { showPermissionBanner = false }
+                )
+            }
+            if (showOverlayBanner) {
+                PermissionBanner(
+                    title = "悬浮窗权限",
+                    description = "点击前往设置，授予悬浮窗权限，确保亮屏时闹钟弹窗能直接显示。",
+                    onClick = {
+                        PermissionHelper.openOverlaySettings(context)
+                        showOverlayBanner = false
+                    },
+                    onDismiss = { showOverlayBanner = false }
                 )
             }
             if (filteredItems.isEmpty() && !listState.isLoading) {
@@ -611,6 +625,8 @@ private fun BirthdayPullDownStatsPanel(
 
 @Composable
 private fun PermissionBanner(
+    title: String = "权限缺失",
+    description: String = "点击前往设置，授予通知和精确闹钟权限，否则提醒无法正常触发。",
     onClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -638,13 +654,13 @@ private fun PermissionBanner(
             Spacer(modifier = Modifier.padding(horizontal = 8.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "权限缺失",
+                    text = title,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )
                 Text(
-                    text = "点击前往设置，授予通知和精确闹钟权限，否则提醒无法正常触发。",
+                    text = description,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )

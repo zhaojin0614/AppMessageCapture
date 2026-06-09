@@ -14,6 +14,5 @@ data class NotificationEntity(
     val appName: String,
     val title: String,
     val content: String,
-    val timestamp: Long,
-    val isRead: Boolean = false
+    val timestamp: Long
 )

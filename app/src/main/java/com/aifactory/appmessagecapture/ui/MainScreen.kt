@@ -14,6 +14,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -77,7 +79,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -103,7 +104,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.R
 import com.aifactory.appmessagecapture.data.NotificationEntity
 import com.aifactory.appmessagecapture.ui.components.SwipeableItem
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.time.Instant
@@ -128,7 +128,6 @@ fun MainScreen(
     val context = LocalContext.current
     val notifications by viewModel.notifications.collectAsState()
     val count by viewModel.notificationCount.collectAsState()
-    val unreadCount by viewModel.unreadCount.collectAsState()
     val todayCount by viewModel.todayCount.collectAsState()
     val allApps by viewModel.allApps.collectAsState()
     val filteredApps by viewModel.filteredApps.collectAsState()
@@ -211,26 +210,6 @@ fun MainScreen(
         }
     }
 
-    // Auto mark-as-read when items become visible (debounced on scroll stop)
-    LaunchedEffect(notifications) {
-        snapshotFlow { listState.isScrollInProgress }
-            .collect { scrolling ->
-                if (!scrolling) {
-                    delay(300L)
-                    val visible = listState.layoutInfo.visibleItemsInfo
-                    val visibleIds = visible.mapNotNull { info ->
-                        val idx = info.index
-                        val grouped = buildGroupedList(notifications)
-                        val item = grouped.getOrNull(idx)
-                        (item as? NotificationListItem.Item)?.notification
-                    }.filter { !it.isRead }.map { it.id }
-                    if (visibleIds.isNotEmpty()) {
-                        viewModel.markAsRead(visibleIds)
-                    }
-                }
-            }
-    }
-
     val groupedList = remember(notifications) {
         buildGroupedList(notifications)
     }
@@ -255,21 +234,6 @@ fun MainScreen(
                                 color = MaterialTheme.colorScheme.onBackground,
                                 fontWeight = FontWeight.Bold
                             )
-                            if (unreadCount > 0) {
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(top = 2.dp)
-                                ) {
-                                    Text(
-                                        text = unreadCount.toString(),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onPrimary,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                    )
-                                }
-                            }
                         }
                     }
                 },
@@ -307,15 +271,6 @@ fun MainScreen(
                             )
                         }
                     } else {
-                        if (unreadCount > 0) {
-                            IconButton(onClick = { viewModel.markAllAsRead() }) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "一键已读",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
                         IconButton(onClick = { showExportDialog = true }) {
                             Icon(
                                 imageVector = Icons.Default.SaveAlt,
@@ -400,7 +355,6 @@ fun MainScreen(
                 pullOffset = pullOffset.value,
                 maxPullOffset = maxPullOffsetPx,
                 count = count,
-                unreadCount = unreadCount,
                 todayCount = todayCount,
                 appCount = allApps.size
             )
@@ -498,8 +452,6 @@ fun MainScreen(
                                     onClick = {
                                         if (isSelectionMode) {
                                             viewModel.toggleSelection(item.notification.id)
-                                        } else {
-                                            viewModel.markAsRead(item.notification.id)
                                         }
                                     },
                                     onLongClick = {
@@ -636,7 +588,6 @@ fun PullDownStatsPanel(
     pullOffset: Float,
     maxPullOffset: Float,
     count: Int,
-    unreadCount: Int,
     todayCount: Int,
     appCount: Int
 ) {
@@ -656,18 +607,13 @@ fun PullDownStatsPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 StatItem(
                     value = count.toString(),
                     label = "总消息",
-                    alpha = contentAlpha
-                )
-                StatItem(
-                    value = unreadCount.toString(),
-                    label = "未读",
                     alpha = contentAlpha
                 )
                 StatItem(
@@ -692,12 +638,14 @@ fun StatItem(value: String, label: String, alpha: Float) {
             text = value,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = alpha)
+            color = MaterialTheme.colorScheme.primary.copy(alpha = alpha),
+            maxLines = 1
         )
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
+            maxLines = 1
         )
     }
 }
@@ -796,8 +744,7 @@ fun NotificationCard(
                     .clip(CircleShape)
                     .background(
                         if (iconBitmap == null)
-                            if (notification.isRead) MaterialTheme.colorScheme.surfaceVariant
-                            else MaterialTheme.colorScheme.primaryContainer
+                            MaterialTheme.colorScheme.primaryContainer
                         else Color.Transparent
                     ),
                 contentAlignment = Alignment.Center
@@ -814,10 +761,7 @@ fun NotificationCard(
                         text = notification.appName.take(1).uppercase(),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
-                        color = if (notification.isRead)
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        else
-                            MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -870,15 +814,6 @@ fun NotificationCard(
                 )
             }
 
-            if (!notification.isRead) {
-                Spacer(modifier = Modifier.width(8.dp))
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
-                )
-            }
         }
     }
 }

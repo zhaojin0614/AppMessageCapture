@@ -88,12 +88,20 @@ object BirthdayAlarmScheduler {
                 )
             )
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    triggerMillis,
-                    pendingIntent
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                // 使用 setAlarmClock：系统级闹钟，会显示在状态栏，优先级最高，能可靠唤醒设备
+                val showIntent = Intent(context, com.aifactory.appmessagecapture.birthday.ui.AlarmActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    putExtra(EXTRA_BIRTHDAY_ID, birthday.id)
+                }
+                val showPendingIntent = PendingIntent.getActivity(
+                    context,
+                    birthday.id,
+                    showIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
+                val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerMillis, showPendingIntent)
+                alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
             } else {
                 alarmManager.setExact(
                     AlarmManager.RTC_WAKEUP,

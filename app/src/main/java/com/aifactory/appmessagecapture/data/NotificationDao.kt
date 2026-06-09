@@ -18,6 +18,9 @@ interface NotificationDao {
     @Query("SELECT * FROM notifications ORDER BY timestamp DESC")
     fun getAllNotifications(): Flow<List<NotificationEntity>>
 
+    @Query("SELECT * FROM notifications ORDER BY timestamp DESC")
+    suspend fun getAllNotificationsOnce(): List<NotificationEntity>
+
     @Query("SELECT * FROM notifications WHERE appName LIKE '%' || :query || '%' OR title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%' ORDER BY timestamp DESC")
     fun searchNotifications(query: String): Flow<List<NotificationEntity>>
 
@@ -38,18 +41,6 @@ interface NotificationDao {
 
     @Query("SELECT COUNT(*) FROM notifications")
     fun getNotificationCount(): Flow<Int>
-
-    @Query("UPDATE notifications SET isRead = 1 WHERE id = :id")
-    suspend fun markAsRead(id: Long)
-
-    @Query("UPDATE notifications SET isRead = 1 WHERE id IN (:ids)")
-    suspend fun markAsRead(ids: List<Long>)
-
-    @Query("UPDATE notifications SET isRead = 1 WHERE isRead = 0")
-    suspend fun markAllAsRead()
-
-    @Query("SELECT COUNT(*) FROM notifications WHERE isRead = 0")
-    fun getUnreadCount(): Flow<Int>
 
     @Query("SELECT DISTINCT appName, packageName FROM notifications ORDER BY appName ASC")
     fun getAllApps(): Flow<List<AppInfo>>

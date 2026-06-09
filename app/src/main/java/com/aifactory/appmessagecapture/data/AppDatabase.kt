@@ -17,7 +17,7 @@ import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
  */
 @Database(
     entities = [NotificationEntity::class, BillEntity::class, BirthdayEntity::class],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -116,6 +116,37 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
+         * Migrate from v7 to v8:
+         * Removed the `isRead` column from the `notifications` table.
+         */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                BirthdayLog.i("[DB Migration] Executing MIGRATION_7_8: removing isRead column from notifications")
+                db.execSQL(
+                    """
+                    CREATE TABLE notifications_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        packageName TEXT NOT NULL,
+                        appName TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        timestamp INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    INSERT INTO notifications_new (id, packageName, appName, title, content, timestamp)
+                    SELECT id, packageName, appName, title, content, timestamp FROM notifications
+                    """.trimIndent()
+                )
+                db.execSQL("DROP TABLE notifications")
+                db.execSQL("ALTER TABLE notifications_new RENAME TO notifications")
+                BirthdayLog.i("[DB Migration] MIGRATION_7_8 completed")
+            }
+        }
+
+        /**
          * Migrate from v5 to v6:
          * Removed the `content` column from the `bills` table.
          */
@@ -156,10 +187,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "notification_database"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .build()
                 INSTANCE = instance
-                BirthdayLog.i("AppDatabase initialized. Version=5")
+                BirthdayLog.i("AppDatabase initialized. Version=8")
                 instance
             }
         }
