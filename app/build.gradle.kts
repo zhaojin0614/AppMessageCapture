@@ -13,7 +13,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 2
-        versionName = "2.1"
+        versionName = "2.1.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -51,6 +51,17 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+
+    // 自定义 APK 输出文件名：应用名-v版本名.apk
+    applicationVariants.all {
+        val variant = this
+        outputs.forEach { output ->
+            if (output is com.android.build.gradle.internal.api.BaseVariantOutputImpl) {
+                output.outputFileName =
+                    "AppMessageCapture-v${variant.versionName}.apk"
+            }
         }
     }
 }

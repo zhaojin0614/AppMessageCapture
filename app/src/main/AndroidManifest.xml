@@ -16,6 +16,12 @@
     <!-- BirthdayKeeper: overlay window for alarm popup when screen is on -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
+    <!-- Android 11+ package visibility: needed to query other apps' icons -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+        </intent>
+    </queries>
 
     <application
         android:name=".AppMessageCaptureApplication"
