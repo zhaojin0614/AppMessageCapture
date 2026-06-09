@@ -169,15 +169,142 @@ object BirthdayAlarmScheduler {
         }
     }
 
+    /**
+     * 为下一年（或下一次）的生日注册闹钟。
+     *
+     * 与 [schedule] 不同，此方法直接取当前闹钟目标的年份 +1，
+     * 通过 [DateCalculator.solarBirthdayForYear] 计算下一年的生日公历日期，
+     * 绕过了 DateCalculator 的"是否已过"判断逻辑，
+     * 正确处理农历生日每年公历日期漂移约 11 天的问题。
+     *
+     * 典型场景：[BirthdayAlarmReceiver] 触发当前闹钟后，需要为下一年设置新闹钟。
+     */
+    fun scheduleForNextOccurrence(context: Context, birthday: BirthdayEntity) {
+        if (birthday.reminderType == ReminderType.NONE) {
+            BirthdayLog.i("[$TAG] ReminderType is NONE, cancelling alarm for id=%d", birthday.id)
+            cancel(context, birthday.id)
+            return
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !canScheduleExactAlarms(context)) {
+            BirthdayLog.w(
+                "[$TAG] Cannot schedule exact alarm for id=%d: SCHEDULE_EXACT_ALARM permission not granted.",
+                birthday.id
+            )
+            return
+        }
+
+        try {
+            val triggerMillis = calculateNextYearTriggerTime(birthday)
+            if (triggerMillis <= System.currentTimeMillis()) {
+                BirthdayLog.w(
+                    "[$TAG] Next-year trigger time is still in the past for id=%d, skipping.",
+                    birthday.id
+                )
+                return
+            }
+
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val pendingIntent = createAlarmPendingIntent(context, birthday.id)
+
+            BirthdayLog.logMethodCall(
+                "$TAG.scheduleForNextOccurrence",
+                mapOf(
+                    "id" to birthday.id,
+                    "name" to birthday.name,
+                    "triggerMillis" to triggerMillis,
+                    "triggerTime" to formatMillis(triggerMillis)
+                )
+            )
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                val showIntent = Intent(context, com.aifactory.appmessagecapture.birthday.ui.AlarmActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    putExtra(EXTRA_BIRTHDAY_ID, birthday.id)
+                }
+                val showPendingIntent = PendingIntent.getActivity(
+                    context,
+                    birthday.id,
+                    showIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerMillis, showPendingIntent)
+                alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+            } else {
+                alarmManager.setExact(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerMillis,
+                    pendingIntent
+                )
+            }
+
+            BirthdayLog.i(
+                "[$TAG] Next-year alarm scheduled successfully. id=%d, triggerAt=%s",
+                birthday.id,
+                formatMillis(triggerMillis)
+            )
+        } catch (e: Exception) {
+            BirthdayLog.logException("$TAG.scheduleForNextOccurrence", e)
+        }
+    }
+
     // -------------------------------------------------------------------------
     // 内部方法
     // -------------------------------------------------------------------------
 
     /**
-     * 计算闹钟触发时间戳（毫秒）。
+     * 计算下一次（下一年）生日的闹钟触发时间戳（毫秒）。
+     *
+     * 策略：
+     * 1. 先用正常的 [DateCalculator.calculate] 获取当前闹钟目标的生日信息
+     * 2. 从结果中提取目标年份（nextSolarYear），然后直接计算 targetYear+1 年的生日公历日期
+     * 3. 这种方法绕过了 DateCalculator 的"是否已过"判断逻辑，
+     *    避免因农历日期每年公历漂移约 11 天而导致跳过一整年
+     *
+     * 为什么不直接 +1 年偏移基准日期？
+     * 因为农历生日对应的公历日期每年漂移约 11 天（如 2026 年农历 4/24 = 公历 6/26，
+     * 2027 年农历 4/24 = 公历 5/30）。如果基准日期偏移 +1 年到 2027-06-09，
+     * DateCalculator 会发现 2027-05-30 < 2027-06-09（"已过"），从而跳到 2028 年。
      */
-    private fun calculateTriggerTime(birthday: BirthdayEntity): Long {
-        val info = DateCalculator.calculate(birthday)
+    private fun calculateNextYearTriggerTime(birthday: BirthdayEntity): Long {
+        // ① 获取当前闹钟目标的生日信息
+        val currentInfo = DateCalculator.calculate(birthday)
+        val targetYear = currentInfo.nextSolarYear
+
+        BirthdayLog.i(
+            "[$TAG] Current alarm targets year %d (%s). Computing year %d.",
+            targetYear,
+            currentInfo.nextSolarDateString(),
+            targetYear + 1
+        )
+
+        // ② 直接计算 targetYear+1 年的生日公历日期，不做"是否已过"判断
+        val (nextYear, nextMonth, nextDay) = DateCalculator.solarBirthdayForYear(
+            targetYear + 1, birthday
+        )
+
+        val nextYearInfo = DateCalculator.BirthdayInfo(
+            nextSolarYear = nextYear,
+            nextSolarMonth = nextMonth,
+            nextSolarDay = nextDay,
+            daysLeft = -1,
+            ageTurning = if (birthday.birthYear != null && birthday.birthYear > 0) {
+                nextYear - birthday.birthYear
+            } else null
+        )
+
+        BirthdayLog.i(
+            "[$TAG] Year %d birthday: %04d-%02d-%02d",
+            targetYear + 1, nextYear, nextMonth, nextDay
+        )
+
+        return applyReminderOffset(nextYearInfo, birthday)
+    }
+
+    /**
+     * 根据 [BirthdayInfo] 和提醒设置（提前天数 + 提醒时间），计算最终闹钟触发时间戳。
+     */
+    private fun applyReminderOffset(info: DateCalculator.BirthdayInfo, birthday: BirthdayEntity): Long {
         val daysBefore = birthday.reminderType.daysBefore
 
         val cal = Calendar.getInstance().apply {
@@ -196,16 +323,15 @@ object BirthdayAlarmScheduler {
         cal.set(Calendar.SECOND, 0)
         cal.set(Calendar.MILLISECOND, 0)
 
-        // 如果 daysBefore=0 且设定的时间已经过了，说明是今天的闹钟但时间已过，直接跳过
-        // （或者可以改为立即触发，但通常用户不会想这样）
-        if (cal.timeInMillis <= System.currentTimeMillis()) {
-            BirthdayLog.w(
-                "[$TAG] Trigger time is in the past after applying reminderTime. id=%d",
-                birthday.id
-            )
-        }
-
         return cal.timeInMillis
+    }
+
+    /**
+     * 计算闹钟触发时间戳（毫秒）。
+     */
+    private fun calculateTriggerTime(birthday: BirthdayEntity): Long {
+        val info = DateCalculator.calculate(birthday)
+        return applyReminderOffset(info, birthday)
     }
 
     private fun createAlarmPendingIntent(context: Context, birthdayId: Int): PendingIntent {

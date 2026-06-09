@@ -121,8 +121,9 @@ class BirthdayAlarmReceiver : BroadcastReceiver() {
                     BirthdayLog.logException("[BirthdayAlarmReceiver] post to main looper failed", e)
                 }
 
-                // 为下一年重新注册闹钟
-                BirthdayAlarmScheduler.schedule(context, birthday)
+                // 为下一年重新注册闹钟（使用 scheduleForNextOccurrence 强制计算下一年的日期，
+                // 避免在生日当天触发时 DateCalculator 返回今年的已过期日期）
+                BirthdayAlarmScheduler.scheduleForNextOccurrence(context, birthday)
                 BirthdayLog.i(
                     "[BirthdayAlarmReceiver] Rescheduled alarm for next year. id=%d",
                     birthdayId

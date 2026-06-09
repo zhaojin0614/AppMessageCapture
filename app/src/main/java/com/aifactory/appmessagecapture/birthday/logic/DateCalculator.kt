@@ -119,6 +119,55 @@ object DateCalculator {
         return sorted
     }
 
+    /**
+     * 计算指定**农历年份**对应的生日公历日期。
+     *
+     * 与 [calculate] 不同，此方法不做"是否已过"的判断，直接返回指定农历年份的生日公历日期。
+     * 适用于闹钟重新调度场景：已知当前闹钟对应的农历年份 Y，需要直接计算 Y+1 年的生日日期。
+     *
+     * 对于公历生日，[lunarYear] 即为公历年份本身。
+     *
+     * @param lunarYear 目标农历年份
+     * @param birthday 生日实体
+     * @return Triple(公历年, 公历月, 公历日)
+     */
+    fun calculateForYear(
+        lunarYear: Int,
+        birthday: BirthdayEntity
+    ): Triple<Int, Int, Int> {
+        BirthdayLog.logMethodCall(
+            "$TAG.calculateForYear",
+            mapOf("lunarYear" to lunarYear, "name" to birthday.name, "isLunar" to birthday.isLunar)
+        )
+        return try {
+            if (birthday.isLunar) {
+                LunarCalendarAdapter.lunarToSolar(lunarYear, birthday.birthMonth, birthday.birthDay)
+            } else {
+                Triple(lunarYear, birthday.birthMonth, birthday.birthDay)
+            }
+        } catch (e: Exception) {
+            BirthdayLog.logException("$TAG.calculateForYear", e)
+            Triple(lunarYear, 1, 1)
+        }
+    }
+
+    /**
+     * 计算指定**公历年份**对应的生日公历日期。
+     *
+     * 对于农历生日，将指定公历年份视为农历年份进行转换。
+     * 适用于"在当前闹钟目标年份的基础上 +1 年"的场景。
+     *
+     * @param year 目标年份（对农历生日而言即农历年份，对公历生日而言即公历年份）
+     * @param birthday 生日实体
+     * @return Triple(公历年, 公历月, 公历日)
+     */
+    fun solarBirthdayForYear(
+        year: Int,
+        birthday: BirthdayEntity
+    ): Triple<Int, Int, Int> {
+        return calculateForYear(year, birthday)
+    }
+
     // -------------------------------------------------------------------------
     // 私有实现：公历生日
     // -------------------------------------------------------------------------
