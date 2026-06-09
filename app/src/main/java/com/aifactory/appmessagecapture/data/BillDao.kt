@@ -61,6 +61,14 @@ interface BillDao {
     @Query("SELECT * FROM bills WHERE category = :category AND isIncome = :isIncome ORDER BY timestamp DESC")
     fun getBillsByCategory(isIncome: Boolean, category: String): Flow<List<BillEntity>>
 
+    @Query("SELECT * FROM bills WHERE category = :category AND isIncome = :isIncome AND timestamp >= :startTime AND timestamp < :endTime ORDER BY timestamp DESC")
+    fun getBillsByCategoryAndTimeRange(
+        isIncome: Boolean,
+        category: String,
+        startTime: Long,
+        endTime: Long
+    ): Flow<List<BillEntity>>
+
     @Query("DELETE FROM bills")
     suspend fun deleteAll()
 

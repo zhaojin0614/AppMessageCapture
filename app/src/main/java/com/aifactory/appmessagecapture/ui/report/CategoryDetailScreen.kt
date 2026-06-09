@@ -46,10 +46,13 @@ private val TextDark = Color(0xFF333333)
 fun CategoryDetailScreen(
     category: String,
     isIncome: Boolean,
+    startTime: Long,
+    endTime: Long,
     onBack: () -> Unit,
     viewModel: CategoryDetailViewModel = viewModel()
 ) {
-    val bills by viewModel.getBills(category, isIncome).collectAsState(initial = emptyList())
+    val bills by viewModel.getBillsInTimeRange(category, isIncome, startTime, endTime)
+        .collectAsState(initial = emptyList())
 
     BackHandler { onBack() }
 
@@ -101,6 +104,11 @@ fun CategoryDetailScreen(
                     CategoryDetailBillItem(bill = bill)
                 }
                 item { Spacer(modifier = Modifier.height(4.dp)) }
+            }
+
+            // 留出底部 Tab 栏空间，避免被 MainApp 的 NavigationBar 遮挡
+            item {
+                Spacer(modifier = Modifier.height(80.dp))
             }
 
             if (bills.isEmpty()) {

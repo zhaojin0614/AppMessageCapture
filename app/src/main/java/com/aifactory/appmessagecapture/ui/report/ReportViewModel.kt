@@ -129,6 +129,8 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                 currentExpense = currentExpense,
                 currentYear = currentRange.start.year,
                 currentMonth = currentRange.start.monthValue,
+                periodStartMillis = currentRange.startMillis,
+                periodEndMillis = currentRange.endMillis,
                 isLoading = false,
                 showIncome = showIncome
             )
@@ -310,6 +312,8 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
         val currentExpense: Double = 0.0,
         val currentYear: Int = java.time.LocalDate.now().year,
         val currentMonth: Int = java.time.LocalDate.now().monthValue,
+        val periodStartMillis: Long = 0L,
+        val periodEndMillis: Long = 0L,
         val isLoading: Boolean = true,
         val showIncome: Boolean = false
     )

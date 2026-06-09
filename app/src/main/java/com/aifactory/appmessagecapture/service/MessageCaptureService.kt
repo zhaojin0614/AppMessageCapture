@@ -224,7 +224,7 @@ class MessageCaptureService : NotificationListenerService() {
         )
 
         val dao = app.database.billDao()
-        val since = System.currentTimeMillis() - 5_000
+        val since = System.currentTimeMillis() - 15_000
 
         // 1. Same-app deduplication: if same app posted a bill with same amount recently, skip
         val sameAppDuplicate = dao.findRecentByAmountAndPackage(amount, packageName, since)
@@ -338,7 +338,7 @@ class MessageCaptureService : NotificationListenerService() {
             "com.jd.jrapp" -> 80                     // JD Finance
             "com.baidu.wallet" -> 70                 // Baidu Wallet
             "com.eg.android.AlipayGphone" -> 50      // Alipay
-            "com.tencent.mm" -> 40                   // WeChat
+            "com.tencent.mm" -> 50                   // WeChat
             else -> 0
         }
     }

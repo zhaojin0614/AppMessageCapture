@@ -12,4 +12,13 @@ class CategoryDetailViewModel(application: Application) : AndroidViewModel(appli
     fun getBills(category: String, isIncome: Boolean): Flow<List<BillEntity>> {
         return billDao.getBillsByCategory(isIncome, category)
     }
+
+    fun getBillsInTimeRange(
+        category: String,
+        isIncome: Boolean,
+        startTime: Long,
+        endTime: Long
+    ): Flow<List<BillEntity>> {
+        return billDao.getBillsByCategoryAndTimeRange(isIncome, category, startTime, endTime)
+    }
 }

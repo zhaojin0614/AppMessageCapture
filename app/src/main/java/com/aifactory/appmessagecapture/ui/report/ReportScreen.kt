@@ -71,6 +71,8 @@ fun ReportScreen(
         CategoryDetailScreen(
             category = selectedCategory!!,
             isIncome = showIncome,
+            startTime = uiState.periodStartMillis,
+            endTime = uiState.periodEndMillis,
             onBack = { selectedCategory = null }
         )
         return
