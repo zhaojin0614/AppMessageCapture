@@ -180,8 +180,8 @@ class MessageCaptureService : NotificationListenerService() {
         when (packageName) {
             "com.tencent.mm" -> {               // WeChat
                 // WeChat pay notifications MUST have title containing payment keywords
-//                val validTitle = title.contains("微信支付")
-//                if (!validTitle) return
+                val validTitle = title.contains("微信支付")
+                if (!validTitle) return
             }
             "com.eg.android.AlipayGphone" -> {   // Alipay
                 // Title or content must contain Alipay/payment keywords
