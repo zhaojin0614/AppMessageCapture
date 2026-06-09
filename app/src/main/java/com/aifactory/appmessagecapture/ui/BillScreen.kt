@@ -96,6 +96,7 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.data.BillEntity
 import com.aifactory.appmessagecapture.ui.components.SwipeableItem
+import com.aifactory.appmessagecapture.ui.components.SwipeableItemCoordinator
 import com.aifactory.appmessagecapture.ui.theme.PrimaryOrange
 import com.aifactory.appmessagecapture.ui.theme.PrimaryOrangeDark
 import com.aifactory.appmessagecapture.ui.theme.PrimaryOrangeLight
@@ -546,6 +547,7 @@ fun BillScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        SwipeableItemCoordinator.reset()
                         billToDelete?.let { viewModel.deleteBill(it.id) }
                         showDeleteDialog = false
                         billToDelete = null
@@ -1168,7 +1170,8 @@ fun DayGroupCard(
             bills.forEachIndexed { index, bill ->
                 SwipeableItem(
                     isSelectionMode = isSelectionMode,
-                    onDelete = { onDelete(bill) }
+                    onDelete = { onDelete(bill) },
+                    itemKey = bill.id
                 ) {
                     BillCard(
                         bill = bill,

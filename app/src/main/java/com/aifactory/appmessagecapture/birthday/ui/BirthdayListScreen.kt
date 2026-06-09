@@ -396,7 +396,8 @@ fun BirthdayListScreen(
                             onDelete = {
                                 deleteTargetId = entity.id
                                 showDeleteDialog = true
-                            }
+                            },
+                            itemKey = entity.id
                         ) {
                             BirthdayCard(
                                 birthday = entity,
@@ -432,6 +433,7 @@ fun BirthdayListScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        com.aifactory.appmessagecapture.ui.components.SwipeableItemCoordinator.reset()
                         deleteTargetId?.let { viewModel.delete(it) }
                         showDeleteDialog = false
                         deleteTargetId = null

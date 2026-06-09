@@ -42,6 +42,11 @@ object SwipeableItemCoordinator {
     fun open(key: String) {
         flow.tryEmit(key)
     }
+
+    /** 关闭所有已滑开的 SwipeableItem（删除时调用）。 */
+    fun reset() {
+        flow.tryEmit(null)
+    }
 }
 
 /**
@@ -51,11 +56,14 @@ object SwipeableItemCoordinator {
  * - Left-swipe reveals a delete button.
  * - Delete background is hidden while in selection mode.
  * - Automatically snaps back to origin when selection mode is entered.
+ * - When [itemKey] changes (e.g. after deletion), swipe offset resets automatically.
  *
  * @param isSelectionMode Whether the parent list is in multi-select mode.
  * @param onDelete Called when the user taps the revealed delete button.
  *                 The caller is responsible for showing a confirmation dialog.
  * @param modifier Modifier to be applied to the outer container.
+ * @param itemKey 唯一标识当前数据项的 key。当数据项因列表变化而改变时，
+ *                 滑动偏移会自动重置，防止删除后下一条记录继承旧状态。
  * @param content The actual card/content composable.
  */
 @Composable
@@ -63,6 +71,7 @@ fun SwipeableItem(
     isSelectionMode: Boolean,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    itemKey: Any? = null,
     content: @Composable () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -70,14 +79,21 @@ fun SwipeableItem(
     val maxSwipe = with(LocalDensity.current) { 60.dp.toPx() }
     val swipeKey = remember { java.util.UUID.randomUUID().toString() }
 
-    // Auto-reset swipe offset when entering selection mode (fixes issue #4)
+    // 当数据项标识变化时（如删除导致列表缩短、槽位复用），重置滑动偏移
+    LaunchedEffect(itemKey) {
+        if (offsetX.value != 0f) {
+            offsetX.animateTo(0f)
+        }
+    }
+
+    // Auto-reset swipe offset when entering selection mode
     LaunchedEffect(isSelectionMode) {
         if (isSelectionMode && offsetX.value != 0f) {
             offsetX.animateTo(0f)
         }
     }
 
-    // Auto-reset when another SwipeableItem opens
+    // Auto-reset when another SwipeableItem opens or coordinator resets
     LaunchedEffect(swipeKey) {
         SwipeableItemCoordinator.openedItem.collect { openedKey ->
             if (openedKey != swipeKey && offsetX.value != 0f) {
