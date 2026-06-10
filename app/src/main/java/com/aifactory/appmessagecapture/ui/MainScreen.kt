@@ -452,6 +452,13 @@ fun MainScreen(
                                     onClick = {
                                         if (isSelectionMode) {
                                             viewModel.toggleSelection(item.notification.id)
+                                        } else {
+                                            // Try to replay the original notification click (PendingIntent).
+                                            // Falls back to launching the app if the PendingIntent is unavailable.
+                                            val fired = viewModel.firePendingIntent(context, item.notification.id)
+                                            if (!fired) {
+                                                viewModel.launchApp(context, item.notification.packageName)
+                                            }
                                         }
                                     },
                                     onLongClick = {

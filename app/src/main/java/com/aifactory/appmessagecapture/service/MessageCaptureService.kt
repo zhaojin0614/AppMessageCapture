@@ -9,6 +9,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.aifactory.appmessagecapture.AppMessageCaptureApplication
 import com.aifactory.appmessagecapture.data.NotificationEntity
+import com.aifactory.appmessagecapture.utils.PendingIntentCache
 import com.aifactory.appmessagecapture.utils.PreferencesManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -95,6 +96,10 @@ class MessageCaptureService : NotificationListenerService() {
             packageName
         }
 
+        // Extract the PendingIntent before the coroutine — this is the click action
+        // that the system fires when the user taps the notification in the shade.
+        val contentIntent = notification.contentIntent
+
         val entity = NotificationEntity(
             packageName = packageName,
             appName = appName,
@@ -106,7 +111,12 @@ class MessageCaptureService : NotificationListenerService() {
         val app = application as AppMessageCaptureApplication
         val dao = app.database.notificationDao()
         serviceScope.launch {
-            dao.insert(entity)
+            val insertedId = dao.insert(entity)
+            // Cache the PendingIntent in memory so the UI can replay the click action.
+            // Room auto-increment ID is used as the cache key.
+            if (contentIntent != null) {
+                PendingIntentCache.put(insertedId, contentIntent)
+            }
             // Auto-extract bill from payment notifications (serialized to avoid race conditions)
             billMutex.withLock {
                 tryExtractBill(app, sbn, title, content, appName)

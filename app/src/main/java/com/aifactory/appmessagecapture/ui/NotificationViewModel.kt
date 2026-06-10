@@ -1,15 +1,18 @@
 package com.aifactory.appmessagecapture.ui
 
 import android.app.Application
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.aifactory.appmessagecapture.data.AppDatabase
 import com.aifactory.appmessagecapture.data.AppInfo
 import com.aifactory.appmessagecapture.data.NotificationEntity
+import com.aifactory.appmessagecapture.utils.PendingIntentCache
 import com.aifactory.appmessagecapture.utils.PreferencesManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -191,12 +194,14 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun clearAll() {
+        PendingIntentCache.clear()
         viewModelScope.launch {
             dao.deleteAll()
         }
     }
 
     fun deleteById(id: Long) {
+        PendingIntentCache.remove(id)
         viewModelScope.launch {
             dao.deleteById(id)
         }
@@ -204,8 +209,47 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
 
     fun deleteByIds(ids: List<Long>) {
         if (ids.isEmpty()) return
+        PendingIntentCache.removeAll(ids)
         viewModelScope.launch {
             dao.deleteByIds(ids)
+        }
+    }
+
+    /**
+     * Fire the cached PendingIntent for the given notification.
+     * This reproduces the same jump action as tapping the notification in the system shade.
+     *
+     * Returns true if the PendingIntent was found and fired, false otherwise.
+     */
+    fun firePendingIntent(context: Context, notificationId: Long): Boolean {
+        val pendingIntent = PendingIntentCache.get(notificationId) ?: return false
+        try {
+            pendingIntent.send(
+                context,
+                0,
+                null,
+                null,  // no callback needed
+                null   // no handler — use main thread
+            )
+            return true
+        } catch (e: PendingIntent.CanceledException) {
+            // The originating app cancelled this PendingIntent — no longer valid.
+            PendingIntentCache.remove(notificationId)
+            return false
+        }
+    }
+
+    /**
+     * Fallback: launch the target app's main activity when no PendingIntent is cached.
+     * This happens for notifications restored from the database after an app restart.
+     */
+    fun launchApp(context: Context, packageName: String) {
+        val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
+        if (launchIntent != null) {
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(launchIntent)
+        } else {
+            Toast.makeText(context, "无法打开该应用", Toast.LENGTH_SHORT).show()
         }
     }
 
