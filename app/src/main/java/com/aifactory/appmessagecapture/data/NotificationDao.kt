@@ -44,6 +44,9 @@ interface NotificationDao {
 
     @Query("SELECT DISTINCT appName, packageName FROM notifications ORDER BY appName ASC")
     fun getAllApps(): Flow<List<AppInfo>>
+
+    @Query("SELECT COUNT(*) FROM notifications WHERE timestamp >= :since")
+    fun countNotificationsSince(since: Long): Flow<Int>
 }
 
 /**

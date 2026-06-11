@@ -19,6 +19,9 @@ interface BillDao {
     @Query("SELECT * FROM bills ORDER BY timestamp DESC")
     fun getAllBillsOnce(): List<BillEntity>
 
+    @Query("SELECT * FROM bills WHERE timestamp >= :since ORDER BY timestamp DESC")
+    fun getBillsSinceOnce(since: Long): List<BillEntity>
+
     @Query("SELECT SUM(amount) FROM bills WHERE isIncome = 0")
     fun getTotalExpense(): Flow<Double?>
 

@@ -97,11 +97,23 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.data.BillEntity
 import com.aifactory.appmessagecapture.ui.components.SwipeableItem
 import com.aifactory.appmessagecapture.ui.components.SwipeableItemCoordinator
+import com.aifactory.appmessagecapture.ui.theme.CategoryBills
+import com.aifactory.appmessagecapture.ui.theme.CategoryEntertainment
+import com.aifactory.appmessagecapture.ui.theme.CategoryFood
+import com.aifactory.appmessagecapture.ui.theme.CategoryMedical
+import com.aifactory.appmessagecapture.ui.theme.CategoryShopping
+import com.aifactory.appmessagecapture.ui.theme.CategoryTransport
+import com.aifactory.appmessagecapture.ui.theme.CategoryUncategorized
+import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
+import com.aifactory.appmessagecapture.ui.theme.ExpenseRedLight
+import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
+import com.aifactory.appmessagecapture.ui.theme.IncomeGreenLight
 import com.aifactory.appmessagecapture.ui.theme.PrimaryOrange
 import com.aifactory.appmessagecapture.ui.theme.PrimaryOrangeDark
 import com.aifactory.appmessagecapture.ui.theme.PrimaryOrangeLight
 import com.aifactory.appmessagecapture.ui.theme.SecondaryPurple
 import com.aifactory.appmessagecapture.ui.theme.SecondaryPurpleLight
+import com.aifactory.appmessagecapture.ui.theme.SecondaryPurpleLighter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -336,8 +348,8 @@ fun BillScreen(
                 typeFilters.forEach { type ->
                     val isSelected = selectedType == type || (selectedType == null && type == "全部")
                     val chipColor = when (type) {
-                        "支出" -> Color(0xFFFF5252)
-                        "收入" -> Color(0xFF4CAF50)
+                        "支出" -> ExpenseRed
+                        "收入" -> IncomeGreen
                         else -> PrimaryOrange
                     }
                     Surface(
@@ -630,13 +642,13 @@ fun BillPullDownStatsPanel(
                     value = "¥${String.format("%.2f", totalExpense)}",
                     label = "累计支出",
                     alpha = contentAlpha,
-                    valueColor = Color(0xFFFF5252).copy(alpha = contentAlpha)
+                    valueColor = ExpenseRed.copy(alpha = contentAlpha)
                 )
                 BillStatItem(
                     value = "¥${String.format("%.2f", totalIncome)}",
                     label = "累计收入",
                     alpha = contentAlpha,
-                    valueColor = Color(0xFF4CAF50).copy(alpha = contentAlpha)
+                    valueColor = IncomeGreen.copy(alpha = contentAlpha)
                 )
                 BillStatItem(
                     value = incomeCount.toString(),
@@ -666,7 +678,7 @@ fun IncomeExpenseSummary(
             BentoCard(
                 modifier = Modifier.weight(1f).heightIn(min = 96.dp),
                 brush = Brush.linearGradient(
-                    colors = listOf(Color(0xFFFF5252), Color(0xFFFF8A80))
+                    colors = listOf(ExpenseRed, ExpenseRedLight)
                 )
             ) {
                 Column {
@@ -699,7 +711,7 @@ fun IncomeExpenseSummary(
             BentoCard(
                 modifier = Modifier.weight(1f).heightIn(min = 96.dp),
                 brush = Brush.linearGradient(
-                    colors = listOf(Color(0xFF4CAF50), Color(0xFF81C784))
+                    colors = listOf(IncomeGreen, IncomeGreenLight)
                 )
             ) {
                 Column {
@@ -750,87 +762,6 @@ fun BillStatItem(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
         )
-    }
-}
-
-@Composable
-fun BentoStatsGrid(
-    todayAmount: Double,
-    totalAmount: Double
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            BentoCard(
-                modifier = Modifier.weight(1f),
-                brush = Brush.linearGradient(
-                    colors = listOf(PrimaryOrange, PrimaryOrangeDark)
-                )
-            ) {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.MonetizationOn,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.9f),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "今日支出",
-                            color = Color.White.copy(alpha = 0.85f),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "¥${String.format("%.2f", todayAmount)}",
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            BentoCard(
-                modifier = Modifier.weight(1f),
-                brush = Brush.linearGradient(
-                    colors = listOf(SecondaryPurple, Color(0xFF9B7BFF))
-                )
-            ) {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.TrendingUp,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.9f),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "累计支出",
-                            color = Color.White.copy(alpha = 0.85f),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "¥${String.format("%.2f", totalAmount)}",
-                        color = Color.White,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
     }
 }
 
@@ -1084,7 +1015,7 @@ fun BillCard(
                         )
                     }
                 }
-                val amountColor = if (bill.isIncome) Color(0xFF4CAF50) else Color(0xFFFF5252)
+                val amountColor = if (bill.isIncome) IncomeGreen else ExpenseRed
                 val amountPrefix = if (bill.isIncome) "+" else "-"
                 Text(
                     text = "$amountPrefix¥${String.format("%.2f", bill.amount)}",
@@ -1245,7 +1176,7 @@ fun AddBillDialog(
                     listOf(false to "支出", true to "收入").forEach { (income, label) ->
                         val isSelected = isIncome == income
                         val bgColor = if (isSelected) {
-                            if (income) Color(0xFF4CAF50) else Color(0xFFFF5252)
+                            if (income) IncomeGreen else ExpenseRed
                         } else Color.Transparent
                         Box(
                             modifier = Modifier
@@ -1328,7 +1259,7 @@ fun AddBillDialog(
                         Text("取消")
                     }
 
-                    val btnColor = if (isIncome) Color(0xFF4CAF50) else PrimaryOrange
+                    val btnColor = if (isIncome) IncomeGreen else PrimaryOrange
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -1407,13 +1338,13 @@ fun EmptyBillState() {
 
 private fun getCategoryColor(category: String): Color {
     return when (category) {
-        "餐饮" -> Color(0xFFF5A623)
-        "交通" -> Color(0xFF34C759)
-        "购物" -> Color(0xFF7C5CFC)
-        "娱乐" -> Color(0xFFFF2D55)
-        "生活缴费" -> Color(0xFF007AFF)
-        "医疗" -> Color(0xFFAF52DE)
-        else -> Color(0xFF8E8E93)
+        "餐饮" -> CategoryFood
+        "交通" -> CategoryTransport
+        "购物" -> CategoryShopping
+        "娱乐" -> CategoryEntertainment
+        "生活缴费" -> CategoryBills
+        "医疗" -> CategoryMedical
+        else -> CategoryUncategorized
     }
 }
 

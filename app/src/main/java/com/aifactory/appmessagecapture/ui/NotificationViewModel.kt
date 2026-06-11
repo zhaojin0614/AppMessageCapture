@@ -56,6 +56,35 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
     private val _blockedApps = MutableStateFlow(prefs.getBlockedApps())
     val blockedApps: StateFlow<Set<String>> = _blockedApps
 
+    fun toggleBlockedApp(packageName: String) {
+        val current = _blockedApps.value.toMutableSet()
+        if (current.contains(packageName)) {
+            current.remove(packageName)
+            prefs.unblockApp(packageName)
+        } else {
+            current.add(packageName)
+            prefs.blockApp(packageName)
+        }
+        _blockedApps.value = current
+    }
+
+    fun clearBlockedApps() {
+        prefs.setBlockedApps(emptySet())
+        _blockedApps.value = emptySet()
+    }
+
+    fun toggleSelectAllBlocked(apps: List<AppInfo>) {
+        val allPackages = apps.map { it.packageName }.toSet()
+        val currentBlocked = _blockedApps.value
+        if (currentBlocked.isEmpty()) {
+            prefs.setBlockedApps(allPackages)
+            _blockedApps.value = allPackages
+        } else {
+            prefs.setBlockedApps(emptySet())
+            _blockedApps.value = emptySet()
+        }
+    }
+
     private val _selectedIds = MutableStateFlow<Set<Long>>(emptySet())
     val selectedIds: StateFlow<Set<Long>> = _selectedIds
 
@@ -117,16 +146,8 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
     val notificationCount: StateFlow<Int> = dao.getNotificationCount()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
-    val todayCount: StateFlow<Int> = dao.getAllNotifications()
-        .map { list ->
-            val cal = java.util.Calendar.getInstance()
-            cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
-            cal.set(java.util.Calendar.MINUTE, 0)
-            cal.set(java.util.Calendar.SECOND, 0)
-            cal.set(java.util.Calendar.MILLISECOND, 0)
-            val startOfDay = cal.timeInMillis
-            list.count { it.timestamp >= startOfDay }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+    val todayCount: StateFlow<Int> = dao.countNotificationsSince(computeStartOfDay())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     /**
      * 从当前所有通知中派生应用列表，确保与数据库实际状态一致。
@@ -314,5 +335,16 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
     private fun formatTime(timestamp: Long): String {
         val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
         return sdf.format(Date(timestamp))
+    }
+
+    companion object {
+        fun computeStartOfDay(): Long {
+            val cal = java.util.Calendar.getInstance()
+            cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+            cal.set(java.util.Calendar.MINUTE, 0)
+            cal.set(java.util.Calendar.SECOND, 0)
+            cal.set(java.util.Calendar.MILLISECOND, 0)
+            return cal.timeInMillis
+        }
     }
 }

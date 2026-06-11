@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DoNotDisturbOn
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.SaveAlt
@@ -131,12 +132,14 @@ fun MainScreen(
     val todayCount by viewModel.todayCount.collectAsState()
     val allApps by viewModel.allApps.collectAsState()
     val filteredApps by viewModel.filteredApps.collectAsState()
+    val blockedApps by viewModel.blockedApps.collectAsState()
     val selectedIds by viewModel.selectedIds.collectAsState()
     val isSelectionMode by viewModel.isSelectionMode.collectAsState()
     var showClearDialog by remember { mutableStateOf(false) }
     var showDeleteSelectedDialog by remember { mutableStateOf(false) }
     var notificationToDelete by remember { mutableStateOf<NotificationEntity?>(null) }
     var showFilterDialog by remember { mutableStateOf(false) }
+    var showBlockedDialog by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
@@ -289,6 +292,21 @@ fun MainScreen(
                                 Icon(
                                     imageVector = Icons.Default.FilterList,
                                     contentDescription = stringResource(R.string.filter_apps),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        BadgedBox(
+                            badge = {
+                                if (blockedApps.isNotEmpty()) {
+                                    Badge(containerColor = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        ) {
+                            IconButton(onClick = { showBlockedDialog = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.DoNotDisturbOn,
+                                    contentDescription = "屏蔽管理",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -566,6 +584,16 @@ fun MainScreen(
             onToggle = { viewModel.toggleFilterApp(it) },
             onToggleAll = { viewModel.toggleSelectAllFilters(allApps) },
             onDismiss = { showFilterDialog = false }
+        )
+    }
+
+    if (showBlockedDialog) {
+        BlockedAppsDialog(
+            apps = allApps,
+            blockedApps = blockedApps,
+            onToggle = { viewModel.toggleBlockedApp(it) },
+            onToggleAll = { viewModel.toggleSelectAllBlocked(allApps) },
+            onDismiss = { showBlockedDialog = false }
         )
     }
 
@@ -925,6 +953,68 @@ fun AppFilterDialog(
                         stringResource(R.string.deselect_all)
                     else
                         stringResource(R.string.select_all)
+                )
+            }
+        }
+    )
+}
+
+@Composable
+fun BlockedAppsDialog(
+    apps: List<com.aifactory.appmessagecapture.data.AppInfo>,
+    blockedApps: Set<String>,
+    onToggle: (String) -> Unit,
+    onToggleAll: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val isNoneBlocked = blockedApps.isEmpty()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("屏蔽管理") },
+        text = {
+            Column {
+                Text(
+                    text = "勾选的应用将不会被捕获通知（服务级别屏蔽）",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 400.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    apps.forEach { app ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = blockedApps.contains(app.packageName),
+                                onCheckedChange = { onToggle(app.packageName) }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = app.appName,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("确定")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onToggleAll) {
+                Text(
+                    text = if (isNoneBlocked) "全部屏蔽" else "全部取消"
                 )
             }
         }

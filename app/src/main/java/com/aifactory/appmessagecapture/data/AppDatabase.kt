@@ -18,7 +18,7 @@ import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
 @Database(
     entities = [NotificationEntity::class, BillEntity::class, BirthdayEntity::class],
     version = 8,
-    exportSchema = false
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {

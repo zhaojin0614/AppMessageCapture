@@ -13,7 +13,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 2
-        versionName = "2.1.6"
+        versionName = "2.1.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -66,6 +66,10 @@ android {
     }
 }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     // Core
     implementation("androidx.core:core-ktx:1.13.1")
@@ -106,10 +110,6 @@ dependencies {
 
     // Timber (Logging)
     implementation("com.jakewharton.timber:timber:5.0.1")
-
-    // Vico Charts (Compose native chart library)
-    implementation("com.patrykandpatrick.vico:compose:1.14.0")
-    implementation("com.patrykandpatrick.vico:compose-m3:1.14.0")
 
     // Lunar Calendar Library (Maven Central)
     implementation("cn.6tail:lunar:1.7.7")

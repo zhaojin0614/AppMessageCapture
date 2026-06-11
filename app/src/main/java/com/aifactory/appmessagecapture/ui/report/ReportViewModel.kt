@@ -72,12 +72,24 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
 
     fun loadData() {
         viewModelScope.launch {
-            val bills = withContext(Dispatchers.IO) { billDao.getAllBillsOnce() }
             val type = _periodType.value
             val showIncome = _showIncome.value
             val offset = _currentOffset.value
 
             val now = LocalDate.now()
+
+            // Calculate earliest time needed (bar data goes back 5 periods from current)
+            val earliestDate = when (type) {
+                PeriodType.WEEK -> now.plusWeeks((offset - 5).toLong())
+                    .with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1)
+                PeriodType.MONTH -> now.plusMonths((offset - 5).toLong()).withDayOfMonth(1)
+                PeriodType.YEAR -> now.plusYears((offset - 5).toLong()).withMonth(1).withDayOfMonth(1)
+            }
+            val earliestMillis = earliestDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+            // Only load bills from the needed time range instead of all records
+            val bills = withContext(Dispatchers.IO) { billDao.getBillsSinceOnce(earliestMillis) }
+
             val currentRange = when (type) {
                 PeriodType.WEEK -> getWeekRange(now.plusWeeks(offset.toLong()))
                 PeriodType.MONTH -> getMonthRange(now.plusMonths(offset.toLong()))
