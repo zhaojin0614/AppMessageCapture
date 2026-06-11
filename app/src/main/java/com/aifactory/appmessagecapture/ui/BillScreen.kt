@@ -97,11 +97,24 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.data.BillEntity
 import com.aifactory.appmessagecapture.ui.components.SwipeableItem
 import com.aifactory.appmessagecapture.ui.components.SwipeableItemCoordinator
-import com.aifactory.appmessagecapture.ui.theme.CategoryBills
+import com.aifactory.appmessagecapture.ui.theme.CategoryBeauty
+import com.aifactory.appmessagecapture.ui.theme.CategoryEducation
 import com.aifactory.appmessagecapture.ui.theme.CategoryEntertainment
+import com.aifactory.appmessagecapture.ui.theme.CategoryFinance
 import com.aifactory.appmessagecapture.ui.theme.CategoryFood
+import com.aifactory.appmessagecapture.ui.theme.CategoryInvestment
+import com.aifactory.appmessagecapture.ui.theme.CategoryLiving
 import com.aifactory.appmessagecapture.ui.theme.CategoryMedical
+import com.aifactory.appmessagecapture.ui.theme.CategoryOtherIncome
+import com.aifactory.appmessagecapture.ui.theme.CategoryParttime
+import com.aifactory.appmessagecapture.ui.theme.CategoryPet
+import com.aifactory.appmessagecapture.ui.theme.CategoryRedPacket
+import com.aifactory.appmessagecapture.ui.theme.CategoryRefund
+import com.aifactory.appmessagecapture.ui.theme.CategoryReimbursement
+import com.aifactory.appmessagecapture.ui.theme.CategoryRental
+import com.aifactory.appmessagecapture.ui.theme.CategorySalary
 import com.aifactory.appmessagecapture.ui.theme.CategoryShopping
+import com.aifactory.appmessagecapture.ui.theme.CategorySocial
 import com.aifactory.appmessagecapture.ui.theme.CategoryTransport
 import com.aifactory.appmessagecapture.ui.theme.CategoryUncategorized
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
@@ -1338,12 +1351,30 @@ fun EmptyBillState() {
 
 private fun getCategoryColor(category: String): Color {
     return when (category) {
-        "餐饮" -> CategoryFood
-        "交通" -> CategoryTransport
-        "购物" -> CategoryShopping
-        "娱乐" -> CategoryEntertainment
-        "生活缴费" -> CategoryBills
-        "医疗" -> CategoryMedical
+        // 支出类别
+        ExpenseCategories.FOOD -> CategoryFood
+        ExpenseCategories.TRANSPORT -> CategoryTransport
+        ExpenseCategories.SHOPPING -> CategoryShopping
+        ExpenseCategories.ENTERTAINMENT -> CategoryEntertainment
+        ExpenseCategories.LIVING -> CategoryLiving
+        ExpenseCategories.MEDICAL -> CategoryMedical
+        ExpenseCategories.EDUCATION -> CategoryEducation
+        ExpenseCategories.SOCIAL -> CategorySocial
+        ExpenseCategories.BEAUTY -> CategoryBeauty
+        ExpenseCategories.PET -> CategoryPet
+        ExpenseCategories.FINANCE -> CategoryFinance
+        ExpenseCategories.OTHER -> CategoryUncategorized
+
+        // 收入类别
+        IncomeCategories.SALARY -> CategorySalary
+        IncomeCategories.PARTTIME -> CategoryParttime
+        IncomeCategories.INVESTMENT -> CategoryInvestment
+        IncomeCategories.RENTAL -> CategoryRental
+        IncomeCategories.REFUND -> CategoryRefund
+        IncomeCategories.RED_PACKET -> CategoryRedPacket
+        IncomeCategories.REIMBURSEMENT -> CategoryReimbursement
+        IncomeCategories.OTHER -> CategoryOtherIncome
+
         else -> CategoryUncategorized
     }
 }
