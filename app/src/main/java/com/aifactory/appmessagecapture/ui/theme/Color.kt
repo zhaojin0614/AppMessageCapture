@@ -56,6 +56,9 @@ val CategoryRedPacket = Color(0xFFFF5722)    // 红包转账
 val CategoryReimbursement = Color(0xFF795548) // 报销补贴
 val CategoryOtherIncome = Color(0xFF607D8B)  // 其他收入
 
+// 向后兼容别名（Task 4 更新后可移除）
+val CategoryBills = CategoryLiving
+
 // Report-specific colors
 val ReportBlue = Color(0xFF2196F3)
 val ReportBlueLight = Color(0xFF64B5F6)
