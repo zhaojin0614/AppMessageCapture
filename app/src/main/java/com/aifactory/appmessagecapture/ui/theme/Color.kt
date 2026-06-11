@@ -32,14 +32,29 @@ val IncomeGreen = Color(0xFF4CAF50)
 val IncomeGreenLight = Color(0xFF81C784)
 val SecondaryPurpleLighter = Color(0xFF9B7BFF)
 
-// Category colors
-val CategoryFood = Color(0xFFF5A623)
-val CategoryTransport = Color(0xFF34C759)
-val CategoryShopping = Color(0xFF7C5CFC)
-val CategoryEntertainment = Color(0xFFFF2D55)
-val CategoryBills = Color(0xFF007AFF)
-val CategoryMedical = Color(0xFFAF52DE)
-val CategoryUncategorized = Color(0xFF8E8E93)
+// 支出类别颜色（12个大类）
+val CategoryFood = Color(0xFFF5A623)        // 餐饮美食
+val CategoryTransport = Color(0xFF34C759)    // 交通出行
+val CategoryShopping = Color(0xFF7C5CFC)     // 购物消费
+val CategoryEntertainment = Color(0xFFFF2D55) // 休闲娱乐
+val CategoryLiving = Color(0xFF007AFF)       // 居家生活
+val CategoryMedical = Color(0xFFAF52DE)      // 医疗健康
+val CategoryEducation = Color(0xFFFF9500)    // 教育培训
+val CategorySocial = Color(0xFF5856D6)       // 人情往来
+val CategoryBeauty = Color(0xFFFF6B6B)       // 美容护肤
+val CategoryPet = Color(0xFF8B5CF6)          // 宠物
+val CategoryFinance = Color(0xFF10B981)      // 金融保险
+val CategoryUncategorized = Color(0xFF8E8E93) // 其他支出
+
+// 收入类别颜色（8个大类）
+val CategorySalary = Color(0xFF4CAF50)       // 工资薪金
+val CategoryParttime = Color(0xFF2196F3)     // 兼职副业
+val CategoryInvestment = Color(0xFFFF9800)   // 投资理财
+val CategoryRental = Color(0xFF9C27B0)       // 租金收入
+val CategoryRefund = Color(0xFF00BCD4)       // 退款返现
+val CategoryRedPacket = Color(0xFFFF5722)    // 红包转账
+val CategoryReimbursement = Color(0xFF795548) // 报销补贴
+val CategoryOtherIncome = Color(0xFF607D8B)  // 其他收入
 
 // Report-specific colors
 val ReportBlue = Color(0xFF2196F3)
