@@ -118,6 +118,7 @@ import com.aifactory.appmessagecapture.ui.theme.CategoryShopping
 import com.aifactory.appmessagecapture.ui.theme.CategorySocial
 import com.aifactory.appmessagecapture.ui.theme.CategoryTransport
 import com.aifactory.appmessagecapture.ui.theme.CategoryUncategorized
+import com.aifactory.appmessagecapture.R
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRedLight
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
