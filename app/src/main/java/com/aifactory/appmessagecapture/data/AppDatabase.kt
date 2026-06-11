@@ -17,7 +17,7 @@ import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
  */
 @Database(
     entities = [NotificationEntity::class, BillEntity::class, BirthdayEntity::class],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -147,6 +147,17 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
+         * Migrate from v8 to v9:
+         * No schema changes needed — categories are stored as strings.
+         * Existing data retains original categories; users can update manually.
+         */
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                BirthdayLog.i("[DB Migration] Executing MIGRATION_8_9: no schema change needed")
+            }
+        }
+
+        /**
          * Migrate from v5 to v6:
          * Removed the `content` column from the `bills` table.
          */
@@ -187,10 +198,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "notification_database"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                     .build()
                 INSTANCE = instance
-                BirthdayLog.i("AppDatabase initialized. Version=8")
+                BirthdayLog.i("AppDatabase initialized. Version=9")
                 instance
             }
         }
