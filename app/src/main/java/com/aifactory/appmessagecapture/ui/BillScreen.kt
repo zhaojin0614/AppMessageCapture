@@ -90,6 +90,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.graphics.drawable.toBitmap
@@ -397,7 +398,8 @@ fun BillScreen(
                     CategoryChip(
                         label = cat,
                         isSelected = isSelected,
-                        onClick = { selectedCategory = if (cat == "全部") null else cat }
+                        onClick = { selectedCategory = if (cat == "全部") null else cat },
+                        showIcon = true
                     )
                 }
             }
@@ -489,7 +491,8 @@ fun BillScreen(
                                 viewModel.updateCategory(bill.id, cat)
                                 showCategoryPicker = false
                                 categoryBillToEdit = null
-                            }
+                            },
+                            showIcon = true
                         )
                     }
                 }
@@ -812,7 +815,8 @@ fun BentoCard(
 fun CategoryChip(
     label: String,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    showIcon: Boolean = false
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -820,13 +824,29 @@ fun CategoryChip(
         shadowElevation = if (isSelected) 2.dp else 0.dp,
         modifier = Modifier.clickable { onClick() }
     ) {
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (showIcon) {
+                val iconRes = getCategoryIconRes(label)
+                if (iconRes != 0) {
+                    Icon(
+                        painter = painterResource(id = iconRes),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+            }
+            Text(
+                text = label,
+                fontSize = 13.sp,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -1252,7 +1272,8 @@ fun AddBillDialog(
                             CategoryChip(
                                 label = cat,
                                 isSelected = selectedCategory == cat,
-                                onClick = { selectedCategory = cat }
+                                onClick = { selectedCategory = cat },
+                                showIcon = true
                             )
                         }
                     }
@@ -1376,6 +1397,36 @@ private fun getCategoryColor(category: String): Color {
         IncomeCategories.OTHER -> CategoryOtherIncome
 
         else -> CategoryUncategorized
+    }
+}
+
+private fun getCategoryIconRes(category: String): Int {
+    return when (category) {
+        // 支出类别
+        ExpenseCategories.FOOD -> R.drawable.ic_category_food
+        ExpenseCategories.TRANSPORT -> R.drawable.ic_category_transport
+        ExpenseCategories.SHOPPING -> R.drawable.ic_category_shopping
+        ExpenseCategories.ENTERTAINMENT -> R.drawable.ic_category_entertainment
+        ExpenseCategories.LIVING -> R.drawable.ic_category_living
+        ExpenseCategories.MEDICAL -> R.drawable.ic_category_medical
+        ExpenseCategories.EDUCATION -> R.drawable.ic_category_education
+        ExpenseCategories.SOCIAL -> R.drawable.ic_category_social
+        ExpenseCategories.BEAUTY -> R.drawable.ic_category_beauty
+        ExpenseCategories.PET -> R.drawable.ic_category_pet
+        ExpenseCategories.FINANCE -> R.drawable.ic_category_finance
+        ExpenseCategories.OTHER -> R.drawable.ic_category_other_expense
+
+        // 收入类别
+        IncomeCategories.SALARY -> R.drawable.ic_category_salary
+        IncomeCategories.PARTTIME -> R.drawable.ic_category_parttime
+        IncomeCategories.INVESTMENT -> R.drawable.ic_category_investment
+        IncomeCategories.RENTAL -> R.drawable.ic_category_rental
+        IncomeCategories.REFUND -> R.drawable.ic_category_refund
+        IncomeCategories.RED_PACKET -> R.drawable.ic_category_redpacket
+        IncomeCategories.REIMBURSEMENT -> R.drawable.ic_category_reimbursement
+        IncomeCategories.OTHER -> R.drawable.ic_category_other_income
+
+        else -> 0
     }
 }
 
