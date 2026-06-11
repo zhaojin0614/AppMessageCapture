@@ -157,8 +157,8 @@ fun BillScreen(
         return
     }
 
-    val expenseCategories = listOf("全部", "餐饮", "交通", "购物", "娱乐", "生活缴费", "医疗", "其他")
-    val incomeCategories = listOf("全部", "工资", "退款", "红包", "理财收益", "转账", "其他收入")
+    val expenseCategories = listOf("全部") + ExpenseCategories.all
+    val incomeCategories = listOf("全部") + IncomeCategories.all
     val allCategories = expenseCategories + incomeCategories.drop(1) // 去重后的全部
 
     val categories = remember(selectedType) {
@@ -451,9 +451,9 @@ fun BillScreen(
     if (showCategoryPicker && categoryBillToEdit != null) {
         val bill = categoryBillToEdit!!
         val availableCategories = if (bill.isIncome) {
-            listOf("工资", "退款", "红包", "理财收益", "转账", "其他收入")
+            IncomeCategories.all
         } else {
-            listOf("餐饮", "交通", "购物", "娱乐", "生活缴费", "医疗", "其他")
+            ExpenseCategories.all
         }
         AlertDialog(
             onDismissRequest = {
@@ -1133,8 +1133,8 @@ fun AddBillDialog(
     var title by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("") }
     var isIncome by remember { mutableStateOf(false) }
-    val expenseCategories = listOf("餐饮", "交通", "购物", "娱乐", "生活缴费", "医疗", "其他")
-    val incomeCategories = listOf("工资", "退款", "红包", "理财收益", "转账", "其他收入")
+    val expenseCategories = ExpenseCategories.all
+    val incomeCategories = IncomeCategories.all
     val categories = if (isIncome) incomeCategories else expenseCategories
     var selectedCategory by remember(isIncome) {
         mutableStateOf(categories.first())
