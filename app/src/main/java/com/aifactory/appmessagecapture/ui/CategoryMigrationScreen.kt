@@ -12,7 +12,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.aifactory.appmessagecapture.data.AppDatabase
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -105,15 +107,17 @@ fun CategoryMigrationScreen(
             Button(
                 onClick = {
                     scope.launch {
-                        val bills = billDao.getAllBillsOnce()
-                        var count = 0
-                        for (bill in bills) {
-                            categoryMapping[bill.category]?.let { newCategory ->
-                                billDao.updateCategory(bill.id, newCategory)
-                                count++
+                        withContext(Dispatchers.IO) {
+                            val bills = billDao.getAllBillsOnce()
+                            var count = 0
+                            for (bill in bills) {
+                                categoryMapping[bill.category]?.let { newCategory ->
+                                    billDao.updateCategory(bill.id, newCategory)
+                                    count++
+                                }
                             }
+                            migrationCount = count
                         }
-                        migrationCount = count
                         migrationComplete = true
                     }
                 },
