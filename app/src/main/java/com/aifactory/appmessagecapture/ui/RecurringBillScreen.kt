@@ -59,6 +59,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -109,6 +110,7 @@ fun RecurringBillScreen(
     val recurringBills by viewModel.allRecurringBills.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var billToDelete by remember { mutableStateOf<RecurringBillEntity?>(null) }
+    var billToEdit by remember { mutableStateOf<RecurringBillEntity?>(null) }
 
     // Handle system back button
     BackHandler(enabled = true) {
@@ -131,11 +133,7 @@ fun RecurringBillScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
-                actions = {
-                    IconButton(onClick = { viewModel.executeDueBills() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "执行到期账单")
-                    }
-                },
+                actions = {},
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = PrimaryOrange,
                     titleContentColor = Color.White,
@@ -203,7 +201,8 @@ fun RecurringBillScreen(
                     RecurringBillCard(
                         bill = bill,
                         onToggleActive = { viewModel.toggleActive(bill.id, !bill.isActive) },
-                        onDelete = { billToDelete = bill }
+                        onDelete = { billToDelete = bill },
+                        onClick = { billToEdit = bill }
                     )
                 }
             }
@@ -242,13 +241,26 @@ fun RecurringBillScreen(
             }
         )
     }
+
+    // Edit recurring bill dialog
+    billToEdit?.let { bill ->
+        EditRecurringBillDialog(
+            bill = bill,
+            onConfirm = { updatedBill ->
+                viewModel.updateRecurringBill(updatedBill)
+                billToEdit = null
+            },
+            onDismiss = { billToEdit = null }
+        )
+    }
 }
 
 @Composable
 private fun RecurringBillCard(
     bill: RecurringBillEntity,
     onToggleActive: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onClick: () -> Unit
 ) {
     val categoryColor = getRecurringCategoryColor(bill.category)
     val frequency = RecurringFrequency.values().find { it.name == bill.frequency }
@@ -259,26 +271,25 @@ private fun RecurringBillCard(
     val dateText = nextDueDate.format(DateTimeFormatter.ofPattern("MM月dd日"))
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (bill.isActive)
-                MaterialTheme.colorScheme.surface
-            else
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (bill.isActive) 1.dp else 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Category icon
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(38.dp)
                     .clip(CircleShape)
                     .background(
                         if (bill.isActive) categoryColor.copy(alpha = 0.12f)
@@ -291,14 +302,14 @@ private fun RecurringBillCard(
                     Icon(
                         painter = painterResource(id = iconRes),
                         contentDescription = null,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(18.dp),
                         tint = if (bill.isActive) categoryColor
                         else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
                     Text(
                         text = bill.title.first().toString(),
-                        fontSize = 18.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (bill.isActive) categoryColor
                         else MaterialTheme.colorScheme.onSurfaceVariant
@@ -306,12 +317,12 @@ private fun RecurringBillCard(
                 }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = bill.title,
-                    fontSize = 15.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = if (bill.isActive)
                         MaterialTheme.colorScheme.onSurface
@@ -322,17 +333,18 @@ private fun RecurringBillCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = frequencyText,
-                        fontSize = 12.sp,
-                        color = SecondaryPurple
+                        fontSize = 11.sp,
+                        color = if (bill.isActive) SecondaryPurple
+                        else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = " · ",
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "下次: $dateText",
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -341,32 +353,38 @@ private fun RecurringBillCard(
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "${if (bill.isIncome) "+" else "-"}¥${String.format("%.2f", bill.amount)}",
-                    fontSize = 16.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = if (!bill.isActive)
                         MaterialTheme.colorScheme.onSurfaceVariant
                     else if (bill.isIncome) IncomeGreen
                     else ExpenseRed
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
                         Icon(
                             Icons.Default.Delete,
                             contentDescription = "删除",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(4.dp))
-                    Switch(
-                        checked = bill.isActive,
-                        onCheckedChange = { onToggleActive() },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = PrimaryOrange
+                    Box(
+                        modifier = Modifier.size(width = 36.dp, height = 20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Switch(
+                            checked = bill.isActive,
+                            onCheckedChange = { onToggleActive() },
+                            modifier = Modifier.scale(0.7f),
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = PrimaryOrange
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
@@ -621,6 +639,310 @@ private fun AddRecurringBillDialog(
                     ) {
                         Text(
                             text = "添加",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // Date picker dialog
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate
+                .atStartOfDay(ZoneOffset.UTC)
+                .toInstant()
+                .toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        selectedDate = Instant.ofEpochMilli(millis)
+                            .atZone(ZoneOffset.UTC)
+                            .toLocalDate()
+                    }
+                    showDatePicker = false
+                }) {
+                    Text("确定")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("取消")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditRecurringBillDialog(
+    bill: RecurringBillEntity,
+    onConfirm: (RecurringBillEntity) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var title by remember { mutableStateOf(bill.title) }
+    var amountText by remember { mutableStateOf(String.format("%.2f", bill.amount)) }
+    var isIncome by remember { mutableStateOf(bill.isIncome) }
+    var selectedFrequency by remember {
+        mutableStateOf(RecurringFrequency.values().find { it.name == bill.frequency } ?: RecurringFrequency.MONTHLY)
+    }
+    var showFrequencyMenu by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val today = remember { LocalDate.now() }
+    var selectedDate by remember {
+        mutableStateOf(Instant.ofEpochMilli(bill.nextDueDate).atZone(ZoneId.systemDefault()).toLocalDate())
+    }
+
+    val expenseCategories = ExpenseCategories.all
+    val incomeCategories = IncomeCategories.all
+    val categories = if (isIncome) incomeCategories else expenseCategories
+    var selectedCategory by remember { mutableStateOf(bill.category) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                Text(
+                    text = "编辑周期账单",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Income / Expense toggle
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    listOf(false to "支出", true to "收入").forEach { (income, label) ->
+                        val isSelected = isIncome == income
+                        val bgColor = if (isSelected) {
+                            if (income) IncomeGreen else ExpenseRed
+                        } else Color.Transparent
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(bgColor)
+                                .clickable { isIncome = income; selectedCategory = categories.first() }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Title
+                TextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("标题 (如: 房租)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Amount
+                TextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("金额") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    prefix = { Text("¥") }
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Frequency selector
+                Box {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                            .clickable { showFrequencyMenu = true }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = SecondaryPurple
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "周期",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            text = selectedFrequency.displayName,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = SecondaryPurple
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showFrequencyMenu,
+                        onDismissRequest = { showFrequencyMenu = false }
+                    ) {
+                        RecurringFrequency.values().forEach { freq ->
+                            DropdownMenuItem(
+                                text = { Text(freq.displayName) },
+                                onClick = {
+                                    selectedFrequency = freq
+                                    showFrequencyMenu = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Start date picker
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                        .clickable { showDatePicker = true }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = SecondaryPurple
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "下次执行日期",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    val dateText = if (selectedDate == today) "今天"
+                    else selectedDate.format(DateTimeFormatter.ofPattern("yyyy年MM月dd日"))
+                    Text(
+                        text = dateText,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = PrimaryOrange
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Category grid
+                Text(
+                    text = "选择分类",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 180.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    items(categories) { cat ->
+                        CategoryGridItem(
+                            label = cat,
+                            isSelected = selectedCategory == cat,
+                            onClick = { selectedCategory = cat }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("取消")
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isIncome) IncomeGreen else PrimaryOrange)
+                            .clickable {
+                                val amt = amountText.toDoubleOrNull() ?: 0.0
+                                if (title.isNotBlank() && amt > 0) {
+                                    val nextDueMillis = selectedDate
+                                        .atStartOfDay(ZoneId.systemDefault())
+                                        .toInstant()
+                                        .toEpochMilli()
+                                    onConfirm(
+                                        bill.copy(
+                                            title = title,
+                                            amount = amt,
+                                            category = selectedCategory,
+                                            isIncome = isIncome,
+                                            frequency = selectedFrequency.name,
+                                            nextDueDate = nextDueMillis,
+                                            updatedAt = System.currentTimeMillis()
+                                        )
+                                    )
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "保存",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White

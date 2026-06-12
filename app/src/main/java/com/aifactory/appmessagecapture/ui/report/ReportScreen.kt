@@ -999,12 +999,6 @@ private fun DonutChartWithLabels(
     modifier: Modifier = Modifier
 ) {
     val textMeasurer = rememberTextMeasurer()
-    val fallbackColors = listOf(
-        Color(0xFF2196F3), Color(0xFF42A5F5), Color(0xFF64B5F6),
-        Color(0xFF90CAF9), Color(0xFF03A9F4), Color(0xFF00BCD4),
-        Color(0xFF009688), Color(0xFF4CAF50), Color(0xFF8BC34A),
-        Color(0xFFFFC107), Color(0xFFFF9800), Color(0xFFFF5722)
-    )
 
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -1016,9 +1010,7 @@ private fun DonutChartWithLabels(
             var startAngle = -90f
             data.forEachIndexed { index, stat ->
                 val sweepAngle = (stat.percentage * 360).toFloat()
-                val arcColor = getCategoryColor(stat.category).let {
-                    if (it == getCategoryColor("")) fallbackColors[index % fallbackColors.size] else it
-                }
+                val arcColor = getCategoryColor(stat.category)
                 drawArc(
                     color = arcColor,
                     startAngle = startAngle,
@@ -1036,11 +1028,7 @@ private fun DonutChartWithLabels(
                     val labelX = centerX + (labelRadius * cos(midRad)).toFloat()
                     val labelY = centerY + (labelRadius * sin(midRad)).toFloat()
 
-                    val text = if (data.size <= 6) {
-                        "${stat.category} ${String.format("%.1f", stat.percentage * 100)}%"
-                    } else {
-                        "${String.format("%.1f", stat.percentage * 100)}%"
-                    }
+                    val text = "${stat.category} ${String.format("%.1f", stat.percentage * 100)}%"
                     val textStyle = TextStyle(fontSize = 10.sp, color = ReportTextGray)
                     val textResult = textMeasurer.measure(text = text, style = textStyle)
 
@@ -1097,8 +1085,7 @@ private fun CategoryListItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = "$rank",
@@ -1107,6 +1094,7 @@ private fun CategoryListItem(
             modifier = Modifier.width(20.dp),
             textAlign = TextAlign.Center
         )
+        Spacer(modifier = Modifier.width(8.dp))
         Box(
             modifier = Modifier
                 .size(36.dp)
@@ -1131,6 +1119,7 @@ private fun CategoryListItem(
                 )
             }
         }
+        Spacer(modifier = Modifier.width(8.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -1151,7 +1140,6 @@ private fun CategoryListItem(
                 )
             }
             Spacer(modifier = Modifier.height(4.dp))
-            // Custom progress bar to avoid Material3 stop-indicator dot
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1168,19 +1156,21 @@ private fun CategoryListItem(
                 )
             }
         }
+//        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = "${String.format("%.1f", stat.percentage * 100)}%",
             fontSize = 12.sp,
             color = ReportTextGray,
-            modifier = Modifier.width(40.dp),
+            modifier = Modifier.width(35.dp),
             textAlign = TextAlign.End
         )
+        Spacer(modifier = Modifier.width(10.dp))
         Text(
             text = "¥${String.format("%.2f", stat.amount)}",
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
             color = ReportTextDark,
-            modifier = Modifier.width(60.dp),
+            modifier = Modifier.width(85.dp),
             textAlign = TextAlign.End
         )
         Icon(
