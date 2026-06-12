@@ -17,7 +17,7 @@ import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
  */
 @Database(
     entities = [NotificationEntity::class, BillEntity::class, BirthdayEntity::class],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -158,6 +158,45 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
+         * Migrate from v9 to v10:
+         * Rename legacy short category names to current full names.
+         * E.g. "餐饮" → "餐饮美食", "工资" → "工资薪金".
+         */
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                BirthdayLog.i("[DB Migration] Executing MIGRATION_9_10: migrating category names")
+                migrateCategoryNames(db)
+                BirthdayLog.i("[DB Migration] MIGRATION_9_10 completed")
+            }
+        }
+
+        /**
+         * Shared helper: executes UPDATE statements to rename old short category
+         * names to the current full category names defined in Categories.kt.
+         */
+        private fun migrateCategoryNames(db: SupportSQLiteDatabase) {
+            val updates = arrayOf(
+                // Expense categories
+                "UPDATE bills SET category = '餐饮美食' WHERE category = '餐饮'",
+                "UPDATE bills SET category = '交通出行' WHERE category = '交通'",
+                "UPDATE bills SET category = '购物消费' WHERE category = '购物'",
+                "UPDATE bills SET category = '休闲娱乐' WHERE category = '娱乐'",
+                "UPDATE bills SET category = '居家生活' WHERE category = '生活缴费'",
+                "UPDATE bills SET category = '医疗健康' WHERE category = '医疗'",
+                "UPDATE bills SET category = '其他支出' WHERE category = '其他'",
+                // Income categories
+                "UPDATE bills SET category = '工资薪金' WHERE category = '工资'",
+                "UPDATE bills SET category = '退款返现' WHERE category = '退款'",
+                "UPDATE bills SET category = '红包转账' WHERE category = '红包'",
+                "UPDATE bills SET category = '投资理财' WHERE category = '理财收益'",
+                "UPDATE bills SET category = '其他收入' WHERE category = '转账'",
+            )
+            for (sql in updates) {
+                db.execSQL(sql)
+            }
+        }
+
+        /**
          * Migrate from v5 to v6:
          * Removed the `content` column from the `bills` table.
          */
@@ -198,10 +237,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "notification_database"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                     .build()
                 INSTANCE = instance
-                BirthdayLog.i("AppDatabase initialized. Version=9")
+                BirthdayLog.i("AppDatabase initialized. Version=10")
                 instance
             }
         }

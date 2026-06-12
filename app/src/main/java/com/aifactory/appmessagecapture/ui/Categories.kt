@@ -37,3 +37,27 @@ object IncomeCategories {
         RED_PACKET, REIMBURSEMENT, OTHER
     )
 }
+
+/**
+ * Mapping from legacy short category names to current category names.
+ * Used for database migration and runtime category normalization.
+ */
+object CategoryMigration {
+    /** old name → new name mapping for all known legacy categories */
+    val mapping: Map<String, String> = mapOf(
+        // Expense categories
+        "餐饮"     to ExpenseCategories.FOOD,           // 餐饮美食
+        "交通"     to ExpenseCategories.TRANSPORT,      // 交通出行
+        "购物"     to ExpenseCategories.SHOPPING,        // 购物消费
+        "娱乐"     to ExpenseCategories.ENTERTAINMENT,   // 休闲娱乐
+        "生活缴费" to ExpenseCategories.LIVING,          // 居家生活
+        "医疗"     to ExpenseCategories.MEDICAL,         // 医疗健康
+        "其他"     to ExpenseCategories.OTHER,           // 其他支出
+        // Income categories
+        "工资"     to IncomeCategories.SALARY,           // 工资薪金
+        "退款"     to IncomeCategories.REFUND,           // 退款返现
+        "红包"     to IncomeCategories.RED_PACKET,       // 红包转账
+        "理财收益" to IncomeCategories.INVESTMENT,       // 投资理财
+        "转账"     to IncomeCategories.OTHER,            // 其他收入
+    )
+}

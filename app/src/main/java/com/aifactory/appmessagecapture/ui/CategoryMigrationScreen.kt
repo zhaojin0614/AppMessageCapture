@@ -26,21 +26,9 @@ fun CategoryMigrationScreen(
     val billDao = AppDatabase.getDatabase(context).billDao()
     
     val categoryMapping = remember {
-        mutableStateMapOf(
-            "餐饮" to ExpenseCategories.FOOD,
-            "交通" to ExpenseCategories.TRANSPORT,
-            "购物" to ExpenseCategories.SHOPPING,
-            "娱乐" to ExpenseCategories.ENTERTAINMENT,
-            "生活缴费" to ExpenseCategories.LIVING,
-            "医疗" to ExpenseCategories.MEDICAL,
-            "其他" to ExpenseCategories.OTHER,
-            "工资" to IncomeCategories.SALARY,
-            "退款" to IncomeCategories.REFUND,
-            "红包" to IncomeCategories.RED_PACKET,
-            "理财收益" to IncomeCategories.INVESTMENT,
-            "转账" to IncomeCategories.OTHER,
-            "其他收入" to IncomeCategories.OTHER
-        )
+        mutableStateMapOf<String, String>().apply {
+            putAll(CategoryMigration.mapping)
+        }
     }
     
     var migrationComplete by remember { mutableStateOf(false) }
@@ -108,13 +96,9 @@ fun CategoryMigrationScreen(
                 onClick = {
                     scope.launch {
                         withContext(Dispatchers.IO) {
-                            val bills = billDao.getAllBillsOnce()
                             var count = 0
-                            for (bill in bills) {
-                                categoryMapping[bill.category]?.let { newCategory ->
-                                    billDao.updateCategory(bill.id, newCategory)
-                                    count++
-                                }
+                            for ((oldCategory, newCategory) in categoryMapping) {
+                                count += billDao.batchUpdateCategory(oldCategory, newCategory)
                             }
                             migrationCount = count
                         }

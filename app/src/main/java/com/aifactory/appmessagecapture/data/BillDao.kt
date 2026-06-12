@@ -55,6 +55,13 @@ interface BillDao {
     @Query("UPDATE bills SET category = :category WHERE id = :id")
     suspend fun updateCategory(id: Long, category: String)
 
+    /**
+     * Batch-rename all bills that match [oldCategory] to [newCategory].
+     * Used for category migration when category names change between versions.
+     */
+    @Query("UPDATE bills SET category = :newCategory WHERE category = :oldCategory")
+    suspend fun batchUpdateCategory(oldCategory: String, newCategory: String): Int
+
     @Query("UPDATE bills SET title = :title WHERE id = :id")
     suspend fun updateTitle(id: Long, title: String)
 

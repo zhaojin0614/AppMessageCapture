@@ -9,6 +9,8 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.aifactory.appmessagecapture.AppMessageCaptureApplication
 import com.aifactory.appmessagecapture.data.NotificationEntity
+import com.aifactory.appmessagecapture.ui.ExpenseCategories
+import com.aifactory.appmessagecapture.ui.IncomeCategories
 import com.aifactory.appmessagecapture.utils.PendingIntentCache
 import com.aifactory.appmessagecapture.utils.PreferencesManager
 import kotlinx.coroutines.CoroutineScope
@@ -305,12 +307,12 @@ class MessageCaptureService : NotificationListenerService() {
     private fun guessIncomeCategory(text: String, appName: String): String {
         val lower = text.lowercase()
         return when {
-            lower.contains("工资") || lower.contains("薪") -> "工资"
-            lower.contains("退款") || lower.contains("退货") -> "退款"
-            lower.contains("红包") || lower.contains("利是") -> "红包"
-            lower.contains("收益") || lower.contains("利息") || lower.contains("理财") -> "理财收益"
-            lower.contains("转账") || lower.contains("转入") -> "转账"
-            else -> "其他收入"
+            lower.contains("工资") || lower.contains("薪") -> IncomeCategories.SALARY
+            lower.contains("退款") || lower.contains("退货") -> IncomeCategories.REFUND
+            lower.contains("红包") || lower.contains("利是") -> IncomeCategories.RED_PACKET
+            lower.contains("收益") || lower.contains("利息") || lower.contains("理财") -> IncomeCategories.INVESTMENT
+            lower.contains("转账") || lower.contains("转入") -> IncomeCategories.OTHER
+            else -> IncomeCategories.OTHER
         }
     }
 
@@ -321,17 +323,17 @@ class MessageCaptureService : NotificationListenerService() {
         val lower = text.lowercase()
         return when {
             lower.contains("外卖") || lower.contains("餐饮") || lower.contains("美食") ||
-                    lower.contains("餐厅") || lower.contains("快餐") || appName.contains("美团") -> "餐饮"
+                    lower.contains("餐厅") || lower.contains("快餐") || appName.contains("美团") -> ExpenseCategories.FOOD
             lower.contains("打车") || lower.contains("滴滴") || lower.contains("出行") ||
-                    lower.contains("地铁") || lower.contains("公交") || lower.contains("骑行") -> "交通"
+                    lower.contains("地铁") || lower.contains("公交") || lower.contains("骑行") -> ExpenseCategories.TRANSPORT
             lower.contains("电影") || lower.contains("娱乐") || lower.contains("游戏") ||
-                    lower.contains("会员") -> "娱乐"
+                    lower.contains("会员") -> ExpenseCategories.ENTERTAINMENT
             lower.contains("超市") || lower.contains("购物") || lower.contains("商城") ||
-                    lower.contains("淘宝") || lower.contains("京东") || lower.contains("拼多多") -> "购物"
+                    lower.contains("淘宝") || lower.contains("京东") || lower.contains("拼多多") -> ExpenseCategories.SHOPPING
             lower.contains("水电") || lower.contains("话费") || lower.contains("宽带") ||
-                    lower.contains("燃气") || lower.contains("物业") -> "生活缴费"
-            lower.contains("医疗") || lower.contains("药店") || lower.contains("挂号") -> "医疗"
-            else -> "其他"
+                    lower.contains("燃气") || lower.contains("物业") -> ExpenseCategories.LIVING
+            lower.contains("医疗") || lower.contains("药店") || lower.contains("挂号") -> ExpenseCategories.MEDICAL
+            else -> ExpenseCategories.OTHER
         }
     }
 
