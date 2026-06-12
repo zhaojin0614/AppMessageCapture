@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -44,6 +45,8 @@ import java.time.LocalDate
 import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.sin
+import com.aifactory.appmessagecapture.ui.getCategoryColor
+import com.aifactory.appmessagecapture.ui.getCategoryIconRes
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
 import com.aifactory.appmessagecapture.ui.theme.ReportBlue
@@ -59,6 +62,7 @@ import com.aifactory.appmessagecapture.ui.theme.ReportTextGray
 @Composable
 fun ReportScreen(
     onBack: () -> Unit,
+    modifier: Modifier = Modifier,
     viewModel: ReportViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -84,6 +88,7 @@ fun ReportScreen(
     }
 
     Scaffold(
+        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = { Text("收支报表", fontWeight = FontWeight.Bold, color = ReportTextDark) },
@@ -994,7 +999,7 @@ private fun DonutChartWithLabels(
     modifier: Modifier = Modifier
 ) {
     val textMeasurer = rememberTextMeasurer()
-    val colors = listOf(
+    val fallbackColors = listOf(
         Color(0xFF2196F3), Color(0xFF42A5F5), Color(0xFF64B5F6),
         Color(0xFF90CAF9), Color(0xFF03A9F4), Color(0xFF00BCD4),
         Color(0xFF009688), Color(0xFF4CAF50), Color(0xFF8BC34A),
@@ -1011,8 +1016,11 @@ private fun DonutChartWithLabels(
             var startAngle = -90f
             data.forEachIndexed { index, stat ->
                 val sweepAngle = (stat.percentage * 360).toFloat()
+                val arcColor = getCategoryColor(stat.category).let {
+                    if (it == getCategoryColor("")) fallbackColors[index % fallbackColors.size] else it
+                }
                 drawArc(
-                    color = colors[index % colors.size],
+                    color = arcColor,
                     startAngle = startAngle,
                     sweepAngle = sweepAngle,
                     useCenter = false,
@@ -1021,16 +1029,19 @@ private fun DonutChartWithLabels(
                     style = Stroke(width = strokeWidth)
                 )
 
-                if (data.size <= 6) {
+                if (data.size <= 6 || stat.percentage >= 0.05) {
                     val midAngle = startAngle + sweepAngle / 2
                     val midRad = Math.toRadians(midAngle.toDouble())
                     val labelRadius = radius + strokeWidth / 2 + 18.dp.toPx()
                     val labelX = centerX + (labelRadius * cos(midRad)).toFloat()
                     val labelY = centerY + (labelRadius * sin(midRad)).toFloat()
 
-                    val text =
-                        "${stat.category} ${String.format("%.2f", stat.percentage * 100)}%"
-                    val textStyle = TextStyle(fontSize = 11.sp, color = ReportTextGray)
+                    val text = if (data.size <= 6) {
+                        "${stat.category} ${String.format("%.1f", stat.percentage * 100)}%"
+                    } else {
+                        "${String.format("%.1f", stat.percentage * 100)}%"
+                    }
+                    val textStyle = TextStyle(fontSize = 10.sp, color = ReportTextGray)
                     val textResult = textMeasurer.measure(text = text, style = textStyle)
 
                     val textOffset = if (labelX < centerX) {
@@ -1054,7 +1065,7 @@ private fun DonutChartWithLabels(
                     val lineEndY = labelY
 
                     drawLine(
-                        color = colors[index % colors.size],
+                        color = arcColor,
                         start = Offset(lineStartX, lineStartY),
                         end = Offset(lineEndX, lineEndY),
                         strokeWidth = 1f
@@ -1080,13 +1091,7 @@ private fun CategoryListItem(
     stat: ReportViewModel.CategoryStat,
     onClick: () -> Unit = {}
 ) {
-    val colors = listOf(
-        Color(0xFF2196F3), Color(0xFF42A5F5), Color(0xFF64B5F6),
-        Color(0xFF90CAF9), Color(0xFF03A9F4), Color(0xFF00BCD4),
-        Color(0xFF009688), Color(0xFF4CAF50), Color(0xFF8BC34A),
-        Color(0xFFFFC107), Color(0xFFFF9800), Color(0xFFFF5722)
-    )
-    val color = colors[(rank - 1) % colors.size]
+    val color = getCategoryColor(stat.category)
 
     Row(
         modifier = Modifier
@@ -1109,12 +1114,22 @@ private fun CategoryListItem(
                 .background(color.copy(alpha = 0.15f)),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = stat.category.take(1),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = color
-            )
+            val iconRes = getCategoryIconRes(stat.category)
+            if (iconRes != 0) {
+                Icon(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = stat.category,
+                    modifier = Modifier.size(18.dp),
+                    tint = color
+                )
+            } else {
+                Text(
+                    text = stat.category.take(1),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = color
+                )
+            }
         }
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

@@ -16,8 +16,8 @@ import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
  * Room database for locally storing captured notifications and birthday records.
  */
 @Database(
-    entities = [NotificationEntity::class, BillEntity::class, BirthdayEntity::class],
-    version = 10,
+    entities = [NotificationEntity::class, BillEntity::class, BirthdayEntity::class, RecurringBillEntity::class],
+    version = 11,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -26,6 +26,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun notificationDao(): NotificationDao
     abstract fun billDao(): BillDao
     abstract fun birthdayDao(): BirthdayDao
+    abstract fun recurringBillDao(): RecurringBillDao
 
     companion object {
         @Volatile
@@ -230,6 +231,34 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Migrate from v10 to v11:
+         * Create `recurring_bills` table for recurring/periodic bill templates.
+         */
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                BirthdayLog.i("[DB Migration] Executing MIGRATION_10_11: creating recurring_bills table")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS recurring_bills (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        title TEXT NOT NULL,
+                        amount REAL NOT NULL,
+                        category TEXT NOT NULL DEFAULT '未分类',
+                        isIncome INTEGER NOT NULL DEFAULT 0,
+                        frequency TEXT NOT NULL DEFAULT 'MONTHLY',
+                        startDate INTEGER NOT NULL,
+                        nextDueDate INTEGER NOT NULL,
+                        isActive INTEGER NOT NULL DEFAULT 1,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                BirthdayLog.i("[DB Migration] MIGRATION_10_11 completed")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -237,10 +266,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "notification_database"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                     .build()
                 INSTANCE = instance
-                BirthdayLog.i("AppDatabase initialized. Version=10")
+                BirthdayLog.i("AppDatabase initialized. Version=11")
                 instance
             }
         }

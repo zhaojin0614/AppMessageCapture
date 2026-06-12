@@ -39,14 +39,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -61,6 +65,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.SelectableDates
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -138,6 +144,7 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
@@ -168,10 +175,20 @@ fun BillScreen(
     var showEditDialog by remember { mutableStateOf(false) }
     var billToEdit by remember { mutableStateOf<BillEntity?>(null) }
     var showReport by remember { mutableStateOf(false) }
+    var showRecurringBills by remember { mutableStateOf(false) }
 
     if (showReport) {
         com.aifactory.appmessagecapture.ui.report.ReportScreen(
-            onBack = { showReport = false }
+            onBack = { showReport = false },
+            modifier = modifier
+        )
+        return
+    }
+
+    if (showRecurringBills) {
+        RecurringBillScreen(
+            onBack = { showRecurringBills = false },
+            modifier = modifier
         )
         return
     }
@@ -309,6 +326,13 @@ fun BillScreen(
                             )
                         }
                     } else {
+                        IconButton(onClick = { showRecurringBills = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Repeat,
+                                contentDescription = "周期账单",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         IconButton(onClick = { showReport = true }) {
                             Icon(
                                 imageVector = Icons.Default.BarChart,
@@ -1217,6 +1241,7 @@ fun DayGroupCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddBillDialog(
     onAdd: (BillEntity) -> Unit,
@@ -1225,6 +1250,9 @@ fun AddBillDialog(
     var title by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("") }
     var isIncome by remember { mutableStateOf(false) }
+    val today = remember { LocalDate.now() }
+    var selectedDate by remember { mutableStateOf(today) }
+    var showDatePicker by remember { mutableStateOf(false) }
     val expenseCategories = ExpenseCategories.all
     val incomeCategories = IncomeCategories.all
     val categories = if (isIncome) incomeCategories else expenseCategories
@@ -1310,6 +1338,46 @@ fun AddBillDialog(
                     prefix = { Text("¥") }
                 )
 
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Date picker row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { showDatePicker = true }
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = "选择日期",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "日期",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    val dateLabel = when (selectedDate) {
+                        today -> "今天"
+                        today.minusDays(1) -> "昨天"
+                        today.plusDays(1) -> "明天"
+                        else -> selectedDate.format(DateTimeFormatter.ofPattern("MM月dd日"))
+                    }
+                    val weekDay = selectedDate.format(DateTimeFormatter.ofPattern(" EEE"))
+                    Text(
+                        text = "$dateLabel$weekDay",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (selectedDate != today) PrimaryOrange else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Category grid using LazyVerticalGrid for perfect 4-column layout
@@ -1362,6 +1430,15 @@ fun AddBillDialog(
                             .clickable {
                                 val amt = amountText.toDoubleOrNull() ?: 0.0
                                 if (title.isNotBlank() && amt > 0) {
+                                    val ts = if (selectedDate == today) {
+                                        System.currentTimeMillis()
+                                    } else {
+                                        selectedDate
+                                            .atTime(12, 0)
+                                            .atZone(ZoneId.systemDefault())
+                                            .toInstant()
+                                            .toEpochMilli()
+                                    }
                                     onAdd(
                                         BillEntity(
                                             amount = amt,
@@ -1370,7 +1447,7 @@ fun AddBillDialog(
                                             title = title,
                                             category = selectedCategory,
                                             isIncome = isIncome,
-                                            timestamp = System.currentTimeMillis()
+                                            timestamp = ts
                                         )
                                     )
                                 }
@@ -1386,6 +1463,49 @@ fun AddBillDialog(
                     }
                 }
             }
+        }
+    }
+
+    // Date picker dialog
+    if (showDatePicker) {
+        val todayMillis = remember {
+            LocalDate.now()
+                .atStartOfDay(ZoneOffset.UTC)
+                .toInstant()
+                .toEpochMilli()
+        }
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate
+                .atStartOfDay(ZoneOffset.UTC)
+                .toInstant()
+                .toEpochMilli(),
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    return utcTimeMillis <= todayMillis
+                }
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        selectedDate = Instant.ofEpochMilli(millis)
+                            .atZone(ZoneOffset.UTC)
+                            .toLocalDate()
+                    }
+                    showDatePicker = false
+                }) {
+                    Text("确定")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("取消")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 }
@@ -1429,7 +1549,7 @@ fun EmptyBillState() {
     }
 }
 
-private fun getCategoryColor(category: String): Color {
+internal fun getCategoryColor(category: String): Color {
     return when (category) {
         // 支出类别
         ExpenseCategories.FOOD -> CategoryFood
@@ -1459,7 +1579,7 @@ private fun getCategoryColor(category: String): Color {
     }
 }
 
-private fun getCategoryIconRes(category: String): Int {
+internal fun getCategoryIconRes(category: String): Int {
     return when (category) {
         // 支出类别
         ExpenseCategories.FOOD -> R.drawable.ic_category_food
