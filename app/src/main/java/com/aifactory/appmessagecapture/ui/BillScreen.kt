@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +27,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -476,24 +480,25 @@ fun BillScreen(
                 showCategoryPicker = false
                 categoryBillToEdit = null
             },
-            title = { Text("修改分类") },
+            title = { Text(if (bill.isIncome) "修改收入分类" else "修改支出分类") },
             text = {
-                Row(
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        .heightIn(max = 320.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    availableCategories.forEach { cat ->
-                        CategoryChip(
+                    items(availableCategories) { cat ->
+                        CategoryGridItem(
                             label = cat,
                             isSelected = bill.category == cat,
                             onClick = {
                                 viewModel.updateCategory(bill.id, cat)
                                 showCategoryPicker = false
                                 categoryBillToEdit = null
-                            },
-                            showIcon = true
+                            }
                         )
                     }
                 }
@@ -851,6 +856,59 @@ fun CategoryChip(
     }
 }
 
+/**
+ * Vertical grid item for category selection dialogs (AddBill / ChangeCategory).
+ * Icon on top with a colored circle background, label below.
+ * Uses Modifier.weight(1f) so 4 items fit perfectly in a row.
+ */
+@Composable
+fun CategoryGridItem(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val categoryColor = getCategoryColor(label)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(
+                    if (isSelected) categoryColor
+                    else categoryColor.copy(alpha = 0.12f)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            val iconRes = getCategoryIconRes(label)
+            if (iconRes != 0) {
+                Icon(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp),
+                    tint = if (isSelected) Color.White else categoryColor
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (isSelected) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
 @Composable
 fun MergedAppIcon(
     primaryPackage: String,
@@ -1178,7 +1236,7 @@ fun AddBillDialog(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = 8.dp),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface
@@ -1254,6 +1312,7 @@ fun AddBillDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // Category grid using LazyVerticalGrid for perfect 4-column layout
                 Text(
                     text = "选择分类",
                     fontSize = 14.sp,
@@ -1263,22 +1322,21 @@ fun AddBillDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                val rows = categories.chunked(4)
-                rows.forEach { row ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        row.forEach { cat ->
-                            CategoryChip(
-                                label = cat,
-                                isSelected = selectedCategory == cat,
-                                onClick = { selectedCategory = cat },
-                                showIcon = true
-                            )
-                        }
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 210.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    items(categories) { cat ->
+                        CategoryGridItem(
+                            label = cat,
+                            isSelected = selectedCategory == cat,
+                            onClick = { selectedCategory = cat }
+                        )
                     }
-                    Spacer(modifier = Modifier.height(6.dp))
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
