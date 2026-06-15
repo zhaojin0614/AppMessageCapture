@@ -303,9 +303,11 @@ class BirthdayViewModel(application: Application) : AndroidViewModel(application
         val result = com.aifactory.appmessagecapture.birthday.utils.BackupManager.importFromUri(context, uri, dao)
         result.onSuccess {
             BirthdayLog.i("[BirthdayViewModel] Import success. inserted=%d, updated=%d. Refreshing widgets & rescheduling alarms...", it.inserted, it.updated)
-            // ① 刷新桌面组件
+            // ① 刷新列表数据
+            refresh()
+            // ② 刷新桌面组件
             refreshWidgets(context)
-            // ② 为所有记录重新设置闹钟（新导入的记录也需要注册）
+            // ③ 为所有记录重新设置闹钟（新导入的记录也需要注册）
             BirthdayAlarmScheduler.rescheduleAll(context)
             BirthdayLog.i("[BirthdayViewModel] Widgets refreshed and alarms rescheduled after import.")
         }.onFailure {
