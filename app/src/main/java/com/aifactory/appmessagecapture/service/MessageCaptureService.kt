@@ -170,7 +170,8 @@ class MessageCaptureService : NotificationListenerService() {
             (content.contains("停止应用") || content.contains("了解详情") || content.contains("后台运行"))
         ) return true
         if (title.contains("正在运行") && content.contains("停止应用")) return true
-        if (content.contains("视频通话中")) return true
+        if (content.contains("视频通话中") || content.contains("你有一条新消息")) return true
+        if (title.contains("语音通话") || content.contains("语音通话")) return true
         // Stock Android
         if (content.contains("Running in background") || content.contains("Tap for more info")) return true
         return false

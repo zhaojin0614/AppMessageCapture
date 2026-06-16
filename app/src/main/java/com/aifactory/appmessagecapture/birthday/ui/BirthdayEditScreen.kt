@@ -1,6 +1,7 @@
 package com.aifactory.appmessagecapture.birthday.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -23,10 +25,12 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -35,6 +39,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -44,7 +49,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.aifactory.appmessagecapture.birthday.data.BirthdayEntity
 import com.aifactory.appmessagecapture.birthday.data.ReminderType
@@ -133,7 +142,7 @@ fun BirthdayEditScreen(
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // 姓名
             OutlinedTextField(
@@ -183,7 +192,7 @@ fun BirthdayEditScreen(
                 label = { Text("出生年份（可选，用于计算岁数）") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(12.dp)
             )
 
             // 提醒类型
@@ -196,7 +205,7 @@ fun BirthdayEditScreen(
             if (reminderType != ReminderType.NONE) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -221,8 +230,6 @@ fun BirthdayEditScreen(
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
 
             // 操作按钮
             Row(
@@ -268,7 +275,7 @@ fun BirthdayEditScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
@@ -277,6 +284,7 @@ fun BirthdayEditScreen(
 // 子组件
 // -------------------------------------------------------------------------
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CalendarTypeSelector(
     isLunar: Boolean,
@@ -290,26 +298,28 @@ private fun CalendarTypeSelector(
             color = MaterialTheme.colorScheme.onBackground
         )
         Spacer(modifier = Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                RadioButton(
-                    selected = !isLunar,
-                    onClick = { onToggle(false) }
-                )
-                Text("公历（阳历）", style = MaterialTheme.typography.bodyMedium)
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                RadioButton(
-                    selected = isLunar,
-                    onClick = { onToggle(true) }
-                )
-                Text("农历（阴历）", style = MaterialTheme.typography.bodyMedium)
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    RadioButton(
+                        selected = !isLunar,
+                        onClick = { onToggle(false) }
+                    )
+                    Text("公历（阳历）", style = MaterialTheme.typography.bodyMedium)
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    RadioButton(
+                        selected = isLunar,
+                        onClick = { onToggle(true) }
+                    )
+                    Text("农历（阴历）", style = MaterialTheme.typography.bodyMedium)
+                }
             }
         }
     }
@@ -325,22 +335,49 @@ private fun NumberDropdown(
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val textStyle = MaterialTheme.typography.bodyLarge
+    val colors = OutlinedTextFieldDefaults.colors()
+    val shape = RoundedCornerShape(16.dp)
 
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
         modifier = modifier
     ) {
-        OutlinedTextField(
+        BasicTextField(
             value = "$selected",
             onValueChange = {},
             readOnly = true,
-            label = { Text(label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            interactionSource = interactionSource,
             modifier = Modifier
                 .fillMaxWidth()
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-            shape = RoundedCornerShape(16.dp)
+            decorationBox = { innerTextField ->
+                OutlinedTextFieldDefaults.DecorationBox(
+                    value = "$selected",
+                    innerTextField = innerTextField,
+                    enabled = true,
+                    singleLine = true,
+                    visualTransformation = VisualTransformation.None,
+                    interactionSource = interactionSource,
+                    label = { Text(label) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    colors = colors,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    container = {
+                        OutlinedTextFieldDefaults.Container(
+                            enabled = true,
+                            isError = false,
+                            interactionSource = interactionSource,
+                            colors = colors,
+                            shape = shape
+                        )
+                    }
+                )
+            }
         )
         ExposedDropdownMenu(
             expanded = expanded,
@@ -359,6 +396,7 @@ private fun NumberDropdown(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ReminderTypeSelector(
     selected: ReminderType,
@@ -372,20 +410,22 @@ private fun ReminderTypeSelector(
             color = MaterialTheme.colorScheme.onBackground
         )
         Spacer(modifier = Modifier.height(8.dp))
-        Column {
-            ReminderType.entries.forEach { type ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    RadioButton(
-                        selected = selected == type,
-                        onClick = { onSelected(type) }
-                    )
-                    Text(
-                        text = type.displayName,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ReminderType.entries.forEach { type ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        RadioButton(
+                            selected = selected == type,
+                            onClick = { onSelected(type) }
+                        )
+                        Text(
+                            text = type.displayName,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
             }
         }

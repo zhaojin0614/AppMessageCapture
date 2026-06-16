@@ -179,8 +179,7 @@ fun BillScreen(
 
     if (showReport) {
         com.aifactory.appmessagecapture.ui.report.ReportScreen(
-            onBack = { showReport = false },
-            modifier = modifier
+              onBack = { showReport = false }
         )
         return
     }
@@ -450,7 +449,7 @@ fun BillScreen(
                         .fillMaxSize()
                         .nestedScroll(nestedScrollConnection),
                     contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 0.dp, bottom = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(
                         items = groupedBills,
@@ -1184,7 +1183,7 @@ fun DayGroupCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)

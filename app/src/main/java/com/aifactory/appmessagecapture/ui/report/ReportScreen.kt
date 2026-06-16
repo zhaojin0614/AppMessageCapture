@@ -62,7 +62,6 @@ import com.aifactory.appmessagecapture.ui.theme.ReportTextGray
 @Composable
 fun ReportScreen(
     onBack: () -> Unit,
-    modifier: Modifier = Modifier,
     viewModel: ReportViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -88,7 +87,6 @@ fun ReportScreen(
     }
 
     Scaffold(
-        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = { Text("收支报表", fontWeight = FontWeight.Bold, color = ReportTextDark) },
