@@ -145,13 +145,12 @@ fun BirthdayEditScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // 姓名
-            OutlinedTextField(
+            CompactOutlinedField(
                 value = name,
                 onValueChange = { name = it },
                 label = { Text("亲友姓名 *") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp)
+                singleLine = true
             )
 
             // 公历 / 农历 切换
@@ -182,7 +181,7 @@ fun BirthdayEditScreen(
             }
 
             // 出生年份（可选）
-            OutlinedTextField(
+            CompactOutlinedField(
                 value = birthYear,
                 onValueChange = {
                     if (it.isEmpty() || it.matches(Regex("\\d{0,4}"))) {
@@ -191,8 +190,7 @@ fun BirthdayEditScreen(
                 },
                 label = { Text("出生年份（可选，用于计算岁数）") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp)
+                singleLine = true
             )
 
             // 提醒类型
@@ -409,7 +407,7 @@ private fun ReminderTypeSelector(
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onBackground
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ReminderType.entries.forEach { type ->
@@ -423,11 +421,61 @@ private fun ReminderTypeSelector(
                         )
                         Text(
                             text = type.displayName,
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodyLarge
                         )
                     }
                 }
             }
         }
     }
+}
+
+/**
+ * 紧凑版 OutlinedTextField，缩小内部上下留白（8dp/8dp 代替默认 16dp/16dp）。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CompactOutlinedField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: @Composable (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    singleLine: Boolean = false,
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(16.dp)
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val textStyle = MaterialTheme.typography.bodyLarge
+    val colors = OutlinedTextFieldDefaults.colors()
+
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = singleLine,
+        textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        interactionSource = interactionSource,
+        modifier = modifier,
+        decorationBox = { innerTextField ->
+            OutlinedTextFieldDefaults.DecorationBox(
+                value = value,
+                innerTextField = innerTextField,
+                enabled = true,
+                singleLine = singleLine,
+                visualTransformation = VisualTransformation.None,
+                interactionSource = interactionSource,
+                label = label,
+                colors = colors,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
+                container = {
+                    OutlinedTextFieldDefaults.Container(
+                        enabled = true,
+                        isError = false,
+                        interactionSource = interactionSource,
+                        colors = colors,
+                        shape = shape
+                    )
+                }
+            )
+        }
+    )
 }
