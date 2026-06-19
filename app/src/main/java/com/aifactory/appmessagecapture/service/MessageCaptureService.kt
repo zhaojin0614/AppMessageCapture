@@ -237,20 +237,40 @@ class MessageCaptureService : NotificationListenerService() {
         )
 
         val dao = app.database.billDao()
-        val since = System.currentTimeMillis() - 15_000
 
-        // 1. Same-app deduplication: if same app posted a bill with same amount recently, skip
-        val sameAppDuplicate = dao.findRecentByAmountAndPackage(amount, packageName, since)
+        // Use notification postTime as time anchor (not current wall-clock time).
+        // This avoids timing mismatches caused by service processing delays or
+        // batched notification delivery on OEM ROMs.
+        val notificationTime = if (sbn.postTime > 0) sbn.postTime else System.currentTimeMillis()
+
+        // ── 1. Same-app deduplication ──────────────────────────────────────
+
+        // 1a. Content-based dedup: same app + same amount + same title = definite duplicate.
+        //     Uses a 60-second window to catch delayed duplicate deliveries.
+        val contentSince = notificationTime - 60_000
+        val contentDuplicate = dao.findRecentByAmountPackageAndTitle(amount, packageName, title, contentSince)
+        if (contentDuplicate != null) return
+
+        // 1b. Time-proximity dedup: same app + same amount within 60 seconds.
+        //     Even if the title text differs slightly, two notifications from the same
+        //     app with the same amount within 60 seconds are almost certainly the same payment.
+        val timeSince = notificationTime - 60_000
+        val sameAppDuplicate = dao.findRecentByAmountAndPackage(amount, packageName, timeSince)
         if (sameAppDuplicate != null) return
 
-        // 2. Cross-app: if a different app posted a bill with same amount recently, keep the one with higher weight
-        val existing = dao.findRecentByAmount(amount, since)
+        // ── 2. Cross-app deduplication / merge ─────────────────────────────
+        // If a different app already recorded a bill with the same amount within
+        // 60 seconds, they likely represent the same payment seen through different
+        // channels (e.g. merchant app + payment channel).  Keep the higher-weight app.
+        val crossSince = notificationTime - 60_000
+        val existing = dao.findRecentByAmount(amount, crossSince)
         if (existing != null && existing.packageName != packageName) {
             val existingWeight = getAppWeight(existing.packageName)
             val currentWeight = getAppWeight(packageName)
 
             if (currentWeight > existingWeight) {
-                // Current app has higher weight -> replace existing with current (no merge, just replace)
+                // Current app has higher weight (e.g. Meituan > WeChat Pay)
+                // → replace existing bill's metadata with the merchant app's info
                 val updatedBill = existing.copy(
                     appName = appName,
                     packageName = packageName,
@@ -271,8 +291,8 @@ class MessageCaptureService : NotificationListenerService() {
             }
             // If existing weight >= current weight, do nothing (keep existing)
         } else {
+            // No duplicate found — insert as new bill
             dao.insert(bill)
-            // 发送账单识别成功通知
             BillNotificationHelper.showBillRecognizedNotification(
                 context = app,
                 appName = bill.appName,

@@ -1159,10 +1159,10 @@ private fun CategoryListItem(
             text = "${String.format("%.1f", stat.percentage * 100)}%",
             fontSize = 12.sp,
             color = ReportTextGray,
-            modifier = Modifier.width(35.dp),
+            modifier = Modifier.width(40.dp),
             textAlign = TextAlign.End
         )
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(5.dp))
         Text(
             text = "¥${String.format("%.2f", stat.amount)}",
             fontSize = 14.sp,

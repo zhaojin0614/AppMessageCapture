@@ -105,4 +105,13 @@ interface BillDao {
      */
     @Query("SELECT * FROM bills WHERE amount = :amount AND packageName = :packageName AND timestamp >= :since ORDER BY timestamp DESC LIMIT 1")
     suspend fun findRecentByAmountAndPackage(amount: Double, packageName: String, since: Long): BillEntity?
+
+    /**
+     * Find a bill with the same amount, same app, AND same title within the recent time window.
+     * Used for content-based deduplication — if amount + app + title all match,
+     * it is definitively the same notification posted again (e.g. WeChat sends
+     * payment confirmation twice with identical text).
+     */
+    @Query("SELECT * FROM bills WHERE amount = :amount AND packageName = :packageName AND title = :title AND timestamp >= :since ORDER BY timestamp DESC LIMIT 1")
+    suspend fun findRecentByAmountPackageAndTitle(amount: Double, packageName: String, title: String, since: Long): BillEntity?
 }
