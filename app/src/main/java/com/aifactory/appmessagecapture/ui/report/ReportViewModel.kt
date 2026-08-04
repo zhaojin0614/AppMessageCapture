@@ -113,16 +113,38 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
             val selectedPrevTotal = if (showIncome) prevIncome else prevExpense
             val balance = currentIncome - currentExpense
 
-            val daysInPeriod = when (type) {
-                PeriodType.WEEK -> 7L
-                PeriodType.MONTH -> ChronoUnit.DAYS.between(currentRange.start, currentRange.end) + 1
-                PeriodType.YEAR -> 12L
+            // 日均/月均分母：历史周期按完整周期算，当前/未来周期按已过去的实际天数算。
+            // 例如今天是周二查看本周，分母应为2（已过2天），而非7（整周），因为后面几天还没账单。
+            val today = LocalDate.now()
+            val elapsedDays = when {
+                // 历史周期已完整结束，按完整周期天数算
+                offset < 0 -> when (type) {
+                    PeriodType.WEEK -> 7L
+                    PeriodType.MONTH -> ChronoUnit.DAYS.between(currentRange.start, currentRange.end) + 1
+                    PeriodType.YEAR -> 12L
+                }
+                // 当前/未来周期：按周期内已过去的实际天数算
+                else -> {
+                    val periodStart = currentRange.start
+                    val periodEnd = currentRange.end
+                    when {
+                        // 周期尚未开始（未来周期）
+                        today.isBefore(periodStart) -> 1L
+                        // 周期已结束（offset>=0 的边界情况），按完整周期
+                        today.isAfter(periodEnd) -> when (type) {
+                            PeriodType.WEEK -> 7L
+                            PeriodType.MONTH -> ChronoUnit.DAYS.between(currentRange.start, currentRange.end) + 1
+                            PeriodType.YEAR -> 12L
+                        }
+                        // 年视图按已过月数算（含当月）
+                        type == PeriodType.YEAR -> today.monthValue.toLong()
+                        // 周/月视图按已过天数算（含今天）
+                        else -> ChronoUnit.DAYS.between(periodStart, today) + 1
+                    }
+                }
             }.coerceAtLeast(1)
 
-            val dailyAvg = when (type) {
-                PeriodType.YEAR -> selectedCurrentTotal / 12.0
-                else -> selectedCurrentTotal / daysInPeriod
-            }
+            val dailyAvg = selectedCurrentTotal / elapsedDays
 
             val trendData = calculateTrendData(currentBills, type, showIncome)
             val barData = calculateBarData(bills, type, showIncome, offset)

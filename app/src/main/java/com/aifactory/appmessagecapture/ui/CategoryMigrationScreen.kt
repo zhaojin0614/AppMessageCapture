@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.aifactory.appmessagecapture.data.AppDatabase
+import com.aifactory.appmessagecapture.ui.components.SoftButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -92,7 +93,8 @@ fun CategoryMigrationScreen(
             
             Spacer(modifier = Modifier.height(24.dp))
             
-            Button(
+            SoftButton(
+                text = "执行迁移",
                 onClick = {
                     scope.launch {
                         withContext(Dispatchers.IO) {
@@ -107,9 +109,7 @@ fun CategoryMigrationScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !migrationComplete
-            ) {
-                Text("执行迁移")
-            }
+            )
             
             if (migrationComplete) {
                 Spacer(modifier = Modifier.height(16.dp))

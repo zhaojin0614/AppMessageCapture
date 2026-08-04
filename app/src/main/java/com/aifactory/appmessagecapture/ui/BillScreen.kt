@@ -2,7 +2,6 @@
 
 package com.aifactory.appmessagecapture.ui
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -11,14 +10,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -36,6 +33,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Close
@@ -57,7 +55,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -79,9 +76,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -106,6 +101,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.data.BillEntity
+import com.aifactory.appmessagecapture.ui.components.PillToggle
+import com.aifactory.appmessagecapture.ui.components.SoftButton
+import com.aifactory.appmessagecapture.ui.components.SoftCard
+import com.aifactory.appmessagecapture.ui.components.SoftGradientCard
 import com.aifactory.appmessagecapture.ui.components.SwipeableItem
 import com.aifactory.appmessagecapture.ui.components.SwipeableItemCoordinator
 import com.aifactory.appmessagecapture.ui.theme.CategoryBeauty
@@ -130,23 +129,17 @@ import com.aifactory.appmessagecapture.ui.theme.CategoryTransport
 import com.aifactory.appmessagecapture.ui.theme.CategoryUncategorized
 import com.aifactory.appmessagecapture.R
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
-import com.aifactory.appmessagecapture.ui.theme.ExpenseRedLight
+import com.aifactory.appmessagecapture.ui.theme.GradientExpenseEnd
+import com.aifactory.appmessagecapture.ui.theme.GradientExpenseStart
+import com.aifactory.appmessagecapture.ui.theme.GradientIncomeEnd
+import com.aifactory.appmessagecapture.ui.theme.GradientIncomeStart
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
-import com.aifactory.appmessagecapture.ui.theme.IncomeGreenLight
-import com.aifactory.appmessagecapture.ui.theme.PrimaryOrange
-import com.aifactory.appmessagecapture.ui.theme.PrimaryOrangeDark
-import com.aifactory.appmessagecapture.ui.theme.PrimaryOrangeLight
-import com.aifactory.appmessagecapture.ui.theme.SecondaryPurple
-import com.aifactory.appmessagecapture.ui.theme.SecondaryPurpleLight
-import com.aifactory.appmessagecapture.ui.theme.SecondaryPurpleLighter
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -157,6 +150,8 @@ fun BillScreen(
     val bills by viewModel.allBills.collectAsState()
     val totalExpense by viewModel.totalExpense.collectAsState()
     val totalIncome by viewModel.totalIncome.collectAsState()
+    val totalAccountBalance by viewModel.totalAccountBalance.collectAsState()
+    val platforms by viewModel.platforms.collectAsState()
     val todayExpense by viewModel.todayExpense.collectAsState()
     val todayIncome by viewModel.todayIncome.collectAsState()
     val expenseCount by viewModel.expenseCount.collectAsState()
@@ -176,6 +171,9 @@ fun BillScreen(
     var billToEdit by remember { mutableStateOf<BillEntity?>(null) }
     var showReport by remember { mutableStateOf(false) }
     var showRecurringBills by remember { mutableStateOf(false) }
+    var showPlatformAccounts by remember { mutableStateOf(false) }
+    // 待对账账单的平台分配弹窗
+    var reconcileBill by remember { mutableStateOf<BillEntity?>(null) }
 
     if (showReport) {
         com.aifactory.appmessagecapture.ui.report.ReportScreen(
@@ -187,6 +185,14 @@ fun BillScreen(
     if (showRecurringBills) {
         RecurringBillScreen(
             onBack = { showRecurringBills = false },
+            modifier = modifier
+        )
+        return
+    }
+
+    if (showPlatformAccounts) {
+        PlatformAccountScreen(
+            onBack = { showPlatformAccounts = false },
             modifier = modifier
         )
         return
@@ -325,6 +331,13 @@ fun BillScreen(
                             )
                         }
                     } else {
+                        IconButton(onClick = { showPlatformAccounts = true }) {
+                            Icon(
+                                imageVector = Icons.Default.AccountBalanceWallet,
+                                contentDescription = "账户管理",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         IconButton(onClick = { showRecurringBills = true }) {
                             Icon(
                                 imageVector = Icons.Default.Repeat,
@@ -347,7 +360,7 @@ fun BillScreen(
             if (!isSelectionMode) {
                 FloatingActionButton(
                     onClick = { showAddDialog = true },
-                    containerColor = PrimaryOrange,
+                    containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = Color.White,
                     shape = CircleShape
                 ) {
@@ -369,7 +382,8 @@ fun BillScreen(
                 expenseCount = expenseCount,
                 incomeCount = incomeCount,
                 totalExpense = totalExpense,
-                totalIncome = totalIncome
+                totalIncome = totalIncome,
+                totalAccountBalance = totalAccountBalance
             )
 
             // Income / Expense Summary Cards
@@ -392,7 +406,7 @@ fun BillScreen(
                     val chipColor = when (type) {
                         "支出" -> ExpenseRed
                         "收入" -> IncomeGreen
-                        else -> PrimaryOrange
+                        else -> MaterialTheme.colorScheme.primary
                     }
                     Surface(
                         shape = RoundedCornerShape(16.dp),
@@ -460,6 +474,7 @@ fun BillScreen(
                             bills = dayBills,
                             isSelectionMode = isSelectionMode,
                             selectedIds = selectedIds,
+                            platforms = platforms,
                             onBillClick = { bill ->
                                 if (isSelectionMode) {
                                     viewModel.toggleSelection(bill.id)
@@ -477,6 +492,11 @@ fun BillScreen(
                                 if (!isSelectionMode) {
                                     categoryBillToEdit = bill
                                     showCategoryPicker = true
+                                }
+                            },
+                            onReconcile = { bill ->
+                                if (!isSelectionMode) {
+                                    reconcileBill = bill
                                 }
                             },
                             onDelete = { bill ->
@@ -541,6 +561,7 @@ fun BillScreen(
     // Add bill dialog
     if (showAddDialog) {
         AddBillDialog(
+            platforms = platforms,
             onAdd = { bill ->
                 viewModel.addBill(bill)
                 showAddDialog = false
@@ -553,20 +574,59 @@ fun BillScreen(
     if (showEditDialog && billToEdit != null) {
         val bill = billToEdit!!
         var editTitle by remember { mutableStateOf(bill.title) }
+        var showEditPlatformPicker by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = {
                 showEditDialog = false
                 billToEdit = null
             },
-            title = { Text("修改标题") },
+            title = { Text("编辑账单") },
             text = {
-                TextField(
-                    value = editTitle,
-                    onValueChange = { editTitle = it },
-                    label = { Text("标题") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
+                Column {
+                    TextField(
+                        value = editTitle,
+                        onValueChange = { editTitle = it },
+                        label = { Text("标题") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    // 平台修改入口
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { showEditPlatformPicker = true }
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AccountBalanceWallet,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = if (bill.isIncome) "存入平台" else "扣款平台",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        val currentPlatformName = bill.platformAccountId?.let { id ->
+                            platforms.firstOrNull { it.id == id }?.name
+                        }
+                        Text(
+                            text = currentPlatformName ?: "待对账",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (bill.platformAccountId != null)
+                                MaterialTheme.colorScheme.onSurface
+                            else ExpenseRed
+                        )
+                    }
+                }
             },
             confirmButton = {
                 TextButton(
@@ -590,6 +650,21 @@ fun BillScreen(
                 }
             }
         )
+
+        // 编辑弹窗内的平台选择
+        if (showEditPlatformPicker) {
+            PlatformPickerDialog(
+                platforms = platforms,
+                selectedId = bill.platformAccountId,
+                onSelect = { id ->
+                    viewModel.reconcileBill(bill.id, id)
+                    showEditPlatformPicker = false
+                    // 更新本地引用以便 UI 即时反映
+                    billToEdit = bill.copy(platformAccountId = id)
+                },
+                onDismiss = { showEditPlatformPicker = false }
+            )
+        }
     }
 
     // Single item delete confirmation
@@ -647,6 +722,20 @@ fun BillScreen(
             }
         )
     }
+
+    // 对账弹窗：为账单分配扣款平台
+    if (reconcileBill != null) {
+        val bill = reconcileBill!!
+        ReconcilePlatformDialog(
+            bill = bill,
+            platforms = platforms,
+            onAssign = { platformId ->
+                viewModel.reconcileBill(bill.id, platformId)
+                reconcileBill = null
+            },
+            onDismiss = { reconcileBill = null }
+        )
+    }
 }
 
 @Composable
@@ -656,7 +745,8 @@ fun BillPullDownStatsPanel(
     expenseCount: Int,
     incomeCount: Int,
     totalExpense: Double,
-    totalIncome: Double
+    totalIncome: Double,
+    totalAccountBalance: Double
 ) {
     if (pullOffset <= 0f) return
 
@@ -671,34 +761,47 @@ fun BillPullDownStatsPanel(
         contentAlignment = Alignment.Center
     ) {
         if (contentAlpha > 0f) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                BillStatItem(
-                    value = expenseCount.toString(),
-                    label = "支出笔数",
-                    alpha = contentAlpha
-                )
-                BillStatItem(
-                    value = "¥${String.format("%.2f", totalExpense)}",
-                    label = "累计支出",
-                    alpha = contentAlpha,
-                    valueColor = ExpenseRed.copy(alpha = contentAlpha)
-                )
-                BillStatItem(
-                    value = "¥${String.format("%.2f", totalIncome)}",
-                    label = "累计收入",
-                    alpha = contentAlpha,
-                    valueColor = IncomeGreen.copy(alpha = contentAlpha)
-                )
-                BillStatItem(
-                    value = incomeCount.toString(),
-                    label = "收入笔数",
-                    alpha = contentAlpha
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BillStatItem(
+                        value = expenseCount.toString(),
+                        label = "支出笔数",
+                        alpha = contentAlpha
+                    )
+                    BillStatItem(
+                        value = "¥${String.format("%.2f", totalExpense)}",
+                        label = "累计支出",
+                        alpha = contentAlpha,
+                        valueColor = ExpenseRed.copy(alpha = contentAlpha)
+                    )
+                    BillStatItem(
+                        value = "¥${String.format("%.2f", totalIncome)}",
+                        label = "累计收入",
+                        alpha = contentAlpha,
+                        valueColor = IncomeGreen.copy(alpha = contentAlpha)
+                    )
+                    BillStatItem(
+                        value = incomeCount.toString(),
+                        label = "收入笔数",
+                        alpha = contentAlpha
+                    )
+                }
+                // 账户总金额（所有平台余额之和）
+                Text(
+                    text = "账户总额 ¥${String.format("%.2f", totalAccountBalance)}",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = contentAlpha),
+                    modifier = Modifier.padding(top = 2.dp)
                 )
             }
         }
@@ -720,11 +823,13 @@ fun IncomeExpenseSummary(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Today Expense
-            BentoCard(
+            SoftGradientCard(
                 modifier = Modifier.weight(1f).heightIn(min = 96.dp),
                 brush = Brush.linearGradient(
-                    colors = listOf(ExpenseRed, ExpenseRedLight)
-                )
+                    colors = listOf(GradientExpenseStart, GradientExpenseEnd)
+                ),
+                shape = RoundedCornerShape(16.dp),
+                contentPadding = 14.dp
             ) {
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -753,11 +858,13 @@ fun IncomeExpenseSummary(
             }
 
             // Today Income
-            BentoCard(
+            SoftGradientCard(
                 modifier = Modifier.weight(1f).heightIn(min = 96.dp),
                 brush = Brush.linearGradient(
-                    colors = listOf(IncomeGreen, IncomeGreenLight)
-                )
+                    colors = listOf(GradientIncomeStart, GradientIncomeEnd)
+                ),
+                shape = RoundedCornerShape(16.dp),
+                contentPadding = 14.dp
             ) {
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -811,36 +918,6 @@ fun BillStatItem(
 }
 
 @Composable
-fun BentoCard(
-    modifier: Modifier = Modifier,
-    brush: Brush? = null,
-    backgroundColor: Color = Color.Transparent,
-    content: @Composable () -> Unit
-) {
-    Card(
-        modifier = modifier.clip(RoundedCornerShape(12.dp)),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Box(
-            modifier = if (brush != null) {
-                Modifier
-                    .fillMaxWidth()
-                    .background(brush, shape = RoundedCornerShape(12.dp))
-                    .padding(12.dp)
-            } else {
-                Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp)
-            }
-        ) {
-            content()
-        }
-    }
-}
-
-@Composable
 fun CategoryChip(
     label: String,
     isSelected: Boolean,
@@ -849,7 +926,7 @@ fun CategoryChip(
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = if (isSelected) PrimaryOrange else MaterialTheme.colorScheme.surface,
+        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
         shadowElevation = if (isSelected) 2.dp else 0.dp,
         modifier = Modifier.clickable { onClick() }
     ) {
@@ -1020,9 +1097,11 @@ fun BillCard(
     bill: BillEntity,
     isSelected: Boolean,
     isSelectionMode: Boolean,
+    platformName: String?,
     onClick: () -> Unit,
     onLongClick: () -> Unit = {},
     onCategoryClick: () -> Unit,
+    onReconcile: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -1073,7 +1152,7 @@ fun BillCard(
                     .size(40.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(
-                        if (iconBitmap == null) PrimaryOrangeLight else Color.Transparent
+                        if (iconBitmap == null) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -1088,7 +1167,7 @@ fun BillCard(
                     Text(
                         text = bill.appName.take(1).uppercase(),
                         fontWeight = FontWeight.Bold,
-                        color = PrimaryOrangeDark
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
             }
@@ -1128,6 +1207,36 @@ fun BillCard(
                             color = getCategoryColor(bill.category),
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
+                    }
+                    // 平台标记：已对账显示平台名（灰），未对账显示橙色"待对账"徽章
+                    Spacer(modifier = Modifier.width(4.dp))
+                    if (platformName != null) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        ) {
+                            Text(
+                                text = platformName,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    } else {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = ExpenseRed.copy(alpha = 0.12f),
+                            modifier = Modifier.clickable { onReconcile() }
+                        ) {
+                            Text(
+                                text = "待对账",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = ExpenseRed,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 }
                 val amountColor = if (bill.isIncome) IncomeGreen else ExpenseRed
@@ -1172,21 +1281,25 @@ fun DayGroupCard(
     bills: List<BillEntity>,
     isSelectionMode: Boolean,
     selectedIds: Set<Long>,
+    platforms: List<com.aifactory.appmessagecapture.data.PlatformAccountEntity>,
     onBillClick: (BillEntity) -> Unit,
     onBillLongClick: (BillEntity) -> Unit,
     onCategoryClick: (BillEntity) -> Unit,
+    onReconcile: (BillEntity) -> Unit,
     onDelete: (BillEntity) -> Unit
 ) {
     val dayExpense = bills.filter { !it.isIncome }.sumOf { it.amount }
     val dayIncome = bills.filter { it.isIncome }.sumOf { it.amount }
+    // 平台ID -> 名称，用于在卡片上显示扣款平台
+    val platformNameById = remember(platforms) {
+        platforms.associate { it.id to it.name }
+    }
 
-    Card(
+    SoftCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
             // Header: date + daily summary
@@ -1223,9 +1336,11 @@ fun DayGroupCard(
                         bill = bill,
                         isSelected = selectedIds.contains(bill.id),
                         isSelectionMode = isSelectionMode,
+                        platformName = bill.platformAccountId?.let { platformNameById[it] },
                         onClick = { onBillClick(bill) },
                         onLongClick = { onBillLongClick(bill) },
-                        onCategoryClick = { onCategoryClick(bill) }
+                        onCategoryClick = { onCategoryClick(bill) },
+                        onReconcile = { onReconcile(bill) }
                     )
                 }
                 if (index < bills.lastIndex) {
@@ -1243,6 +1358,7 @@ fun DayGroupCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddBillDialog(
+    platforms: List<com.aifactory.appmessagecapture.data.PlatformAccountEntity>,
     onAdd: (BillEntity) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1252,6 +1368,8 @@ fun AddBillDialog(
     val today = remember { LocalDate.now() }
     var selectedDate by remember { mutableStateOf(today) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var selectedPlatformId by remember { mutableStateOf<Long?>(null) }
+    var showPlatformPicker by remember { mutableStateOf(false) }
     val expenseCategories = ExpenseCategories.all
     val incomeCategories = IncomeCategories.all
     val categories = if (isIncome) incomeCategories else expenseCategories
@@ -1284,37 +1402,12 @@ fun AddBillDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Income / Expense toggle
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    listOf(false to "支出", true to "收入").forEach { (income, label) ->
-                        val isSelected = isIncome == income
-                        val bgColor = if (isSelected) {
-                            if (income) IncomeGreen else ExpenseRed
-                        } else Color.Transparent
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(bgColor)
-                                .clickable { isIncome = income; selectedCategory = categories.first() }
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = label,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
+                PillToggle(
+                    options = listOf("支出" to ExpenseRed, "收入" to IncomeGreen),
+                    selectedIndex = if (isIncome) 1 else 0,
+                    onSelect = { isIncome = it == 1; selectedCategory = categories.first() },
+                    modifier = Modifier.fillMaxWidth()
+                )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -1373,7 +1466,7 @@ fun AddBillDialog(
                         text = "$dateLabel$weekDay",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
-                        color = if (selectedDate != today) PrimaryOrange else MaterialTheme.colorScheme.onSurface
+                        color = if (selectedDate != today) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -1406,6 +1499,44 @@ fun AddBillDialog(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 平台选择行（支出=扣款平台，收入=存入平台），不选则为待对账
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { showPlatformPicker = true }
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccountBalanceWallet,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = if (isIncome) "存入平台" else "扣款平台",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    val platformLabel = selectedPlatformId?.let { id ->
+                        platforms.firstOrNull { it.id == id }?.name
+                    } ?: "未选择（待对账）"
+                    Text(
+                        text = platformLabel,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (selectedPlatformId != null)
+                            MaterialTheme.colorScheme.onSurface
+                        else ExpenseRed
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Row(
@@ -1419,47 +1550,37 @@ fun AddBillDialog(
                         Text("取消")
                     }
 
-                    val btnColor = if (isIncome) IncomeGreen else PrimaryOrange
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(btnColor)
-                            .clickable {
-                                val amt = amountText.toDoubleOrNull() ?: 0.0
-                                if (title.isNotBlank() && amt > 0) {
-                                    val ts = if (selectedDate == today) {
-                                        System.currentTimeMillis()
-                                    } else {
-                                        selectedDate
-                                            .atTime(12, 0)
-                                            .atZone(ZoneId.systemDefault())
-                                            .toInstant()
-                                            .toEpochMilli()
-                                    }
-                                    onAdd(
-                                        BillEntity(
-                                            amount = amt,
-                                            appName = if (isIncome) "手动记账-收入" else "手动记账-支出",
-                                            packageName = "",
-                                            title = title,
-                                            category = selectedCategory,
-                                            isIncome = isIncome,
-                                            timestamp = ts
-                                        )
-                                    )
+                    SoftButton(
+                        text = "添加",
+                        onClick = {
+                            val amt = amountText.toDoubleOrNull() ?: 0.0
+                            if (title.isNotBlank() && amt > 0) {
+                                val ts = if (selectedDate == today) {
+                                    System.currentTimeMillis()
+                                } else {
+                                    selectedDate
+                                        .atTime(12, 0)
+                                        .atZone(ZoneId.systemDefault())
+                                        .toInstant()
+                                        .toEpochMilli()
                                 }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "添加",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
+                                onAdd(
+                                    BillEntity(
+                                        amount = amt,
+                                        appName = if (isIncome) "手动记账-收入" else "手动记账-支出",
+                                        packageName = "",
+                                        title = title,
+                                        category = selectedCategory,
+                                        isIncome = isIncome,
+                                        timestamp = ts,
+                                        platformAccountId = selectedPlatformId
+                                    )
+                                )
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        backgroundColor = if (isIncome) IncomeGreen else MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }
@@ -1507,6 +1628,19 @@ fun AddBillDialog(
             DatePicker(state = datePickerState)
         }
     }
+
+    // Platform picker dialog
+    if (showPlatformPicker) {
+        PlatformPickerDialog(
+            platforms = platforms,
+            selectedId = selectedPlatformId,
+            onSelect = { id ->
+                selectedPlatformId = id
+                showPlatformPicker = false
+            },
+            onDismiss = { showPlatformPicker = false }
+        )
+    }
 }
 
 @Composable
@@ -1519,13 +1653,13 @@ fun EmptyBillState() {
             Surface(
                 modifier = Modifier.size(88.dp),
                 shape = CircleShape,
-                color = PrimaryOrangeLight
+                color = MaterialTheme.colorScheme.primaryContainer
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Default.Receipt,
                         contentDescription = null,
-                        tint = PrimaryOrange.copy(alpha = 0.5f),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                         modifier = Modifier.size(40.dp)
                     )
                 }
@@ -1546,6 +1680,176 @@ fun EmptyBillState() {
             )
         }
     }
+}
+
+/**
+ * 平台选择对话框（用于添加账单时选择扣款/存入平台）。
+ * 可选"未选择"（待对账）或具体平台。
+ */
+@Composable
+fun PlatformPickerDialog(
+    platforms: List<com.aifactory.appmessagecapture.data.PlatformAccountEntity>,
+    selectedId: Long?,
+    onSelect: (Long?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("选择平台") },
+        text = {
+            if (platforms.isEmpty()) {
+                Text(
+                    text = "暂无平台账户，请先在「账户管理」中添加平台。",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    // 未选择（待对账）选项
+                    item {
+                        PlatformPickerItem(
+                            name = "未选择（待对账）",
+                            balance = null,
+                            isSelected = selectedId == null,
+                            isUnreconciled = true,
+                            onClick = { onSelect(null) }
+                        )
+                    }
+                    items(platforms, key = { it.id }) { platform ->
+                        PlatformPickerItem(
+                            name = platform.name,
+                            balance = platform.balance,
+                            isSelected = selectedId == platform.id,
+                            isUnreconciled = false,
+                            onClick = { onSelect(platform.id) }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        }
+    )
+}
+
+@Composable
+private fun PlatformPickerItem(
+    name: String,
+    balance: Double?,
+    isSelected: Boolean,
+    isUnreconciled: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent
+            )
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(
+                    if (isUnreconciled) ExpenseRed.copy(alpha = 0.12f) else MaterialTheme.colorScheme.primaryContainer
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = if (isUnreconciled) "?" else name.take(1).uppercase(),
+                fontWeight = FontWeight.Bold,
+                color = if (isUnreconciled) ExpenseRed else MaterialTheme.colorScheme.primary,
+                fontSize = 14.sp
+            )
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(
+            text = name,
+            fontSize = 15.sp,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        if (balance != null) {
+            Text(
+                text = "¥${String.format("%.2f", balance)}",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/**
+ * 对账对话框：为待对账（或已对账）账单分配/更换扣款平台。
+ * 支出从所选平台扣款，收入存入所选平台；选"取消对账"回滚到待对账。
+ */
+@Composable
+fun ReconcilePlatformDialog(
+    bill: BillEntity,
+    platforms: List<com.aifactory.appmessagecapture.data.PlatformAccountEntity>,
+    onAssign: (Long?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val typeLabel = if (bill.isIncome) "存入平台" else "扣款平台"
+    val amountPrefix = if (bill.isIncome) "+" else "-"
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("对账 - ${bill.title}") },
+        text = {
+            Column {
+                Text(
+                    text = "$amountPrefix¥${String.format("%.2f", bill.amount)} · 选择$typeLabel",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                if (platforms.isEmpty()) {
+                    Text(
+                        text = "暂无平台账户，请先在「账户管理」中添加平台。",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        item {
+                            PlatformPickerItem(
+                                name = "取消对账（待对账）",
+                                balance = null,
+                                isSelected = bill.platformAccountId == null,
+                                isUnreconciled = true,
+                                onClick = { onAssign(null) }
+                            )
+                        }
+                        items(platforms, key = { it.id }) { platform ->
+                            PlatformPickerItem(
+                                name = platform.name,
+                                balance = platform.balance,
+                                isSelected = bill.platformAccountId == platform.id,
+                                isUnreconciled = false,
+                                onClick = { onAssign(platform.id) }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("关闭") }
+        }
+    )
 }
 
 internal fun getCategoryColor(category: String): Color {

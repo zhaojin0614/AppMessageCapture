@@ -47,6 +47,20 @@ interface NotificationDao {
 
     @Query("SELECT COUNT(*) FROM notifications WHERE timestamp >= :since")
     fun countNotificationsSince(since: Long): Flow<Int>
+
+    /**
+     * Delete notifications older than [before] timestamp.
+     * Used by [com.aifactory.appmessagecapture.worker.NotificationCleanupWorker]
+     * to prune messages older than one month and relieve storage pressure.
+     *
+     * @return number of deleted rows.
+     */
+    @Query("DELETE FROM notifications WHERE timestamp < :before")
+    suspend fun deleteOlderThan(before: Long): Int
+
+    /** Count notifications older than [before] (for logging before deletion). */
+    @Query("SELECT COUNT(*) FROM notifications WHERE timestamp < :before")
+    suspend fun countOlderThan(before: Long): Int
 }
 
 /**

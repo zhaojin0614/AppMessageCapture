@@ -3,8 +3,10 @@ package com.aifactory.appmessagecapture.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.aifactory.appmessagecapture.data.AccountRepository
 import com.aifactory.appmessagecapture.data.AppDatabase
 import com.aifactory.appmessagecapture.data.BillEntity
+import com.aifactory.appmessagecapture.data.PlatformAccountEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +20,10 @@ import kotlinx.coroutines.launch
 
 class BillViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val billDao = AppDatabase.getDatabase(application).billDao()
+    private val db = AppDatabase.getDatabase(application)
+    private val billDao = db.billDao()
+    private val platformDao = db.platformAccountDao()
+    private val repository = AccountRepository(db, billDao, platformDao)
 
     private val _weeksToLoad = MutableStateFlow(1)
 
@@ -40,6 +45,19 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
     val totalIncome: StateFlow<Double> = billDao.getTotalIncome()
         .map { it ?: 0.0 }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    /**
+     * 所有平台账户余额之和，展示在记账界面下拉面板。
+     */
+    val totalAccountBalance: StateFlow<Double> = platformDao.getTotalBalance()
+        .map { it ?: 0.0 }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    /**
+     * 平台账户列表，供添加账单/对账时选择扣款平台。
+     */
+    val platforms: StateFlow<List<PlatformAccountEntity>> = platformDao.getAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /**
      * Reactive startOfDay that re-emits at every midnight,
@@ -99,7 +117,8 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
         val ids = _selectedIds.value.toList()
         if (ids.isNotEmpty()) {
             viewModelScope.launch(Dispatchers.IO) {
-                ids.forEach { billDao.deleteById(it) }
+                // 走 repository 逐个删除，保证已对账账单的余额回滚
+                ids.forEach { repository.deleteBillWithRollback(it) }
             }
             _selectedIds.value = emptySet()
         }
@@ -107,7 +126,7 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
 
     fun addBill(bill: BillEntity) {
         viewModelScope.launch(Dispatchers.IO) {
-            billDao.insert(bill)
+            repository.addBillWithPlatform(bill)
         }
     }
 
@@ -123,9 +142,19 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * 为账单分配扣款平台（对账）。传 null 表示取消对账。
+     * 会自动回滚旧平台余额并应用新平台余额。
+     */
+    fun reconcileBill(billId: Long, platformId: Long?) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.reconcileBill(billId, platformId)
+        }
+    }
+
     fun deleteBill(id: Long) {
         viewModelScope.launch(Dispatchers.IO) {
-            billDao.deleteById(id)
+            repository.deleteBillWithRollback(id)
         }
     }
 

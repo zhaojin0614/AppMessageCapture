@@ -3,7 +3,9 @@ package com.aifactory.appmessagecapture.ui.theme
 import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -14,46 +16,68 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 
 private val LightColorScheme = lightColorScheme(
-    primary = PrimaryOrange,
-    onPrimary = OnPrimaryLight,
-    primaryContainer = PrimaryOrangeLight,
-    onPrimaryContainer = PrimaryOrangeDark,
-    secondary = SecondaryPurple,
-    onSecondary = OnSecondaryLight,
-    secondaryContainer = SecondaryPurpleLight,
-    onSecondaryContainer = SecondaryPurpleDark,
+    primary = BrandTeal,
+    onPrimary = OnBrandTeal,
+    primaryContainer = BrandTealLight,
+    onPrimaryContainer = BrandTealDark,
+    secondary = MistBlue,
+    onSecondary = OnMistBlue,
+    secondaryContainer = MistBlueLight,
+    onSecondaryContainer = MistBlueDark,
+    tertiary = SandGold,
+    onTertiary = OnBrandTeal,
+    tertiaryContainer = SandGoldLight,
+    onTertiaryContainer = SandGoldDark,
     background = BackgroundLight,
     onBackground = OnBackgroundLight,
     surface = SurfaceLight,
     onSurface = OnSurfaceLight,
-    surfaceVariant = SearchBackground,
+    surfaceVariant = SurfaceVariantLight,
     onSurfaceVariant = OnSurfaceVariantLight,
     error = ErrorRed,
     onError = OnErrorLight,
+    errorContainer = ErrorContainerLight,
+    onErrorContainer = OnErrorContainerLight,
     outline = OutlineLight
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryOrange,
-    onPrimary = OnPrimaryLight,
-    primaryContainer = PrimaryOrangeDark,
-    onPrimaryContainer = PrimaryOrangeLight,
-    secondary = SecondaryPurpleLight,
-    onSecondary = SecondaryPurpleDark,
-    secondaryContainer = SecondaryPurpleDark,
-    onSecondaryContainer = SecondaryPurpleLight,
-    background = Color(0xFF121212),
-    onBackground = Color(0xFFE0E0E0),
-    surface = Color(0xFF1E1E1E),
-    onSurface = Color(0xFFE0E0E0),
-    surfaceVariant = Color(0xFF2C2C2C),
-    onSurfaceVariant = Color(0xFFBDBDBD),
-    error = Color(0xFFEF5350),
-    onError = Color(0xFF000000),
-    outline = Color(0xFF616161)
+    primary = BrandTeal,
+    onPrimary = OnBrandTeal,
+    primaryContainer = Color(0xFF14524A),
+    onPrimaryContainer = Color(0xFFA8F0E4),
+    secondary = Color(0xFF9FBFE4),
+    onSecondary = Color(0xFF1B3447),
+    secondaryContainer = Color(0xFF2E4659),
+    onSecondaryContainer = Color(0xFFC9DDF4),
+    tertiary = Color(0xFFD9B98C),
+    onTertiary = Color(0xFF3A2A15),
+    tertiaryContainer = Color(0xFF4A3B26),
+    onTertiaryContainer = Color(0xFFF7E5C8),
+    background = BackgroundDark,
+    onBackground = OnBackgroundDark,
+    surface = SurfaceDark,
+    onSurface = OnSurfaceDark,
+    surfaceVariant = SurfaceVariantDark,
+    onSurfaceVariant = OnSurfaceVariantDark,
+    error = ErrorRedDark,
+    onError = OnErrorDark,
+    errorContainer = ErrorContainerDark,
+    onErrorContainer = OnErrorContainerDark,
+    outline = OutlineDark
+)
+
+// Soft UI shape scale: 8 / 16 / 24 / 28 dp
+val SoftShapes = Shapes(
+    extraSmall = RoundedCornerShape(6.dp),
+    small = RoundedCornerShape(8.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(24.dp)
 )
 
 @Composable
@@ -82,6 +106,7 @@ fun AppMessageCaptureTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = SoftShapes,
         content = content
     )
 }

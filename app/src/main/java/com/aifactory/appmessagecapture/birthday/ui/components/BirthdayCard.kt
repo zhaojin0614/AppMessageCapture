@@ -2,6 +2,7 @@
 
 package com.aifactory.appmessagecapture.birthday.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -62,7 +63,8 @@ fun BirthdayCard(
             else
                 MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
     ) {
         Row(
             modifier = Modifier
@@ -137,18 +139,18 @@ fun BirthdayCard(
 private fun DayCircle(daysLeft: Int, isToday: Boolean) {
     val (bgColor, textColor, label) = when {
         isToday -> Triple(
-            Color(0xFFF5A623),  // widget_primary
-            Color(0xFFFFFFFF),  // widget_text_white
+            MaterialTheme.colorScheme.primary,   // 今天：品牌主色
+            Color.White,
             "今天"
         )
         daysLeft <= 7 -> Triple(
-            Color(0xFFFFF3E0),  // widget_primary_light
-            Color(0xFFE09000),  // widget_primary_dark
+            MaterialTheme.colorScheme.primaryContainer,   // 一周内：主色浅容器
+            MaterialTheme.colorScheme.onPrimaryContainer,
             "${daysLeft}天"
         )
         else -> Triple(
-            Color(0xFFEDE9FE),  // widget_secondary_light
-            Color(0xFF7C5CFC),  // widget_secondary
+            MaterialTheme.colorScheme.secondaryContainer, // 其他：次色浅容器
+            MaterialTheme.colorScheme.onSecondaryContainer,
             "${daysLeft}天"
         )
     }

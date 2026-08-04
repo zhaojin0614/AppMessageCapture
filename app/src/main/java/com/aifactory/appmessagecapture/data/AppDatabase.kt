@@ -16,8 +16,8 @@ import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
  * Room database for locally storing captured notifications and birthday records.
  */
 @Database(
-    entities = [NotificationEntity::class, BillEntity::class, BirthdayEntity::class, RecurringBillEntity::class],
-    version = 11,
+    entities = [NotificationEntity::class, BillEntity::class, BirthdayEntity::class, RecurringBillEntity::class, PlatformAccountEntity::class],
+    version = 12,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -27,6 +27,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun billDao(): BillDao
     abstract fun birthdayDao(): BirthdayDao
     abstract fun recurringBillDao(): RecurringBillDao
+    abstract fun platformAccountDao(): PlatformAccountDao
 
     companion object {
         @Volatile
@@ -259,6 +260,32 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Migrate from v11 to v12:
+         * 1. Create `platform_accounts` table for per-platform balance tracking.
+         * 2. Add `platformAccountId` column to `bills` (nullable; null = 待对账).
+         */
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                BirthdayLog.i("[DB Migration] Executing MIGRATION_11_12: creating platform_accounts table + bills.platformAccountId")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS platform_accounts (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        balance REAL NOT NULL,
+                        icon TEXT,
+                        sortOrder INTEGER NOT NULL DEFAULT 0,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("ALTER TABLE bills ADD COLUMN platformAccountId INTEGER")
+                BirthdayLog.i("[DB Migration] MIGRATION_11_12 completed")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -266,10 +293,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "notification_database"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
                     .build()
                 INSTANCE = instance
-                BirthdayLog.i("AppDatabase initialized. Version=11")
+                BirthdayLog.i("AppDatabase initialized. Version=12")
                 instance
             }
         }

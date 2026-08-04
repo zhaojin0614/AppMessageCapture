@@ -22,6 +22,9 @@ interface BillDao {
     @Query("SELECT * FROM bills WHERE timestamp >= :since ORDER BY timestamp DESC")
     fun getBillsSinceOnce(since: Long): List<BillEntity>
 
+    @Query("SELECT * FROM bills WHERE id = :id")
+    suspend fun getBillByIdOnce(id: Long): BillEntity?
+
     @Query("SELECT SUM(amount) FROM bills WHERE isIncome = 0")
     fun getTotalExpense(): Flow<Double?>
 
@@ -64,6 +67,20 @@ interface BillDao {
 
     @Query("UPDATE bills SET title = :title WHERE id = :id")
     suspend fun updateTitle(id: Long, title: String)
+
+    /**
+     * Update the platform account associated with a bill.
+     * Pass null to mark the bill as unreconciled (待对账).
+     */
+    @Query("UPDATE bills SET platformAccountId = :platformId WHERE id = :id")
+    suspend fun updatePlatform(id: Long, platformId: Long?)
+
+    /**
+     * Detach all bills from a given platform account (set platformAccountId = null).
+     * Used when deleting a platform account so its bills become 待对账.
+     */
+    @Query("UPDATE bills SET platformAccountId = NULL WHERE platformAccountId = :accountId")
+    suspend fun clearPlatformForAccount(accountId: Long)
 
     @Query("DELETE FROM bills WHERE id = :id")
     suspend fun deleteById(id: Long)

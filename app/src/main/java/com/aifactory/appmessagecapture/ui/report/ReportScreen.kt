@@ -45,12 +45,12 @@ import java.time.LocalDate
 import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.sin
+import com.aifactory.appmessagecapture.ui.components.SoftCard
 import com.aifactory.appmessagecapture.ui.getCategoryColor
 import com.aifactory.appmessagecapture.ui.getCategoryIconRes
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
 import com.aifactory.appmessagecapture.ui.theme.ReportBlue
-import com.aifactory.appmessagecapture.ui.theme.ReportBlueBg
 import com.aifactory.appmessagecapture.ui.theme.ReportBlueLight
 import com.aifactory.appmessagecapture.ui.theme.ReportCardBg
 import com.aifactory.appmessagecapture.ui.theme.ReportBgGray
@@ -208,7 +208,7 @@ private fun PeriodTypeTabs(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (isSelected) ReportBlue else Color.Transparent)
+                    .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
                     .clickable { onSelect(type) }
                     .padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center
@@ -408,14 +408,14 @@ private fun SummaryCards(
                 title = totalLabel,
                 value = "${String.format("%.2f", periodTotal)}",
                 valueColor = ReportTextDark,
-                leftBorderColor = ReportBlue
+                leftBorderColor = MaterialTheme.colorScheme.secondary
             )
             StatCard(
                 modifier = Modifier.weight(1f),
                 title = avgLabel,
                 value = "${String.format("%.2f", dailyAvg)}",
                 valueColor = ReportTextDark,
-                leftBorderColor = ReportBlue
+                leftBorderColor = MaterialTheme.colorScheme.secondary
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -426,7 +426,7 @@ private fun SummaryCards(
                 title = diffLabel,
                 value = "$diffSign${String.format("%.2f", prevDiff)}",
                 valueColor = diffColor,
-                leftBorderColor = ReportBlue
+                leftBorderColor = MaterialTheme.colorScheme.secondary
             )
             val balanceColor = if (balance >= 0) IncomeGreen else ExpenseRed
             val balanceSign = if (balance >= 0) "+" else ""
@@ -435,7 +435,7 @@ private fun SummaryCards(
                 title = "收支结余（元）",
                 value = "$balanceSign${String.format("%.2f", balance)}",
                 valueColor = balanceColor,
-                leftBorderColor = ReportBlue
+                leftBorderColor = MaterialTheme.colorScheme.secondary
             )
         }
     }
@@ -449,11 +449,10 @@ private fun StatCard(
     valueColor: Color,
     leftBorderColor: Color
 ) {
-    Card(
+    SoftCard(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = ReportCardBg),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        color = ReportCardBg
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
             Box(
@@ -506,25 +505,23 @@ private fun TrendLineChartSection(
     }
     val typeLabel = if (showIncome) "收入" else "支出"
 
-    Card(
+    SoftCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = ReportCardBg),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        color = ReportCardBg,
+        contentPadding = 16.dp
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            SectionTitle(title)
-            if (data.isNotEmpty()) {
-                TrendLineChart(
-                    data = data,
-                    typeLabel = typeLabel,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(220.dp)
-                )
-            } else {
-                EmptyChartState("暂无数据")
-            }
+        SectionTitle(title)
+        if (data.isNotEmpty()) {
+            TrendLineChart(
+                data = data,
+                typeLabel = typeLabel,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+            )
+        } else {
+            EmptyChartState("暂无数据")
         }
     }
 }
@@ -729,24 +726,22 @@ private fun TrendBarChartSection(
     modifier: Modifier = Modifier
 ) {
     val title = if (showIncome) "收入趋势" else "支出趋势"
-    Card(
+    SoftCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = ReportCardBg),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        color = ReportCardBg,
+        contentPadding = 16.dp
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            SectionTitle(title)
-            if (data.isNotEmpty()) {
-                TrendBarChart(
-                    data = data,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(220.dp)
-                )
-            } else {
-                EmptyChartState("暂无数据")
-            }
+        SectionTitle(title)
+        if (data.isNotEmpty()) {
+            TrendBarChart(
+                data = data,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+            )
+        } else {
+            EmptyChartState("暂无数据")
         }
     }
 }
@@ -953,40 +948,38 @@ private fun CategorySection(
     onItemClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    SoftCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = ReportCardBg),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        color = ReportCardBg,
+        contentPadding = 16.dp
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            SectionTitle(if (showIncome) "收入分类构成" else "支出分类构成")
+        SectionTitle(if (showIncome) "收入分类构成" else "支出分类构成")
 
-            if (data.isNotEmpty()) {
-                DonutChartWithLabels(
-                    data = data,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
+        if (data.isNotEmpty()) {
+            DonutChartWithLabels(
+                data = data,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            data.forEachIndexed { index, stat ->
+                CategoryListItem(
+                    rank = index + 1,
+                    stat = stat,
+                    onClick = { onItemClick(stat.category) }
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                data.forEachIndexed { index, stat ->
-                    CategoryListItem(
-                        rank = index + 1,
-                        stat = stat,
-                        onClick = { onItemClick(stat.category) }
+                if (index < data.lastIndex) {
+                    HorizontalDivider(
+                        color = ReportDivider,
+                        thickness = 0.5.dp,
+                        modifier = Modifier.padding(vertical = 8.dp)
                     )
-                    if (index < data.lastIndex) {
-                        HorizontalDivider(
-                            color = ReportDivider,
-                            thickness = 0.5.dp,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                    }
                 }
-            } else {
-                EmptyChartState("暂无${if (showIncome) "收入" else "支出"}数据")
             }
+        } else {
+            EmptyChartState("暂无${if (showIncome) "收入" else "支出"}数据")
         }
     }
 }

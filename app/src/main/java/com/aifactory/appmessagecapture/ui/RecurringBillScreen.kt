@@ -70,6 +70,7 @@ import androidx.activity.compose.BackHandler
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.data.RecurringBillEntity
 import com.aifactory.appmessagecapture.data.RecurringFrequency
+import com.aifactory.appmessagecapture.ui.components.SoftButton
 import com.aifactory.appmessagecapture.ui.theme.CategoryBeauty
 import com.aifactory.appmessagecapture.ui.theme.CategoryEducation
 import com.aifactory.appmessagecapture.ui.theme.CategoryEntertainment
@@ -92,8 +93,6 @@ import com.aifactory.appmessagecapture.ui.theme.CategoryTransport
 import com.aifactory.appmessagecapture.ui.theme.CategoryUncategorized
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
-import com.aifactory.appmessagecapture.ui.theme.PrimaryOrange
-import com.aifactory.appmessagecapture.ui.theme.SecondaryPurple
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -135,19 +134,19 @@ fun RecurringBillScreen(
                 },
                 actions = {},
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = PrimaryOrange,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White,
-                    actionIconContentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddDialog = true },
-                containerColor = PrimaryOrange
+                containerColor = MaterialTheme.colorScheme.primary
             ) {
-                Icon(Icons.Default.Add, contentDescription = "添加周期账单", tint = Color.White)
+                Icon(Icons.Default.Add, contentDescription = "添加周期账单", tint = MaterialTheme.colorScheme.onPrimary)
             }
         }
     ) { padding ->
@@ -162,14 +161,14 @@ fun RecurringBillScreen(
                     Surface(
                         modifier = Modifier.size(88.dp),
                         shape = CircleShape,
-                        color = SecondaryPurple.copy(alpha = 0.1f)
+                        color = MaterialTheme.colorScheme.secondaryContainer
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.DateRange,
                                 contentDescription = null,
                                 modifier = Modifier.size(40.dp),
-                                tint = SecondaryPurple
+                                tint = MaterialTheme.colorScheme.secondary
                             )
                         }
                     }
@@ -231,7 +230,7 @@ fun RecurringBillScreen(
                     viewModel.deleteRecurringBill(bill.id)
                     billToDelete = null
                 }) {
-                    Text("删除", color = ExpenseRed)
+                    Text("删除", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
@@ -274,7 +273,7 @@ private fun RecurringBillCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -334,7 +333,7 @@ private fun RecurringBillCard(
                     Text(
                         text = frequencyText,
                         fontSize = 11.sp,
-                        color = if (bill.isActive) SecondaryPurple
+                        color = if (bill.isActive) MaterialTheme.colorScheme.secondary
                         else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
@@ -381,7 +380,7 @@ private fun RecurringBillCard(
                             modifier = Modifier.scale(0.7f),
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
-                                checkedTrackColor = PrimaryOrange
+                                checkedTrackColor = MaterialTheme.colorScheme.primary
                             )
                         )
                     }
@@ -508,7 +507,7 @@ private fun AddRecurringBillDialog(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = null,
                             modifier = Modifier.size(20.dp),
-                            tint = SecondaryPurple
+                            tint = MaterialTheme.colorScheme.secondary
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
@@ -521,7 +520,7 @@ private fun AddRecurringBillDialog(
                             text = selectedFrequency.displayName,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
-                            color = SecondaryPurple
+                            color = MaterialTheme.colorScheme.secondary
                         )
                     }
 
@@ -557,7 +556,7 @@ private fun AddRecurringBillDialog(
                         imageVector = Icons.Default.DateRange,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
-                        tint = SecondaryPurple
+                        tint = MaterialTheme.colorScheme.secondary
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
@@ -572,7 +571,7 @@ private fun AddRecurringBillDialog(
                         text = dateText,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
-                        color = PrimaryOrange
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
 
@@ -619,31 +618,21 @@ private fun AddRecurringBillDialog(
                         Text("取消")
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isIncome) IncomeGreen else PrimaryOrange)
-                            .clickable {
-                                val amt = amountText.toDoubleOrNull() ?: 0.0
-                                if (title.isNotBlank() && amt > 0) {
-                                    val startMillis = selectedDate
-                                        .atStartOfDay(ZoneId.systemDefault())
-                                        .toInstant()
-                                        .toEpochMilli()
-                                    onAdd(title, amt, selectedCategory, isIncome, selectedFrequency, startMillis)
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "添加",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
+                    SoftButton(
+                        text = "添加",
+                        onClick = {
+                            val amt = amountText.toDoubleOrNull() ?: 0.0
+                            if (title.isNotBlank() && amt > 0) {
+                                val startMillis = selectedDate
+                                    .atStartOfDay(ZoneId.systemDefault())
+                                    .toInstant()
+                                    .toEpochMilli()
+                                onAdd(title, amt, selectedCategory, isIncome, selectedFrequency, startMillis)
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        backgroundColor = if (isIncome) IncomeGreen else MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }
@@ -802,7 +791,7 @@ private fun EditRecurringBillDialog(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = null,
                             modifier = Modifier.size(20.dp),
-                            tint = SecondaryPurple
+                            tint = MaterialTheme.colorScheme.secondary
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
@@ -815,7 +804,7 @@ private fun EditRecurringBillDialog(
                             text = selectedFrequency.displayName,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
-                            color = SecondaryPurple
+                            color = MaterialTheme.colorScheme.secondary
                         )
                     }
 
@@ -851,7 +840,7 @@ private fun EditRecurringBillDialog(
                         imageVector = Icons.Default.DateRange,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
-                        tint = SecondaryPurple
+                        tint = MaterialTheme.colorScheme.secondary
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
@@ -866,7 +855,7 @@ private fun EditRecurringBillDialog(
                         text = dateText,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
-                        color = PrimaryOrange
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
 
@@ -913,41 +902,31 @@ private fun EditRecurringBillDialog(
                         Text("取消")
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isIncome) IncomeGreen else PrimaryOrange)
-                            .clickable {
-                                val amt = amountText.toDoubleOrNull() ?: 0.0
-                                if (title.isNotBlank() && amt > 0) {
-                                    val nextDueMillis = selectedDate
-                                        .atStartOfDay(ZoneId.systemDefault())
-                                        .toInstant()
-                                        .toEpochMilli()
-                                    onConfirm(
-                                        bill.copy(
-                                            title = title,
-                                            amount = amt,
-                                            category = selectedCategory,
-                                            isIncome = isIncome,
-                                            frequency = selectedFrequency.name,
-                                            nextDueDate = nextDueMillis,
-                                            updatedAt = System.currentTimeMillis()
-                                        )
+                    SoftButton(
+                        text = "保存",
+                        onClick = {
+                            val amt = amountText.toDoubleOrNull() ?: 0.0
+                            if (title.isNotBlank() && amt > 0) {
+                                val nextDueMillis = selectedDate
+                                    .atStartOfDay(ZoneId.systemDefault())
+                                    .toInstant()
+                                    .toEpochMilli()
+                                onConfirm(
+                                    bill.copy(
+                                        title = title,
+                                        amount = amt,
+                                        category = selectedCategory,
+                                        isIncome = isIncome,
+                                        frequency = selectedFrequency.name,
+                                        nextDueDate = nextDueMillis,
+                                        updatedAt = System.currentTimeMillis()
                                     )
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "保存",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
+                                )
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        backgroundColor = if (isIncome) IncomeGreen else MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }

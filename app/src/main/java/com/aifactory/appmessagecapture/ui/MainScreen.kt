@@ -1,20 +1,15 @@
-@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-
 package com.aifactory.appmessagecapture.ui
 
 import android.content.Intent
 import android.provider.Settings
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,9 +24,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -40,17 +33,15 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DoNotDisturbOn
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.SaveAlt
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Clear
+import androidx.compose.material.icons.outlined.DoNotDisturbOn
+import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -59,7 +50,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -83,16 +73,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -104,6 +89,9 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.R
 import com.aifactory.appmessagecapture.data.NotificationEntity
+import com.aifactory.appmessagecapture.ui.components.GradientHeader
+import com.aifactory.appmessagecapture.ui.components.SoftCard
+import com.aifactory.appmessagecapture.ui.components.StatsCardRow
 import com.aifactory.appmessagecapture.ui.components.SwipeableItem
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -145,53 +133,6 @@ fun MainScreen(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
-    // Pull-down stats panel
-    val pullOffset = remember { Animatable(0f) }
-    val maxPullOffsetPx = with(LocalDensity.current) { 80.dp.toPx() }
-
-    val nestedScrollConnection = remember {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                val delta = available.y
-                if (delta > 0 && listState.firstVisibleItemIndex == 0 &&
-                    listState.firstVisibleItemScrollOffset == 0 &&
-                    pullOffset.value < maxPullOffsetPx
-                ) {
-                    scope.launch {
-                        pullOffset.snapTo(
-                            (pullOffset.value + delta).coerceAtMost(maxPullOffsetPx)
-                        )
-                    }
-                    return Offset(0f, delta)
-                }
-                return Offset.Zero
-            }
-
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource
-            ): Offset {
-                // 不再通过下滑收回面板，仅由松手时自动收回
-                return Offset.Zero
-            }
-        }
-    }
-
-    LaunchedEffect(listState.isScrollInProgress) {
-        if (!listState.isScrollInProgress && pullOffset.value > 0f) {
-            // 松手时自动收回，不再保留展开状态
-            pullOffset.animateTo(0f, animationSpec = tween(250))
-        }
-    }
-
-    // Auto collapse stats panel when list scrolls away from top
-    LaunchedEffect(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) {
-        if ((listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0) && pullOffset.value > 0f) {
-            pullOffset.animateTo(0f, animationSpec = tween(200))
-        }
-    }
-
     // Scroll-to-top visibility
     val showScrollToTop by remember {
         derivedStateOf { listState.firstVisibleItemIndex > 5 }
@@ -220,32 +161,21 @@ fun MainScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = {
-                    if (isSelectionMode) {
+            if (isSelectionMode) {
+                TopAppBar(
+                    title = {
                         Text(
                             text = "已选择 ${selectedIds.size} 项",
                             style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.onBackground,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Bold
                         )
-                    } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = stringResource(R.string.app_title),
-                                style = MaterialTheme.typography.headlineMedium,
-                                color = MaterialTheme.colorScheme.onBackground,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
-                ),
-                actions = {
-                    if (isSelectionMode) {
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    actions = {
                         TextButton(onClick = {
                             val visibleIds = notifications.map { it.id }
                             if (selectedIds.containsAll(visibleIds)) {
@@ -268,46 +198,53 @@ fun MainScreen(
                         }
                         IconButton(onClick = { viewModel.exitSelectionMode() }) {
                             Icon(
-                                imageVector = Icons.Default.Close,
+                                imageVector = Icons.Outlined.Clear,
                                 contentDescription = "取消",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                    } else {
+                    }
+                )
+            } else {
+                // Signature gradient header with embedded search
+                GradientHeader(
+                    title = stringResource(R.string.app_title),
+                    subtitle = if (notifications.isEmpty()) "等待捕获通知…" else "今日捕获 $todayCount 条通知",
+                    actions = {
                         IconButton(onClick = { showExportDialog = true }) {
                             Icon(
                                 imageVector = Icons.Default.SaveAlt,
                                 contentDescription = stringResource(R.string.export),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = Color.White
                             )
                         }
                         BadgedBox(
                             badge = {
                                 if (filteredApps.isNotEmpty()) {
-                                    Badge(containerColor = MaterialTheme.colorScheme.secondary)
+                                    Badge(containerColor = Color.White)
                                 }
                             }
                         ) {
                             IconButton(onClick = { showFilterDialog = true }) {
                                 Icon(
-                                    imageVector = Icons.Default.FilterList,
+                                    imageVector = Icons.Outlined.FilterList,
                                     contentDescription = stringResource(R.string.filter_apps),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    tint = Color.White
                                 )
                             }
                         }
                         BadgedBox(
                             badge = {
                                 if (blockedApps.isNotEmpty()) {
-                                    Badge(containerColor = MaterialTheme.colorScheme.error)
+                                    Badge(containerColor = Color(0xFFFFD6D6))
                                 }
                             }
                         ) {
                             IconButton(onClick = { showBlockedDialog = true }) {
                                 Icon(
-                                    imageVector = Icons.Default.DoNotDisturbOn,
+                                    imageVector = Icons.Outlined.DoNotDisturbOn,
                                     contentDescription = "屏蔽管理",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    tint = Color.White
                                 )
                             }
                         }
@@ -316,14 +253,71 @@ fun MainScreen(
                             startActivity(context, intent, null)
                         }) {
                             Icon(
-                                imageVector = Icons.Default.Settings,
+                                imageVector = Icons.Outlined.Settings,
                                 contentDescription = "Settings",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = Color.White
+                            )
+                        }
+                    },
+                    bottomContent = {
+                        // Search field inside the gradient header
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.White.copy(alpha = 0.18f)
+                        ) {
+                            TextField(
+                                value = searchQuery,
+                                onValueChange = {
+                                    searchQuery = it
+                                    viewModel.updateSearchQuery(it)
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = {
+                                    Text(
+                                        stringResource(R.string.search_hint),
+                                        color = Color.White.copy(alpha = 0.7f)
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Search,
+                                        contentDescription = null,
+                                        tint = Color.White
+                                    )
+                                },
+                                trailingIcon = {
+                                    AnimatedVisibility(visible = searchQuery.isNotEmpty()) {
+                                        IconButton(onClick = {
+                                            searchQuery = ""
+                                            viewModel.updateSearchQuery("")
+                                        }) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.Clear,
+                                                contentDescription = "Clear",
+                                                tint = Color.White
+                                            )
+                                        }
+                                    }
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(onSearch = { }),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
+                                    disabledContainerColor = Color.Transparent,
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent,
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    cursorColor = Color.White
+                                )
                             )
                         }
                     }
-                }
-            )
+                )
+            }
         },
         floatingActionButton = {
             Column(horizontalAlignment = Alignment.End) {
@@ -344,7 +338,7 @@ fun MainScreen(
                         modifier = Modifier.padding(bottom = 12.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ArrowUpward,
+                            imageVector = Icons.Outlined.ArrowUpward,
                             contentDescription = stringResource(R.string.scroll_to_top)
                         )
                     }
@@ -368,70 +362,15 @@ fun MainScreen(
                 .padding(innerPadding)
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            // Pull-down stats panel
-            PullDownStatsPanel(
-                pullOffset = pullOffset.value,
-                maxPullOffset = maxPullOffsetPx,
-                count = count,
-                todayCount = todayCount,
-                appCount = allApps.size
-            )
-
-            // Search bar
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shadowElevation = 0.dp
-            ) {
-                TextField(
-                    value = searchQuery,
-                    onValueChange = {
-                        searchQuery = it
-                        viewModel.updateSearchQuery(it)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = {
-                        Text(
-                            stringResource(R.string.search_hint),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    trailingIcon = {
-                        AnimatedVisibility(visible = searchQuery.isNotEmpty()) {
-                            IconButton(onClick = {
-                                searchQuery = ""
-                                viewModel.updateSearchQuery("")
-                            }) {
-                                Icon(
-                                    imageVector = Icons.Default.Clear,
-                                    contentDescription = "Clear",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { }),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        disabledContainerColor = Color.Transparent,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground
-                    )
+            if (!isSelectionMode) {
+                // Floating stats card overlapping the gradient header
+                StatsCardRow(
+                    stats = listOf(
+                        count.toString() to "总消息",
+                        todayCount.toString() to "今日",
+                        allApps.size.toString() to "应用"
+                    ),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                 )
             }
 
@@ -442,9 +381,9 @@ fun MainScreen(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .nestedScroll(nestedScrollConnection),
+                        .padding(top = 4.dp),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(
                         items = groupedList,
@@ -581,8 +520,8 @@ fun MainScreen(
         AppFilterDialog(
             apps = allApps,
             filteredApps = filteredApps,
-            onToggle = { viewModel.toggleFilterApp(it) },
-            onToggleAll = { viewModel.toggleSelectAllFilters(allApps) },
+            onToggle = { pkg -> viewModel.toggleFilterApp(pkg) },
+            onToggleAll = { viewModel.clearAppFilter() },
             onDismiss = { showFilterDialog = false }
         )
     }
@@ -591,8 +530,8 @@ fun MainScreen(
         BlockedAppsDialog(
             apps = allApps,
             blockedApps = blockedApps,
-            onToggle = { viewModel.toggleBlockedApp(it) },
-            onToggleAll = { viewModel.toggleSelectAllBlocked(allApps) },
+            onToggle = { pkg -> viewModel.toggleBlockedApp(pkg) },
+            onToggleAll = { viewModel.clearBlockedApps() },
             onDismiss = { showBlockedDialog = false }
         )
     }
@@ -600,87 +539,14 @@ fun MainScreen(
     if (showExportDialog) {
         ExportDialog(
             onExportJson = {
-                viewModel.exportToJson(context) { uri ->
-                    uri?.let { viewModel.shareUri(context, it) }
-                        ?: Toast.makeText(context, "导出失败", Toast.LENGTH_SHORT).show()
-                }
+                viewModel.exportNotifications(context, ExportFormat.JSON)
                 showExportDialog = false
             },
             onExportCsv = {
-                viewModel.exportToCsv(context) { uri ->
-                    uri?.let { viewModel.shareUri(context, it) }
-                        ?: Toast.makeText(context, "导出失败", Toast.LENGTH_SHORT).show()
-                }
+                viewModel.exportNotifications(context, ExportFormat.CSV)
                 showExportDialog = false
             },
             onDismiss = { showExportDialog = false }
-        )
-    }
-}
-
-@Composable
-fun PullDownStatsPanel(
-    pullOffset: Float,
-    maxPullOffset: Float,
-    count: Int,
-    todayCount: Int,
-    appCount: Int
-) {
-    if (pullOffset <= 0f) return
-
-    val progress = (pullOffset / maxPullOffset).coerceIn(0f, 1f)
-    val panelHeight = with(LocalDensity.current) { pullOffset.toDp() }
-    val contentAlpha = progress.coerceIn(0f, 1f)
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(panelHeight),
-        contentAlignment = Alignment.Center
-    ) {
-        if (contentAlpha > 0f) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                StatItem(
-                    value = count.toString(),
-                    label = "总消息",
-                    alpha = contentAlpha
-                )
-                StatItem(
-                    value = todayCount.toString(),
-                    label = "今日",
-                    alpha = contentAlpha
-                )
-                StatItem(
-                    value = appCount.toString(),
-                    label = "应用",
-                    alpha = contentAlpha
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun StatItem(value: String, label: String, alpha: Float) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = alpha),
-            maxLines = 1
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
-            maxLines = 1
         )
     }
 }
@@ -705,21 +571,22 @@ fun DateHeader(date: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 0.dp),
-        horizontalArrangement = Arrangement.Center
+            .padding(start = 4.dp, top = 8.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)
-        ) {
-            Text(
-                text = date,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-            )
-        }
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = date,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
@@ -743,6 +610,12 @@ fun NotificationCard(
         } catch (_: Exception) { null }
     }
 
+    val borderColor = if (isSelected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+    } else {
+        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+    }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -758,12 +631,13 @@ fun NotificationCard(
             containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
             else MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, borderColor)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(10.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (isSelectionMode) {
@@ -773,10 +647,11 @@ fun NotificationCard(
                     modifier = Modifier.padding(end = 8.dp)
                 )
             }
+            // Rounded-square app icon (Android 12+ style)
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .background(
                         if (iconBitmap == null)
                             MaterialTheme.colorScheme.primaryContainer
@@ -801,7 +676,7 @@ fun NotificationCard(
                 }
             }
 
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Row(
@@ -811,9 +686,9 @@ fun NotificationCard(
                 ) {
                     Text(
                         text = notification.appName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onBackground,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
@@ -826,14 +701,14 @@ fun NotificationCard(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(3.dp))
 
                 if (notification.title.isNotBlank()) {
                     Text(
                         text = notification.title,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onBackground,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -848,7 +723,6 @@ fun NotificationCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-
         }
     }
 }

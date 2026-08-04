@@ -30,17 +30,12 @@ import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.data.BillEntity
+import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
+import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-
-private val BluePrimary = Color(0xFF2196F3)
-private val GreenPositive = Color(0xFF4CAF50)
-private val CardBg = Color(0xFFFFFFFF)
-private val BgGray = Color(0xFFF5F7FA)
-private val TextGray = Color(0xFF999999)
-private val TextDark = Color(0xFF333333)
 
 @Composable
 fun CategoryDetailScreen(
@@ -63,7 +58,7 @@ fun CategoryDetailScreen(
                     Text(
                         text = category,
                         fontWeight = FontWeight.Bold,
-                        color = TextDark
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
@@ -71,18 +66,18 @@ fun CategoryDetailScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "返回",
-                            tint = TextDark
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CardBg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         }
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(BgGray)
+                .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
                 .windowInsetsPadding(WindowInsets.navigationBars)
         ) {
@@ -96,7 +91,7 @@ fun CategoryDetailScreen(
                         text = formatDetailDate(date),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
-                        color = TextDark,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                     )
                 }
@@ -120,7 +115,7 @@ fun CategoryDetailScreen(
                         Text(
                             text = "暂无数据",
                             fontSize = 14.sp,
-                            color = TextGray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -152,8 +147,8 @@ private fun CategoryDetailBillItem(bill: BillEntity) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBg),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
@@ -167,7 +162,8 @@ private fun CategoryDetailBillItem(bill: BillEntity) {
                     .size(44.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(
-                        if (iconBitmap == null) BluePrimary.copy(alpha = 0.15f) else Color.Transparent
+                        if (iconBitmap == null) MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
+                        else Color.Transparent
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -183,7 +179,7 @@ private fun CategoryDetailBillItem(bill: BillEntity) {
                         text = bill.appName.take(1),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = BluePrimary
+                        color = MaterialTheme.colorScheme.secondary
                     )
                 }
             }
@@ -196,18 +192,18 @@ private fun CategoryDetailBillItem(bill: BillEntity) {
                         text = bill.appName,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium,
-                        color = TextDark
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = GreenPositive.copy(alpha = 0.1f),
-                        border = BorderStroke(0.5.dp, GreenPositive)
+                        color = IncomeGreen.copy(alpha = 0.10f),
+                        border = BorderStroke(0.5.dp, IncomeGreen)
                     ) {
                         Text(
                             text = bill.category,
                             fontSize = 10.sp,
-                            color = GreenPositive,
+                            color = IncomeGreen,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
@@ -216,11 +212,11 @@ private fun CategoryDetailBillItem(bill: BillEntity) {
                 Text(
                     text = "$timeStr | ${bill.title}",
                     fontSize = 12.sp,
-                    color = TextGray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            val amountColor = if (bill.isIncome) GreenPositive else Color(0xFFFF5252)
+            val amountColor = if (bill.isIncome) IncomeGreen else ExpenseRed
             val amountPrefix = if (bill.isIncome) "+" else "-"
             Text(
                 text = "$amountPrefix¥${String.format("%.2f", bill.amount)}",

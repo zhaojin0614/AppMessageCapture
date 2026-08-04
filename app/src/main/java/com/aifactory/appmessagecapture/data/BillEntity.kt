@@ -15,5 +15,12 @@ data class BillEntity(
     val title: String,
     val category: String = "未分类",
     val isIncome: Boolean = false,
-    val timestamp: Long
+    val timestamp: Long,
+    /**
+     * 关联的平台账户 ID。
+     * - 非空：已对账，支出从该平台扣款 / 收入存入该平台。
+     * - null：未对账（待对账），金额未从任何平台扣除，需用户后续分配。
+     * 旧账单迁移后默认为 null。
+     */
+    val platformAccountId: Long? = null
 )

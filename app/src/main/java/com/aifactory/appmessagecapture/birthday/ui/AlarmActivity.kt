@@ -150,29 +150,29 @@ class AlarmActivity : ComponentActivity() {
 // 生日提醒弹窗 —— Canvas 绘制蛋糕 + 气球 + 彩纸纸屑
 // =============================================================================
 
-// ---- 色彩系统 ----
-private val BgTop          = Color(0xFFFFF0E6)
-private val BgBottom       = Color(0xFFE8F0FE)
+// ---- 色彩系统（Soft UI 薄荷青品牌色系） ----
+private val BgTop          = Color(0xFFEAF7F4)  // 浅薄荷绿
+private val BgBottom       = Color(0xFFE9F0FA)  // 浅雾蓝
 private val CardSurface    = Color(0xFFFAFAFA)
 private val NameText       = Color(0xFF2D2D2D)
-private val AgeText        = Color(0xFFFF6B35)
+private val AgeText        = Color(0xFF0B6E60)  // 品牌深青
 private val SubText        = Color(0xFFAAAAAA)
-private val SepStart       = Color(0xFFFF8C42)
-private val SepEnd         = Color(0xFFFF5E8A)
-private val BtnStart       = Color(0xFFFF7043)
-private val BtnEnd         = Color(0xFFFF4081)
+private val SepStart       = Color(0xFF0FA18D)  // 品牌主青
+private val SepEnd         = Color(0xFF5BC0B4)  // 品牌渐变终点
+private val BtnStart       = Color(0xFF0FA18D)  // 品牌主青
+private val BtnEnd         = Color(0xFF5BC0B4)  // 品牌渐变终点
 
 // 蛋糕色彩
 private val FrostingWhite  = Color(0xFFFFF8F0)
-private val FrostingOrange = Color(0xFFFF9142)
+private val FrostingOrange = Color(0xFFF0A24A)  // 暖杏色
 private val CakeBody       = Color(0xFFE0A860)
 private val CakeDark       = Color(0xFFCC8E48)
 private val PlateColor     = Color(0xFFF0EBE2)
 private val PlateShadow    = Color(0x15000000)
 private val DripColor      = Color(0xFFFFB878)
 private val CandleColors   = listOf(
-    Color(0xFFFF6B9D), Color(0xFF42A5F5), Color(0xFF66BB6A),
-    Color(0xFFFFCA28), Color(0xFFAB47BC)
+    Color(0xFF0FA18D), Color(0xFF5C7FB8), Color(0xFFEE7BA6),
+    Color(0xFFF2B84B), Color(0xFFA97BD6)
 )
 private val FlameOuter     = Color(0xFFFFB300)
 private val FlameInner     = Color(0xFFFFF176)
@@ -181,13 +181,13 @@ private val FlameCore      = Color(0xFFFFFDE7)
 // 气球色彩
 private val BalloonGold    = Color(0xFFFFD54F)
 private val BalloonPink    = Color(0xFFF48FB1)
-private val BalloonOrange  = Color(0xFFFF8A65)
-private val BalloonPeach   = Color(0xFFFFAB91)
+private val BalloonOrange  = Color(0xFFF0A24A)  // 暖杏色
+private val BalloonPeach   = Color(0xFFEFB8A8)  // 柔和蜜桃
 private val BalloonString  = Color(0x60999999)
 
 // 彩纸纸屑色彩
 private val ConfettiColors = listOf(
-    Color(0xFFFFD700), Color(0xFFFF6B9D), Color(0xFFFF9142),
+    Color(0xFFFFD700), Color(0xFFFF6B9D), Color(0xFF0FA18D),
     Color(0xFF42A5F5), Color(0xFF66BB6A), Color(0xFFAB47BC),
     Color(0xFFFFCA28), Color(0xFFEF5350)
 )
@@ -211,12 +211,12 @@ private data class Confetti(
  * 生日提醒弹窗主界面
  *
  * 布局层次：
- * 1. 暖色渐变背景（桃粉 → 柔蓝）
+ * 1. 柔和渐变背景（浅薄荷绿 → 浅雾蓝）
  * 2. 半透明装饰气球 + 飘落彩纸（营造庆典氛围）
  * 3. 居中白色卡片（圆角 28dp、柔和阴影）
  *    - 顶部：Canvas 绘制双层蛋糕 + 蜡烛 + 脉动火焰光晕
- *    - 中部：姓名（深灰）+ 年龄（大号橙色粗体）+ 渐变分隔线 + 副文本
- *    - 底部：橙粉渐变"知道了"按钮（带阴影）
+ *    - 中部：姓名（深灰）+ 年龄（大号品牌深青粗体）+ 渐变分隔线 + 副文本
+ *    - 底部：品牌青渐变"知道了"按钮（带阴影）
  */
 @Composable
 private fun BirthdayAlarmScreen(
@@ -352,7 +352,7 @@ private fun BirthdayAlarmScreen(
 
                 Spacer(Modifier.height(8.dp))
 
-                // 主文案（大号橙色粗体）
+                // 主文案（大号品牌深青粗体）
                 Text(
                     text = name,
                     fontSize = 28.sp,
@@ -430,7 +430,7 @@ private fun BirthdayAlarmScreen(
 /**
  * 使用 Canvas 绘制的双层生日蛋糕。
  *
- * 结构：暖色光晕 → 底盘 → 下层蛋糕 → 橙色糖霜滴落 →
+ * 结构：暖色光晕 → 底盘 → 下层蛋糕 → 暖杏色糖霜滴落 →
  *       上层蛋糕 → 白色糖霜滴落 → 金色装饰点 →
  *       5 根彩色蜡烛 → 脉动火焰（光晕 + 外焰 + 内焰 + 火芯）。
  */
