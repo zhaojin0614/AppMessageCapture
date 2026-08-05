@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import com.aifactory.appmessagecapture.birthday.data.BirthdayEntity
 import com.aifactory.appmessagecapture.birthday.data.ReminderType
 import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
+import com.aifactory.appmessagecapture.ui.components.SoftCard
 
 /**
  * 添加/编辑生日记录页。
@@ -142,90 +143,129 @@ fun BirthdayEditScreen(
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 姓名
-            CompactOutlinedField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("亲友姓名 *") },
+            // 基本信息卡片
+            SoftCard(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            // 公历 / 农历 切换
-            CalendarTypeSelector(
-                isLunar = isLunar,
-                onToggle = { isLunar = it }
-            )
-
-            // 月 / 日 选择
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                shape = RoundedCornerShape(16.dp),
+                contentPadding = 16.dp
             ) {
-                NumberDropdown(
-                    label = "月份",
-                    selected = birthMonth,
-                    range = 1..12,
-                    onSelected = { birthMonth = it },
-                    modifier = Modifier.weight(1f)
+                Text(
+                    text = "基本信息",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-                NumberDropdown(
-                    label = "日期",
-                    selected = birthDay,
-                    range = 1..31,
-                    onSelected = { birthDay = it },
-                    modifier = Modifier.weight(1f)
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 姓名
+                CompactOutlinedField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("亲友姓名 *") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 公历 / 农历 切换
+                CalendarTypeSelector(
+                    isLunar = isLunar,
+                    onToggle = { isLunar = it }
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 月 / 日 选择
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    NumberDropdown(
+                        label = "月份",
+                        selected = birthMonth,
+                        range = 1..12,
+                        onSelected = { birthMonth = it },
+                        modifier = Modifier.weight(1f)
+                    )
+                    NumberDropdown(
+                        label = "日期",
+                        selected = birthDay,
+                        range = 1..31,
+                        onSelected = { birthDay = it },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 出生年份（可选）
+                CompactOutlinedField(
+                    value = birthYear,
+                    onValueChange = {
+                        if (it.isEmpty() || it.matches(Regex("\\d{0,4}"))) {
+                            birthYear = it
+                        }
+                    },
+                    label = { Text("出生年份（可选，用于计算岁数）") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
                 )
             }
 
-            // 出生年份（可选）
-            CompactOutlinedField(
-                value = birthYear,
-                onValueChange = {
-                    if (it.isEmpty() || it.matches(Regex("\\d{0,4}"))) {
-                        birthYear = it
-                    }
-                },
-                label = { Text("出生年份（可选，用于计算岁数）") },
+            // 提醒设置卡片
+            SoftCard(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
+                shape = RoundedCornerShape(16.dp),
+                contentPadding = 16.dp
+            ) {
+                Text(
+                    text = "提醒设置",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
 
-            // 提醒类型
-            ReminderTypeSelector(
-                selected = reminderType,
-                onSelected = { reminderType = it }
-            )
+                Spacer(modifier = Modifier.height(12.dp))
 
-            // 提醒时间（若提醒类型不为 NONE）
-            if (reminderType != ReminderType.NONE) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "提醒时间",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    NumberDropdown(
-                        label = "时",
-                        selected = reminderHour,
-                        range = 0..23,
-                        onSelected = { reminderHour = it },
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(":", style = MaterialTheme.typography.bodyLarge)
-                    NumberDropdown(
-                        label = "分",
-                        selected = reminderMinute,
-                        range = 0..59,
-                        onSelected = { reminderMinute = it },
-                        modifier = Modifier.weight(1f)
-                    )
+                // 提醒类型
+                ReminderTypeSelector(
+                    selected = reminderType,
+                    onSelected = { reminderType = it }
+                )
+
+                // 提醒时间（若提醒类型不为 NONE）
+                if (reminderType != ReminderType.NONE) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "提醒时间",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        NumberDropdown(
+                            label = "时",
+                            selected = reminderHour,
+                            range = 0..23,
+                            onSelected = { reminderHour = it },
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(":", style = MaterialTheme.typography.bodyLarge)
+                        NumberDropdown(
+                            label = "分",
+                            selected = reminderMinute,
+                            range = 0..59,
+                            onSelected = { reminderMinute = it },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
 

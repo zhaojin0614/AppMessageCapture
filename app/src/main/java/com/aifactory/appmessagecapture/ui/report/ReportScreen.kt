@@ -136,7 +136,7 @@ fun ReportScreen(
                 IncomeExpenseToggle(showIncome) { viewModel.toggleShowIncome() }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Summary cards
             SummaryCards(
@@ -149,7 +149,7 @@ fun ReportScreen(
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Trend line chart
             TrendLineChartSection(
@@ -159,7 +159,7 @@ fun ReportScreen(
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Bar chart
             TrendBarChartSection(
@@ -168,7 +168,7 @@ fun ReportScreen(
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Category breakdown
             CategorySection(
@@ -401,8 +401,8 @@ private fun SummaryCards(
             Triple("本年${typeLabel}（元）", "月均${typeLabel}（元）", "比上年${typeLabel}（元）")
     }
 
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             StatCard(
                 modifier = Modifier.weight(1f),
                 title = totalLabel,
@@ -418,7 +418,7 @@ private fun SummaryCards(
                 leftBorderColor = MaterialTheme.colorScheme.secondary
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             val diffColor = if (prevDiff >= 0) IncomeGreen else ExpenseRed
             val diffSign = if (prevDiff >= 0) "+" else ""
             StatCard(
@@ -963,7 +963,7 @@ private fun CategorySection(
                     .fillMaxWidth()
                     .height(200.dp)
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             data.forEachIndexed { index, stat ->
                 CategoryListItem(
                     rank = index + 1,
@@ -974,7 +974,7 @@ private fun CategorySection(
                     HorizontalDivider(
                         color = ReportDivider,
                         thickness = 0.5.dp,
-                        modifier = Modifier.padding(vertical = 8.dp)
+                        modifier = Modifier.padding(vertical = 6.dp)
                     )
                 }
             }

@@ -56,6 +56,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.data.PlatformAccountEntity
 import com.aifactory.appmessagecapture.ui.components.SoftButton
+import com.aifactory.appmessagecapture.ui.components.SoftCard
 import com.aifactory.appmessagecapture.ui.components.SoftGradientCard
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.GradientBrandEnd
@@ -131,34 +132,47 @@ fun PlatformAccountScreen(
                 .background(MaterialTheme.colorScheme.background)
         ) {
             // 总金额大卡片
-            SoftGradientCard(
-                brush = Brush.linearGradient(
-                    colors = listOf(GradientBrandStart, GradientBrandEnd)
-                ),
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(20.dp),
-                contentPadding = 20.dp
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                Text(
-                    text = "账户总金额",
-                    color = Color.White.copy(alpha = 0.85f),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "¥${String.format("%.2f", totalBalance)}",
-                    color = Color.White,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "共 ${accounts.size} 个平台",
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 12.sp
+                SoftGradientCard(
+                    brush = Brush.linearGradient(
+                        colors = listOf(GradientBrandStart, GradientBrandEnd)
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    contentPadding = 20.dp
+                ) {
+                    Text(
+                        text = "账户总金额",
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "¥${String.format("%.2f", totalBalance)}",
+                        color = Color.White,
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "共 ${accounts.size} 个平台",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 12.sp
+                    )
+                }
+                // 右上角装饰圆
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 20.dp, end = 20.dp)
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.12f))
                 )
             }
 
@@ -170,7 +184,7 @@ fun PlatformAccountScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(
                         start = 16.dp, end = 16.dp, top = 4.dp, bottom = 88.dp
                     ),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(accounts, key = { it.id }) { account ->
                         PlatformAccountCard(
@@ -278,11 +292,9 @@ private fun PlatformAccountCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(
+    SoftCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        shape = RoundedCornerShape(16.dp)
     ) {
         Row(
             modifier = Modifier

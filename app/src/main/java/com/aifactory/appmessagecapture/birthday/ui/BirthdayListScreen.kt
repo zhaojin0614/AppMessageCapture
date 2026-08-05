@@ -2,6 +2,7 @@ package com.aifactory.appmessagecapture.birthday.ui
 
 import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -201,6 +202,11 @@ fun BirthdayListScreen(
     val filteredItems = remember(searchQuery, items) {
         if (searchQuery.isBlank()) items
         else items.filter { it.first.name.contains(searchQuery, ignoreCase = true) }
+    }
+
+    // Pressing back during selection mode exits selection, not the app
+    BackHandler(enabled = isSelectionMode) {
+        viewModel.exitSelectionMode()
     }
 
     Scaffold(

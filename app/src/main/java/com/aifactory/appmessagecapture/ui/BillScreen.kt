@@ -2,6 +2,7 @@
 
 package com.aifactory.appmessagecapture.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -10,7 +11,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -55,6 +60,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -277,6 +284,11 @@ fun BillScreen(
         }
     }
 
+    // Pressing back during selection mode exits selection, not the app
+    BackHandler(enabled = isSelectionMode) {
+        viewModel.exitSelectionMode()
+    }
+
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -394,36 +406,29 @@ fun BillScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Type Filter Chips (支出/收入/全部)
-            Row(
+            // Type Filter (全部/支出/收入) — equal-width pill toggle
+            PillToggle(
+                options = listOf(
+                    "全部" to MaterialTheme.colorScheme.primary,
+                    "支出" to ExpenseRed,
+                    "收入" to IncomeGreen
+                ),
+                selectedIndex = when (selectedType) {
+                    "支出" -> 1
+                    "收入" -> 2
+                    else -> 0
+                },
+                onSelect = { index ->
+                    selectedType = when (index) {
+                        1 -> "支出"
+                        2 -> "收入"
+                        else -> null
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                typeFilters.forEach { type ->
-                    val isSelected = selectedType == type || (selectedType == null && type == "全部")
-                    val chipColor = when (type) {
-                        "支出" -> ExpenseRed
-                        "收入" -> IncomeGreen
-                        else -> MaterialTheme.colorScheme.primary
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = if (isSelected) chipColor else MaterialTheme.colorScheme.surface,
-                        shadowElevation = if (isSelected) 2.dp else 0.dp,
-                        modifier = Modifier.clickable { selectedType = if (type == "全部") null else type }
-                    ) {
-                        Text(
-                            text = type,
-                            fontSize = 13.sp,
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                        )
-                    }
-                }
-            }
+                    .padding(horizontal = 16.dp)
+            )
 
             Spacer(modifier = Modifier.height(6.dp))
 
@@ -1176,69 +1181,26 @@ fun BillCard(
         Spacer(modifier = Modifier.width(10.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            // Row 1: App name + Category tag + Amount
+            // Row 1: App name + Amount
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val displayAppName = if (bill.secondaryAppName != null) {
-                        "${bill.appName} - ${bill.secondaryAppName}"
-                    } else {
-                        bill.appName
-                    }
-                    Text(
-                        text = displayAppName,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = getCategoryColor(bill.category).copy(alpha = 0.12f),
-                        modifier = Modifier.clickable { onCategoryClick() }
-                    ) {
-                        Text(
-                            text = bill.category,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = getCategoryColor(bill.category),
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                    // 平台标记：已对账显示平台名（灰），未对账显示橙色"待对账"徽章
-                    Spacer(modifier = Modifier.width(4.dp))
-                    if (platformName != null) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                        ) {
-                            Text(
-                                text = platformName,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    } else {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = ExpenseRed.copy(alpha = 0.12f),
-                            modifier = Modifier.clickable { onReconcile() }
-                        ) {
-                            Text(
-                                text = "待对账",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = ExpenseRed,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
+                val displayAppName = if (bill.secondaryAppName != null) {
+                    "${bill.appName} - ${bill.secondaryAppName}"
+                } else {
+                    bill.appName
                 }
+                Text(
+                    text = displayAppName,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                )
                 val amountColor = if (bill.isIncome) IncomeGreen else ExpenseRed
                 val amountPrefix = if (bill.isIncome) "+" else "-"
                 Text(
@@ -1249,12 +1211,11 @@ fun BillCard(
                 )
             }
 
-            // Row 2: Title on left, Time on right (under amount)
+            // Row 2: Title + Category tag + Platform tag + Time (merged)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -1263,8 +1224,52 @@ fun BillCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                    modifier = Modifier.weight(1f).padding(end = 6.dp)
                 )
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = getCategoryColor(bill.category).copy(alpha = 0.12f),
+                    modifier = Modifier.clickable { onCategoryClick() }
+                ) {
+                    Text(
+                        text = bill.category,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = getCategoryColor(bill.category),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+                // 平台标记：已对账显示平台名（灰），未对账显示橙色"待对账"徽章
+                Spacer(modifier = Modifier.width(4.dp))
+                if (platformName != null) {
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                    ) {
+                        Text(
+                            text = platformName,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                } else {
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = ExpenseRed.copy(alpha = 0.12f),
+                        modifier = Modifier.clickable { onReconcile() }
+                    ) {
+                        Text(
+                            text = "待对账",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = ExpenseRed,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = formatBillTimeOnly(bill.timestamp),
                     fontSize = 12.sp,
@@ -1377,21 +1382,33 @@ fun AddBillDialog(
         mutableStateOf(categories.first())
     }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+    ) {
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 20.dp)
         ) {
-            Column(
+            // Drag handle
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp)
-            ) {
+                    .align(Alignment.CenterHorizontally)
+                    .size(width = 40.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "添加账单",
                     fontSize = 20.sp,
@@ -1427,7 +1444,10 @@ fun AddBillDialog(
                     label = { Text("金额") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    prefix = { Text("¥") }
+                    prefix = { Text("¥") },
+                    textStyle = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold
+                    )
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -1584,7 +1604,6 @@ fun AddBillDialog(
                 }
             }
         }
-    }
 
     // Date picker dialog
     if (showDatePicker) {
