@@ -52,12 +52,43 @@ import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
 import com.aifactory.appmessagecapture.ui.theme.ReportBlue
 import com.aifactory.appmessagecapture.ui.theme.ReportBlueLight
-import com.aifactory.appmessagecapture.ui.theme.ReportCardBg
-import com.aifactory.appmessagecapture.ui.theme.ReportBgGray
-import com.aifactory.appmessagecapture.ui.theme.ReportDivider
-import com.aifactory.appmessagecapture.ui.theme.ReportNeutralGray
-import com.aifactory.appmessagecapture.ui.theme.ReportTextDark
-import com.aifactory.appmessagecapture.ui.theme.ReportTextGray
+
+// ============================================================
+// Theme-aware report palette: light/dark via CompositionLocal
+// ============================================================
+
+private data class ReportColors(
+    val cardBg: Color,
+    val bgGray: Color,
+    val textDark: Color,
+    val textGray: Color,
+    val divider: Color,
+    val neutralGray: Color
+)
+
+private val LocalReportColors = compositionLocalOf {
+    ReportColors(
+        cardBg = Color(0xFFFFFFFF),
+        bgGray = Color(0xFFF6F8F7),
+        textDark = Color(0xFF2A3833),
+        textGray = Color(0xFF8A9B96),
+        divider = Color(0xFFE6EDEA),
+        neutralGray = Color(0xFFE7EEEA)
+    )
+}
+
+@Composable
+private fun rememberReportColors(): ReportColors {
+    val scheme = MaterialTheme.colorScheme
+    return ReportColors(
+        cardBg = scheme.surface,
+        bgGray = scheme.background,
+        textDark = scheme.onSurface,
+        textGray = scheme.onSurfaceVariant,
+        divider = scheme.outline.copy(alpha = 0.35f),
+        neutralGray = scheme.surfaceVariant
+    )
+}
 
 @Composable
 fun ReportScreen(
@@ -86,23 +117,24 @@ fun ReportScreen(
         onBack()
     }
 
+    CompositionLocalProvider(LocalReportColors provides rememberReportColors()) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("收支报表", fontWeight = FontWeight.Bold, color = ReportTextDark) },
+                title = { Text("收支报表", fontWeight = FontWeight.Bold, color = LocalReportColors.current.textDark) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = ReportTextDark)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = LocalReportColors.current.textDark)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = ReportCardBg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = LocalReportColors.current.cardBg)
             )
         }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(ReportBgGray)
+                .background(LocalReportColors.current.bgGray)
                 .padding(innerPadding)
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .verticalScroll(rememberScrollState())
@@ -181,6 +213,7 @@ fun ReportScreen(
             Spacer(modifier = Modifier.height(80.dp))
         }
     }
+    }
 }
 
 @Composable
@@ -198,7 +231,7 @@ private fun PeriodTypeTabs(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(ReportNeutralGray)
+            .background(LocalReportColors.current.neutralGray)
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -217,7 +250,7 @@ private fun PeriodTypeTabs(
                     text = label,
                     fontSize = 14.sp,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                    color = if (isSelected) Color.White else ReportTextGray
+                    color = if (isSelected) Color.White else LocalReportColors.current.textGray
                 )
             }
         }
@@ -240,17 +273,17 @@ private fun DateNavigation(
         ReportViewModel.PeriodType.WEEK -> {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onPrev, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "上一周期", tint = ReportTextGray)
+                    Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "上一周期", tint = LocalReportColors.current.textGray)
                 }
                 Text(
                     text = label,
                     fontSize = 14.sp,
-                    color = ReportTextDark,
+                    color = LocalReportColors.current.textDark,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
                 IconButton(onClick = onNext, modifier = Modifier.size(32.dp), enabled = canGoNext) {
-                    Icon(Icons.Default.KeyboardArrowRight, contentDescription = "下一周期", tint = if (canGoNext) ReportTextGray else ReportTextGray.copy(alpha = 0.3f))
+                    Icon(Icons.Default.KeyboardArrowRight, contentDescription = "下一周期", tint = if (canGoNext) LocalReportColors.current.textGray else LocalReportColors.current.textGray.copy(alpha = 0.3f))
                 }
             }
         }
@@ -265,11 +298,11 @@ private fun DateNavigation(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.clickable { yearExpanded = true }
                     ) {
-                        Text("${currentYear}年", fontSize = 14.sp, color = ReportTextDark, fontWeight = FontWeight.Medium)
+                        Text("${currentYear}年", fontSize = 14.sp, color = LocalReportColors.current.textDark, fontWeight = FontWeight.Medium)
                         Icon(
                             Icons.Default.KeyboardArrowDown,
                             contentDescription = null,
-                            tint = ReportTextGray,
+                            tint = LocalReportColors.current.textGray,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -291,11 +324,11 @@ private fun DateNavigation(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.clickable { monthExpanded = true }
                     ) {
-                        Text(String.format("%02d月", currentMonth), fontSize = 14.sp, color = ReportTextDark, fontWeight = FontWeight.Medium)
+                        Text(String.format("%02d月", currentMonth), fontSize = 14.sp, color = LocalReportColors.current.textDark, fontWeight = FontWeight.Medium)
                         Icon(
                             Icons.Default.KeyboardArrowDown,
                             contentDescription = null,
-                            tint = ReportTextGray,
+                            tint = LocalReportColors.current.textGray,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -324,11 +357,11 @@ private fun DateNavigation(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.clickable { expanded = true }
                 ) {
-                    Text(label, fontSize = 14.sp, color = ReportTextDark, fontWeight = FontWeight.Medium)
+                    Text(label, fontSize = 14.sp, color = LocalReportColors.current.textDark, fontWeight = FontWeight.Medium)
                     Icon(
                         Icons.Default.KeyboardArrowDown,
                         contentDescription = null,
-                        tint = ReportTextGray,
+                        tint = LocalReportColors.current.textGray,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -353,7 +386,7 @@ private fun IncomeExpenseToggle(showIncome: Boolean, onToggle: () -> Unit) {
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(ReportNeutralGray)
+            .background(LocalReportColors.current.neutralGray)
             .padding(2.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
@@ -374,7 +407,7 @@ private fun IncomeExpenseToggle(showIncome: Boolean, onToggle: () -> Unit) {
                     text = label,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (selected) Color.White else ReportTextGray
+                    color = if (selected) Color.White else LocalReportColors.current.textGray
                 )
             }
         }
@@ -407,14 +440,14 @@ private fun SummaryCards(
                 modifier = Modifier.weight(1f),
                 title = totalLabel,
                 value = "${String.format("%.2f", periodTotal)}",
-                valueColor = ReportTextDark,
+                valueColor = LocalReportColors.current.textDark,
                 leftBorderColor = MaterialTheme.colorScheme.secondary
             )
             StatCard(
                 modifier = Modifier.weight(1f),
                 title = avgLabel,
                 value = "${String.format("%.2f", dailyAvg)}",
-                valueColor = ReportTextDark,
+                valueColor = LocalReportColors.current.textDark,
                 leftBorderColor = MaterialTheme.colorScheme.secondary
             )
         }
@@ -452,7 +485,7 @@ private fun StatCard(
     SoftCard(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
-        color = ReportCardBg
+        color = LocalReportColors.current.cardBg
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
             Box(
@@ -465,7 +498,7 @@ private fun StatCard(
                 Text(
                     text = title,
                     fontSize = 12.sp,
-                    color = ReportTextGray,
+                    color = LocalReportColors.current.textGray,
                     fontWeight = FontWeight.Normal
                 )
                 Spacer(modifier = Modifier.height(4.dp))
@@ -486,7 +519,7 @@ private fun SectionTitle(title: String, modifier: Modifier = Modifier) {
         text = title,
         fontSize = 16.sp,
         fontWeight = FontWeight.Bold,
-        color = ReportTextDark,
+        color = LocalReportColors.current.textDark,
         modifier = modifier.padding(bottom = 10.dp, top = 4.dp)
     )
 }
@@ -508,7 +541,7 @@ private fun TrendLineChartSection(
     SoftCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = ReportCardBg,
+        color = LocalReportColors.current.cardBg,
         contentPadding = 16.dp
     ) {
         SectionTitle(title)
@@ -534,6 +567,7 @@ private fun TrendLineChart(
 ) {
     var selectedIndex by remember { mutableIntStateOf(-1) }
     val textMeasurer = rememberTextMeasurer()
+    val colors = LocalReportColors.current
 
     Box(modifier = modifier) {
         Canvas(
@@ -568,7 +602,7 @@ private fun TrendLineChart(
             for (i in 0..4) {
                 val y = paddingTop + plotHeight * (1 - i / 4f)
                 drawLine(
-                    color = ReportDivider,
+                    color = colors.divider,
                     start = Offset(paddingLeft, y),
                     end = Offset(size.width - paddingRight, y),
                     strokeWidth = 1f
@@ -576,7 +610,7 @@ private fun TrendLineChart(
                 val label = String.format("%.2f", maxValue * i / 4)
                 val labelResult = textMeasurer.measure(
                     text = label,
-                    style = TextStyle(fontSize = 10.sp, color = ReportTextGray)
+                    style = TextStyle(fontSize = 10.sp, color = colors.textGray)
                 )
                 drawText(
                     textMeasurer = textMeasurer,
@@ -585,7 +619,7 @@ private fun TrendLineChart(
                         paddingLeft - labelResult.size.width - 6f,
                         y - labelResult.size.height / 2
                     ),
-                    style = TextStyle(fontSize = 10.sp, color = ReportTextGray)
+                    style = TextStyle(fontSize = 10.sp, color = colors.textGray)
                 )
             }
 
@@ -621,7 +655,7 @@ private fun TrendLineChart(
                             x - 12.dp.toPx(),
                             size.height - paddingBottom + 6f
                         ),
-                        style = TextStyle(fontSize = 10.sp, color = ReportTextGray, textAlign = TextAlign.Center)
+                        style = TextStyle(fontSize = 10.sp, color = colors.textGray, textAlign = TextAlign.Center)
                     )
                 }
             }
@@ -729,7 +763,7 @@ private fun TrendBarChartSection(
     SoftCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = ReportCardBg,
+        color = LocalReportColors.current.cardBg,
         contentPadding = 16.dp
     ) {
         SectionTitle(title)
@@ -753,6 +787,7 @@ private fun TrendBarChart(
 ) {
     var selectedIndex by remember { mutableIntStateOf(-1) }
     val textMeasurer = rememberTextMeasurer()
+    val colors = LocalReportColors.current
 
     Box(modifier = modifier) {
         Canvas(
@@ -787,7 +822,7 @@ private fun TrendBarChart(
             for (i in 0..4) {
                 val y = paddingTop + plotHeight * (1 - i / 4f)
                 drawLine(
-                    color = ReportDivider,
+                    color = colors.divider,
                     start = Offset(paddingLeft, y),
                     end = Offset(size.width - paddingRight, y),
                     strokeWidth = 1f
@@ -795,7 +830,7 @@ private fun TrendBarChart(
                 val label = String.format("%.2f", maxValue * i / 4)
                 val labelResult = textMeasurer.measure(
                     text = label,
-                    style = TextStyle(fontSize = 10.sp, color = ReportTextGray)
+                    style = TextStyle(fontSize = 10.sp, color = colors.textGray)
                 )
                 drawText(
                     textMeasurer = textMeasurer,
@@ -804,7 +839,7 @@ private fun TrendBarChart(
                         paddingLeft - labelResult.size.width - 6f,
                         y - labelResult.size.height / 2
                     ),
-                    style = TextStyle(fontSize = 10.sp, color = ReportTextGray)
+                    style = TextStyle(fontSize = 10.sp, color = colors.textGray)
                 )
             }
 
@@ -838,7 +873,7 @@ private fun TrendBarChart(
                         centerX - 12.dp.toPx(),
                         size.height - paddingBottom + 6f
                     ),
-                    style = TextStyle(fontSize = 10.sp, color = ReportTextGray, textAlign = TextAlign.Center)
+                    style = TextStyle(fontSize = 10.sp, color = colors.textGray, textAlign = TextAlign.Center)
                 )
             }
 
@@ -928,14 +963,14 @@ private fun EmptyChartState(message: String) {
             Icon(
                 Icons.Default.BarChart,
                 contentDescription = null,
-                tint = ReportTextGray.copy(alpha = 0.4f),
+                tint = LocalReportColors.current.textGray.copy(alpha = 0.4f),
                 modifier = Modifier.size(40.dp)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = message,
                 fontSize = 13.sp,
-                color = ReportTextGray
+                color = LocalReportColors.current.textGray
             )
         }
     }
@@ -951,7 +986,7 @@ private fun CategorySection(
     SoftCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = ReportCardBg,
+        color = LocalReportColors.current.cardBg,
         contentPadding = 16.dp
     ) {
         SectionTitle(if (showIncome) "收入分类构成" else "支出分类构成")
@@ -972,7 +1007,7 @@ private fun CategorySection(
                 )
                 if (index < data.lastIndex) {
                     HorizontalDivider(
-                        color = ReportDivider,
+                        color = LocalReportColors.current.divider,
                         thickness = 0.5.dp,
                         modifier = Modifier.padding(vertical = 6.dp)
                     )
@@ -990,6 +1025,7 @@ private fun DonutChartWithLabels(
     modifier: Modifier = Modifier
 ) {
     val textMeasurer = rememberTextMeasurer()
+    val colors = LocalReportColors.current
 
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -1020,7 +1056,7 @@ private fun DonutChartWithLabels(
                     val labelY = centerY + (labelRadius * sin(midRad)).toFloat()
 
                     val text = "${stat.category} ${String.format("%.1f", stat.percentage * 100)}%"
-                    val textStyle = TextStyle(fontSize = 10.sp, color = ReportTextGray)
+                    val textStyle = TextStyle(fontSize = 10.sp, color = colors.textGray)
                     val textResult = textMeasurer.measure(text = text, style = textStyle)
 
                     val textOffset = if (labelX < centerX) {
@@ -1081,7 +1117,7 @@ private fun CategoryListItem(
         Text(
             text = "$rank",
             fontSize = 13.sp,
-            color = ReportTextGray,
+            color = LocalReportColors.current.textGray,
             modifier = Modifier.width(20.dp),
             textAlign = TextAlign.Center
         )
@@ -1117,7 +1153,7 @@ private fun CategoryListItem(
                     text = stat.category,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = ReportTextDark,
+                    color = LocalReportColors.current.textDark,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
@@ -1126,7 +1162,7 @@ private fun CategoryListItem(
                 Text(
                     text = "${stat.count}笔",
                     fontSize = 11.sp,
-                    color = ReportTextGray,
+                    color = LocalReportColors.current.textGray,
                     maxLines = 1
                 )
             }
@@ -1136,7 +1172,7 @@ private fun CategoryListItem(
                     .fillMaxWidth()
                     .height(4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(ReportDivider)
+                    .background(LocalReportColors.current.divider)
             ) {
                 Box(
                     modifier = Modifier
@@ -1151,7 +1187,7 @@ private fun CategoryListItem(
         Text(
             text = "${String.format("%.1f", stat.percentage * 100)}%",
             fontSize = 12.sp,
-            color = ReportTextGray,
+            color = LocalReportColors.current.textGray,
             modifier = Modifier.width(40.dp),
             textAlign = TextAlign.End
         )
@@ -1160,14 +1196,14 @@ private fun CategoryListItem(
             text = "¥${String.format("%.2f", stat.amount)}",
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            color = ReportTextDark,
+            color = LocalReportColors.current.textDark,
             modifier = Modifier.width(85.dp),
             textAlign = TextAlign.End
         )
         Icon(
             imageVector = Icons.Default.KeyboardArrowRight,
             contentDescription = null,
-            tint = ReportTextGray,
+            tint = LocalReportColors.current.textGray,
             modifier = Modifier.size(16.dp)
         )
     }
