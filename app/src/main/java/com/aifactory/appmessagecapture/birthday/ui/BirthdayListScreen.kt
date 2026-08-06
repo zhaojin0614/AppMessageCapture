@@ -8,6 +8,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,7 +40,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -74,7 +75,11 @@ import androidx.compose.ui.unit.sp
 import com.aifactory.appmessagecapture.birthday.ui.components.BirthdayCard
 import com.aifactory.appmessagecapture.birthday.ui.components.EmptyBirthdayState
 import com.aifactory.appmessagecapture.birthday.utils.PermissionHelper
+import com.aifactory.appmessagecapture.ui.components.SoftFab
 import com.aifactory.appmessagecapture.ui.components.SwipeableItem
+import com.aifactory.appmessagecapture.ui.components.GlassAlertDialog
+import com.aifactory.appmessagecapture.ui.components.glassBorder
+import com.aifactory.appmessagecapture.ui.components.glassFill
 import kotlinx.coroutines.launch
 
 /**
@@ -209,9 +214,11 @@ fun BirthdayListScreen(
         viewModel.exitSelectionMode()
     }
 
-    Scaffold(
-        modifier = modifier,
-        topBar = {
+    Box(modifier = modifier.fillMaxSize()) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = Color.Transparent,
+            topBar = {
             TopAppBar(
                 title = {
                     if (isSelectionMode) {
@@ -231,7 +238,7 @@ fun BirthdayListScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = Color.Transparent,
                     titleContentColor = MaterialTheme.colorScheme.onBackground
                 ),
                 actions = {
@@ -277,14 +284,12 @@ fun BirthdayListScreen(
         },
         floatingActionButton = {
             if (!isSelectionMode) {
-                FloatingActionButton(
+                SoftFab(
+                    icon = Icons.Default.Add,
+                    contentDescription = "添加生日",
                     onClick = onAddClick,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shape = androidx.compose.foundation.shape.CircleShape
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "添加生日")
-                }
+                    modifier = Modifier.padding(bottom = 88.dp)
+                )
             }
         }
     ) { innerPadding ->
@@ -313,9 +318,10 @@ fun BirthdayListScreen(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .border(glassBorder(), RoundedCornerShape(24.dp)),
                     shape = RoundedCornerShape(24.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    color = glassFill(),
                     shadowElevation = 0.dp
                 ) {
                     TextField(
@@ -390,7 +396,7 @@ fun BirthdayListScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .nestedScroll(nestedScrollConnection),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 4.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(
@@ -429,10 +435,11 @@ fun BirthdayListScreen(
             }
         }
     }
+    }
 
     // 单条删除确认对话框
     if (showDeleteDialog && deleteTargetId != null) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("删除生日记录") },
             text = { Text("确定要删除这条生日记录吗？相关的闹钟提醒也会被一并取消。") },
@@ -458,7 +465,7 @@ fun BirthdayListScreen(
 
     // 批量删除确认对话框
     if (showDeleteSelectedDialog) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { showDeleteSelectedDialog = false },
             title = { Text("删除选中记录") },
             text = { Text("确定要删除选中的 ${selectedIds.size} 条生日记录吗？相关的闹钟提醒也会被一并取消。此操作不可恢复。") },
@@ -506,7 +513,7 @@ private fun BirthdaySettingsDialog(
     onOpenPermissionSettings: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    GlassAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("设置") },
         text = {
@@ -645,7 +652,7 @@ private fun PermissionBanner(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer
+            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f)
         )
     ) {
         Row(

@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
@@ -53,9 +54,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,6 +68,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
@@ -111,9 +113,14 @@ import com.aifactory.appmessagecapture.data.BillEntity
 import com.aifactory.appmessagecapture.ui.components.PillToggle
 import com.aifactory.appmessagecapture.ui.components.SoftButton
 import com.aifactory.appmessagecapture.ui.components.SoftCard
+import com.aifactory.appmessagecapture.ui.components.SoftFab
 import com.aifactory.appmessagecapture.ui.components.SoftGradientCard
 import com.aifactory.appmessagecapture.ui.components.SwipeableItem
 import com.aifactory.appmessagecapture.ui.components.SwipeableItemCoordinator
+import com.aifactory.appmessagecapture.ui.components.GlassAlertDialog
+import com.aifactory.appmessagecapture.ui.components.glassBorder
+import com.aifactory.appmessagecapture.ui.components.glassFill
+import com.aifactory.appmessagecapture.ui.components.isDarkTheme
 import com.aifactory.appmessagecapture.ui.theme.CategoryBeauty
 import com.aifactory.appmessagecapture.ui.theme.CategoryEducation
 import com.aifactory.appmessagecapture.ui.theme.CategoryEntertainment
@@ -289,226 +296,226 @@ fun BillScreen(
         viewModel.exitSelectionMode()
     }
 
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = {
-                    if (isSelectionMode) {
-                        Text(
-                            text = "已选择 ${selectedIds.size} 项",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    } else {
-                        Text(
-                            text = "智能记账",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                ),
-                actions = {
-                    if (isSelectionMode) {
-                        TextButton(onClick = {
-                            val visibleIds = filteredBills.map { it.id }
-                            if (selectedIds.containsAll(visibleIds)) {
-                                viewModel.exitSelectionMode()
-                            } else {
-                                viewModel.selectAll(visibleIds)
-                            }
-                        }) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            modifier = modifier,
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    title = {
+                        if (isSelectionMode) {
                             Text(
-                                text = if (selectedIds.containsAll(filteredBills.map { it.id })) "取消全选" else "全选",
-                                color = MaterialTheme.colorScheme.primary
+                                text = "已选择 ${selectedIds.size} 项",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                        } else {
+                            Text(
+                                text = "智能记账",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
                             )
                         }
-                        IconButton(onClick = { showDeleteSelectedDialog = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "删除选中",
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
-                        IconButton(onClick = { viewModel.exitSelectionMode() }) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "取消",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    } else {
-                        IconButton(onClick = { showPlatformAccounts = true }) {
-                            Icon(
-                                imageVector = Icons.Default.AccountBalanceWallet,
-                                contentDescription = "账户管理",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        IconButton(onClick = { showRecurringBills = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Repeat,
-                                contentDescription = "周期账单",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        IconButton(onClick = { showReport = true }) {
-                            Icon(
-                                imageVector = Icons.Default.BarChart,
-                                contentDescription = "报表",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent
+                    ),
+                    actions = {
+                        if (isSelectionMode) {
+                            TextButton(onClick = {
+                                val visibleIds = filteredBills.map { it.id }
+                                if (selectedIds.containsAll(visibleIds)) {
+                                    viewModel.exitSelectionMode()
+                                } else {
+                                    viewModel.selectAll(visibleIds)
+                                }
+                            }) {
+                                Text(
+                                    text = if (selectedIds.containsAll(filteredBills.map { it.id })) "取消全选" else "全选",
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            IconButton(onClick = { showDeleteSelectedDialog = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "删除选中",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                            IconButton(onClick = { viewModel.exitSelectionMode() }) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "取消",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            IconButton(onClick = { showPlatformAccounts = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.AccountBalanceWallet,
+                                    contentDescription = "账户管理",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            IconButton(onClick = { showRecurringBills = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.Repeat,
+                                    contentDescription = "周期账单",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            IconButton(onClick = { showReport = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.BarChart,
+                                    contentDescription = "报表",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
-                }
-            )
-        },
-        floatingActionButton = {
-            if (!isSelectionMode) {
-                FloatingActionButton(
-                    onClick = { showAddDialog = true },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = Color.White,
-                    shape = CircleShape
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "添加账单")
-                }
-            }
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
-        ) {
-            // Pull-down stats panel
-            BillPullDownStatsPanel(
-                pullOffset = pullOffset.value,
-                maxPullOffset = maxPullOffsetPx,
-                expenseCount = expenseCount,
-                incomeCount = incomeCount,
-                totalExpense = totalExpense,
-                totalIncome = totalIncome,
-                totalAccountBalance = totalAccountBalance
-            )
-
-            // Income / Expense Summary Cards
-            IncomeExpenseSummary(
-                todayExpense = todayExpense,
-                todayIncome = todayIncome
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Type Filter (全部/支出/收入) — equal-width pill toggle
-            PillToggle(
-                options = listOf(
-                    "全部" to MaterialTheme.colorScheme.primary,
-                    "支出" to ExpenseRed,
-                    "收入" to IncomeGreen
-                ),
-                selectedIndex = when (selectedType) {
-                    "支出" -> 1
-                    "收入" -> 2
-                    else -> 0
-                },
-                onSelect = { index ->
-                    selectedType = when (index) {
-                        1 -> "支出"
-                        2 -> "收入"
-                        else -> null
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Category Filter Chips
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                categories.forEach { cat ->
-                    val isSelected = selectedCategory == cat || (selectedCategory == null && cat == "全部")
-                    CategoryChip(
-                        label = cat,
-                        isSelected = isSelected,
-                        onClick = { selectedCategory = if (cat == "全部") null else cat },
-                        showIcon = true
+                )
+            },
+            floatingActionButton = {
+                if (!isSelectionMode) {
+                    SoftFab(
+                        icon = Icons.Default.Add,
+                        contentDescription = "添加账单",
+                        onClick = { showAddDialog = true },
+                        modifier = Modifier.padding(bottom = 88.dp)
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Bill List
-            if (filteredBills.isEmpty()) {
-                EmptyBillState()
-            } else {
-                val groupedBills = remember(filteredBills) {
-                    filteredBills.groupBy {
-                        Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
-                    }.toList().sortedByDescending { it.first }
-                }
-                LazyColumn(
-                    state = listState,
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                // Pull-down stats panel
+                BillPullDownStatsPanel(
+                    pullOffset = pullOffset.value,
+                    maxPullOffset = maxPullOffsetPx,
+                    expenseCount = expenseCount,
+                    incomeCount = incomeCount,
+                    totalExpense = totalExpense,
+                    totalIncome = totalIncome,
+                    totalAccountBalance = totalAccountBalance
+                )
+    
+                // Income / Expense Summary Cards
+                IncomeExpenseSummary(
+                    todayExpense = todayExpense,
+                    todayIncome = todayIncome
+                )
+    
+                Spacer(modifier = Modifier.height(8.dp))
+    
+                // Type Filter (全部/支出/收入) — equal-width pill toggle
+                PillToggle(
+                    options = listOf(
+                        "全部" to MaterialTheme.colorScheme.primary,
+                        "支出" to ExpenseRed,
+                        "收入" to IncomeGreen
+                    ),
+                    selectedIndex = when (selectedType) {
+                        "支出" -> 1
+                        "收入" -> 2
+                        else -> 0
+                    },
+                    onSelect = { index ->
+                        selectedType = when (index) {
+                            1 -> "支出"
+                            2 -> "收入"
+                            else -> null
+                        }
+                    },
                     modifier = Modifier
-                        .fillMaxSize()
-                        .nestedScroll(nestedScrollConnection),
-                    contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 0.dp, bottom = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                )
+    
+                Spacer(modifier = Modifier.height(6.dp))
+    
+                // Category Filter Chips
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(
-                        items = groupedBills,
-                        key = { "day_${it.first}" }
-                    ) { (date, dayBills) ->
-                        DayGroupCard(
-                            date = date,
-                            bills = dayBills,
-                            isSelectionMode = isSelectionMode,
-                            selectedIds = selectedIds,
-                            platforms = platforms,
-                            onBillClick = { bill ->
-                                if (isSelectionMode) {
-                                    viewModel.toggleSelection(bill.id)
-                                } else {
-                                    billToEdit = bill
-                                    showEditDialog = true
-                                }
-                            },
-                            onBillLongClick = { bill ->
-                                if (!isSelectionMode) {
-                                    viewModel.enterSelectionMode(bill.id)
-                                }
-                            },
-                            onCategoryClick = { bill ->
-                                if (!isSelectionMode) {
-                                    categoryBillToEdit = bill
-                                    showCategoryPicker = true
-                                }
-                            },
-                            onReconcile = { bill ->
-                                if (!isSelectionMode) {
-                                    reconcileBill = bill
-                                }
-                            },
-                            onDelete = { bill ->
-                                billToDelete = bill
-                                showDeleteDialog = true
-                            }
+                    categories.forEach { cat ->
+                        val isSelected = selectedCategory == cat || (selectedCategory == null && cat == "全部")
+                        CategoryChip(
+                            label = cat,
+                            isSelected = isSelected,
+                            onClick = { selectedCategory = if (cat == "全部") null else cat },
+                            showIcon = true
                         )
+                    }
+                }
+    
+                Spacer(modifier = Modifier.height(8.dp))
+    
+                // Bill List
+                if (filteredBills.isEmpty()) {
+                    EmptyBillState()
+                } else {
+                    val groupedBills = remember(filteredBills) {
+                        filteredBills.groupBy {
+                            Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
+                        }.toList().sortedByDescending { it.first }
+                    }
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .nestedScroll(nestedScrollConnection),
+                        contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 0.dp, bottom = 96.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(
+                            items = groupedBills,
+                            key = { "day_${it.first}" }
+                        ) { (date, dayBills) ->
+                            DayGroupCard(
+                                date = date,
+                                bills = dayBills,
+                                isSelectionMode = isSelectionMode,
+                                selectedIds = selectedIds,
+                                platforms = platforms,
+                                onBillClick = { bill ->
+                                    if (isSelectionMode) {
+                                        viewModel.toggleSelection(bill.id)
+                                    } else {
+                                        billToEdit = bill
+                                        showEditDialog = true
+                                    }
+                                },
+                                onBillLongClick = { bill ->
+                                    if (!isSelectionMode) {
+                                        viewModel.enterSelectionMode(bill.id)
+                                    }
+                                },
+                                onCategoryClick = { bill ->
+                                    if (!isSelectionMode) {
+                                        categoryBillToEdit = bill
+                                        showCategoryPicker = true
+                                    }
+                                },
+                                onReconcile = { bill ->
+                                    if (!isSelectionMode) {
+                                        reconcileBill = bill
+                                    }
+                                },
+                                onDelete = { bill ->
+                                    billToDelete = bill
+                                    showDeleteDialog = true
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -523,7 +530,7 @@ fun BillScreen(
         } else {
             ExpenseCategories.all
         }
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = {
                 showCategoryPicker = false
                 categoryBillToEdit = null
@@ -580,7 +587,7 @@ fun BillScreen(
         val bill = billToEdit!!
         var editTitle by remember { mutableStateOf(bill.title) }
         var showEditPlatformPicker by remember { mutableStateOf(false) }
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = {
                 showEditDialog = false
                 billToEdit = null
@@ -590,6 +597,7 @@ fun BillScreen(
                 Column {
                     TextField(
                         value = editTitle,
+                         colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, disabledContainerColor = Color.Transparent),
                         onValueChange = { editTitle = it },
                         label = { Text("标题") },
                         modifier = Modifier.fillMaxWidth(),
@@ -674,7 +682,7 @@ fun BillScreen(
 
     // Single item delete confirmation
     if (showDeleteDialog && billToDelete != null) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = {
                 showDeleteDialog = false
                 billToDelete = null
@@ -706,7 +714,7 @@ fun BillScreen(
 
     // Multi-select delete confirmation
     if (showDeleteSelectedDialog) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { showDeleteSelectedDialog = false },
             title = { Text("删除选中账单") },
             text = { Text("确定要删除选中的 ${selectedIds.size} 条账单记录吗？此操作不可恢复。") },
@@ -931,9 +939,11 @@ fun CategoryChip(
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.92f) else glassFill(),
         shadowElevation = if (isSelected) 2.dp else 0.dp,
-        modifier = Modifier.clickable { onClick() }
+        modifier = Modifier
+            .clickable { onClick() }
+            .border(glassBorder(), RoundedCornerShape(16.dp))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -1132,7 +1142,7 @@ fun BillCard(
             )
             .background(
                 if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                else MaterialTheme.colorScheme.surface,
+                else Color.Transparent,
                 RoundedCornerShape(8.dp)
             )
             .padding(vertical = 8.dp),
@@ -1327,7 +1337,7 @@ fun DayGroupCard(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f))
             Spacer(modifier = Modifier.height(4.dp))
 
             // Bills inside day card
@@ -1350,7 +1360,7 @@ fun DayGroupCard(
                 }
                 if (index < bills.lastIndex) {
                     HorizontalDivider(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f),
                         thickness = 0.5.dp,
                         modifier = Modifier.padding(start = 50.dp)
                     )
@@ -1387,7 +1397,10 @@ fun AddBillDialog(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
+        // Nearly opaque so the form is readable; keeps a faint glass tint.
+        containerColor = MaterialTheme.colorScheme.surface.copy(
+            alpha = if (isDarkTheme()) 0.90f else 0.96f
+        ),
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
     ) {
         Column(
@@ -1399,17 +1412,9 @@ fun AddBillDialog(
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 20.dp)
         ) {
-            // Drag handle
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .size(width = 40.dp, height = 4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
-            )
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Spacer(modifier = Modifier.height(16.dp))
-                Text(
+            Text(
                     text = "添加账单",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -1430,6 +1435,7 @@ fun AddBillDialog(
 
                 TextField(
                     value = title,
+                     colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, disabledContainerColor = Color.Transparent),
                     onValueChange = { title = it },
                     label = { Text("标题 (如: 晚餐)") },
                     modifier = Modifier.fillMaxWidth(),
@@ -1440,6 +1446,7 @@ fun AddBillDialog(
 
                 TextField(
                     value = amountText,
+                     colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, disabledContainerColor = Color.Transparent),
                     onValueChange = { amountText = it },
                     label = { Text("金额") },
                     modifier = Modifier.fillMaxWidth(),
@@ -1626,6 +1633,13 @@ fun AddBillDialog(
         )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
+            modifier = Modifier.border(glassBorder(), RoundedCornerShape(28.dp)),
+            shape = RoundedCornerShape(28.dp),
+            colors = DatePickerDefaults.colors(
+                containerColor = MaterialTheme.colorScheme.surface.copy(
+                    alpha = if (isDarkTheme()) 0.90f else 0.93f
+                )
+            ),
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { millis ->
@@ -1712,7 +1726,7 @@ fun PlatformPickerDialog(
     onSelect: (Long?) -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    GlassAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("选择平台") },
         text = {
@@ -1821,7 +1835,7 @@ fun ReconcilePlatformDialog(
 ) {
     val typeLabel = if (bill.isIncome) "存入平台" else "扣款平台"
     val amountPrefix = if (bill.isIncome) "+" else "-"
-    AlertDialog(
+    GlassAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("对账 - ${bill.title}") },
         text = {

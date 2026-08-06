@@ -4,6 +4,7 @@ package com.aifactory.appmessagecapture.ui.components
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
@@ -23,7 +24,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
@@ -79,6 +82,12 @@ fun SwipeableItem(
     val maxSwipe = with(LocalDensity.current) { 60.dp.toPx() }
     val swipeKey = remember { java.util.UUID.randomUUID().toString() }
 
+    // Swipe reveal progress: 0 = hidden, 1 = fully swiped open.
+    // Drives the delete button's fade/scale. The button sits BEHIND the
+    // frosted card, so without this it would show through the translucent
+    // glass surface even when the item is at rest.
+    val revealProgress = (offsetX.value / -maxSwipe).coerceIn(0f, 1f)
+
     // 当数据项标识变化时（如删除导致列表缩短、槽位复用），重置滑动偏移
     LaunchedEffect(itemKey) {
         if (offsetX.value != 0f) {
@@ -103,15 +112,33 @@ fun SwipeableItem(
     }
 
     Box(modifier = modifier.fillMaxWidth()) {
-        // Delete button - hidden in selection mode (fixes issue #3)
+        // Delete button — glass styled, fades in only as the item is
+        // swiped open (invisible at rest so it never shows through the
+        // frosted card). Hidden entirely in selection mode.
         if (!isSelectionMode) {
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .padding(end = 6.dp)
                     .size(40.dp)
+                    .graphicsLayer {
+                        alpha = revealProgress
+                        scaleX = 0.85f + 0.15f * revealProgress
+                        scaleY = 0.85f + 0.15f * revealProgress
+                    }
+                    .shadow(
+                        elevation = 3.dp,
+                        shape = CircleShape,
+                        ambientColor = Color(0x26000000),
+                        spotColor = Color(0x33000000)
+                    )
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.error)
+                    .background(
+                        MaterialTheme.colorScheme.error.copy(
+                            alpha = if (isDarkTheme()) 0.32f else 0.45f
+                        )
+                    )
+                    .border(glassBorder(), CircleShape)
                     .clickable { onDelete() },
                 contentAlignment = Alignment.Center
             ) {
@@ -119,7 +146,7 @@ fun SwipeableItem(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "删除",
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }

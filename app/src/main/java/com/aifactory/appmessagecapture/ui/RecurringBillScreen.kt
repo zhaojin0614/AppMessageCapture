@@ -36,7 +36,6 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +46,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
@@ -71,6 +71,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.data.RecurringBillEntity
 import com.aifactory.appmessagecapture.data.RecurringFrequency
 import com.aifactory.appmessagecapture.ui.components.SoftButton
+import com.aifactory.appmessagecapture.ui.components.SoftFab
+import com.aifactory.appmessagecapture.ui.components.GlassAlertDialog
+import com.aifactory.appmessagecapture.ui.components.glassBorder
+import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.theme.CategoryBeauty
 import com.aifactory.appmessagecapture.ui.theme.CategoryEducation
 import com.aifactory.appmessagecapture.ui.theme.CategoryEntertainment
@@ -116,9 +120,11 @@ fun RecurringBillScreen(
         onBack()
     }
 
-    Scaffold(
-        modifier = modifier,
-        contentWindowInsets = WindowInsets(0.dp),
+    Box(modifier = modifier.fillMaxSize()) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = Color.Transparent,
+            contentWindowInsets = WindowInsets(0.dp),
         topBar = {
             TopAppBar(
                 title = {
@@ -134,7 +140,7 @@ fun RecurringBillScreen(
                 },
                 actions = {},
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = Color.Transparent,
                     titleContentColor = MaterialTheme.colorScheme.onBackground,
                     navigationIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -142,12 +148,12 @@ fun RecurringBillScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
+            SoftFab(
+                icon = Icons.Default.Add,
+                contentDescription = "添加周期账单",
                 onClick = { showAddDialog = true },
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "添加周期账单", tint = MaterialTheme.colorScheme.onPrimary)
-            }
+                modifier = Modifier.padding(bottom = 88.dp)
+            )
         }
     ) { padding ->
         if (recurringBills.isEmpty()) {
@@ -194,7 +200,7 @@ fun RecurringBillScreen(
                     .padding(padding)
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 12.dp)
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 0.dp, end = 0.dp, top = 12.dp, bottom = 96.dp)
             ) {
                 items(recurringBills, key = { it.id }) { bill ->
                     RecurringBillCard(
@@ -206,6 +212,7 @@ fun RecurringBillScreen(
                 }
             }
         }
+    }
     }
 
     // Add recurring bill dialog
@@ -221,7 +228,7 @@ fun RecurringBillScreen(
 
     // Delete confirmation dialog
     billToDelete?.let { bill ->
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { billToDelete = null },
             title = { Text("删除周期账单") },
             text = { Text("确定要删除「${bill.title}」的周期账单吗？") },
@@ -275,9 +282,10 @@ private fun RecurringBillCard(
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = glassFill()
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = glassBorder()
     ) {
         Row(
             modifier = Modifier
@@ -417,8 +425,9 @@ private fun AddRecurringBillDialog(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
+                containerColor = glassFill()
+            ),
+            border = glassBorder()
         ) {
             Column(
                 modifier = Modifier
@@ -472,6 +481,7 @@ private fun AddRecurringBillDialog(
                 // Title
                 TextField(
                     value = title,
+                     colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, disabledContainerColor = Color.Transparent),
                     onValueChange = { title = it },
                     label = { Text("标题 (如: 房租)") },
                     modifier = Modifier.fillMaxWidth(),
@@ -483,6 +493,7 @@ private fun AddRecurringBillDialog(
                 // Amount
                 TextField(
                     value = amountText,
+                     colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, disabledContainerColor = Color.Transparent),
                     onValueChange = { amountText = it },
                     label = { Text("金额") },
                     modifier = Modifier.fillMaxWidth(),
@@ -701,8 +712,9 @@ private fun EditRecurringBillDialog(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
+                containerColor = glassFill()
+            ),
+            border = glassBorder()
         ) {
             Column(
                 modifier = Modifier
@@ -756,6 +768,7 @@ private fun EditRecurringBillDialog(
                 // Title
                 TextField(
                     value = title,
+                     colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, disabledContainerColor = Color.Transparent),
                     onValueChange = { title = it },
                     label = { Text("标题 (如: 房租)") },
                     modifier = Modifier.fillMaxWidth(),
@@ -767,6 +780,7 @@ private fun EditRecurringBillDialog(
                 // Amount
                 TextField(
                     value = amountText,
+                     colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, disabledContainerColor = Color.Transparent),
                     onValueChange = { amountText = it },
                     label = { Text("金额") },
                     modifier = Modifier.fillMaxWidth(),

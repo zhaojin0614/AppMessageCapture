@@ -1,7 +1,17 @@
 package com.aifactory.appmessagecapture.ui.components
 
+import androidx.compose.animation.animateColor
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -9,16 +19,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,13 +45,47 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.aifactory.appmessagecapture.ui.theme.GradientBrandEnd
 import com.aifactory.appmessagecapture.ui.theme.GradientBrandStart
+import com.aifactory.appmessagecapture.ui.theme.MistBlue
+import com.aifactory.appmessagecapture.ui.theme.SandGold
+import kotlin.math.PI
+import kotlin.math.sin
 
 /**
  * Soft UI shared components — the single visual language used across
  * Messages / Bills / Report / Birthday screens.
  */
 
-// ---------- SoftCard: soft multi-layer shadow card ----------
+// ---------- Glass helpers ----------
+
+@Composable
+fun isDarkTheme(): Boolean = isSystemInDarkTheme()
+
+/** Fully transparent panel fill — no white panel at all.
+ *  The liquid-glass look comes from the real-time backdrop blur
+ *  (GlassBackdropRoot) plus the highlight border / top reflection. */
+@Composable
+fun glassFill(): Color = Color.Transparent
+
+/** 1dp highlight border for glass surfaces. */
+@Composable
+fun glassBorder(): BorderStroke {
+    val alpha = if (isDarkTheme()) 0.18f else 0.45f
+    return BorderStroke(1.dp, Color.White.copy(alpha = alpha))
+}
+
+/** Top-edge light reflection used inside glass surfaces.
+ *  Kept very faint so cards never read as white panels. */
+@Composable
+fun glassHighlightBrush(): Brush {
+    val alpha = if (isDarkTheme()) 0.04f else 0.10f
+    return Brush.verticalGradient(
+        colors = listOf(Color.White.copy(alpha = alpha), Color.Transparent),
+        startY = 0f,
+        endY = 120f
+    )
+}
+
+// ---------- SoftCard: liquid-glass card ----------
 
 @Composable
 fun SoftCard(
@@ -50,21 +98,17 @@ fun SoftCard(
 ) {
     Box(
         modifier = modifier
-            .shadow(
-                elevation = 3.dp,
-                shape = shape,
-                ambientColor = Color(0x14000000),
-                spotColor = Color(0x1F000000)
-            )
-            .shadow(
-                elevation = 1.dp,
-                shape = shape,
-                ambientColor = Color(0x08000000),
-                spotColor = Color(0x0A000000)
-            )
             .clip(shape)
-            .background(color)
+            .background(glassFill())
+            .border(glassBorder(), shape)
     ) {
+        // Top light reflection (liquid glass highlight)
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(shape)
+                .background(glassHighlightBrush())
+        )
         Column(
             modifier = Modifier.padding(contentPadding),
             content = content
@@ -93,7 +137,15 @@ fun SoftGradientCard(
             )
             .clip(shape)
             .background(brush)
+            .border(glassBorder(), shape)
     ) {
+        // Top light reflection (liquid glass highlight)
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(shape)
+                .background(glassHighlightBrush())
+        )
         Column(
             modifier = Modifier.padding(contentPadding),
             content = content
@@ -124,9 +176,10 @@ fun SoftButton(
             .height(height)
             .clip(shape)
             .background(
-                if (enabled) backgroundColor
+                if (enabled) backgroundColor.copy(alpha = 0.88f)
                 else backgroundColor.copy(alpha = 0.4f)
             )
+            .border(glassBorder(), shape)
             .softClickable(
                 onClick = onClick,
                 enabled = enabled
@@ -152,7 +205,7 @@ private fun Modifier.softClickable(
     }
     return this.clickable(
         interactionSource = interactionSource,
-        indication = ripple(color = Color.White.copy(alpha = 0.25f)),
+        indication = null,
         enabled = enabled,
         onClick = onClick
     )
@@ -171,7 +224,8 @@ fun PillToggle(
     Row(
         modifier = modifier
             .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f))
+            .border(glassBorder(), shape)
             .padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp)
     ) {
@@ -181,7 +235,10 @@ fun PillToggle(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(11.dp))
-                    .background(if (selected) color else Color.Transparent)
+                    .background(
+                        if (selected) color.copy(alpha = 0.92f)
+                        else Color.Transparent
+                    )
                     .softClickable(onClick = { onSelect(index) })
                     .padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center
@@ -194,6 +251,91 @@ fun PillToggle(
                 )
             }
         }
+    }
+}
+
+// ---------- GlassAlertDialog: transparent dialog with glass rim ----------
+
+/**
+ * AlertDialog with a frosted glass container + highlight border: a
+ * near-opaque surface keeps content readable (fully transparent dialogs
+ * were unreadable), while the glass rim keeps the liquid-glass language.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun GlassAlertDialog(
+    onDismissRequest: () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    dismissButton: (@Composable () -> Unit)? = null,
+    icon: (@Composable () -> Unit)? = null,
+    title: (@Composable () -> Unit)? = null,
+    text: (@Composable () -> Unit)? = null,
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(28.dp),
+    iconContentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    titleContentColor: Color = MaterialTheme.colorScheme.onSurface,
+    textContentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    properties: androidx.compose.ui.window.DialogProperties = androidx.compose.ui.window.DialogProperties()
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismissRequest,
+        confirmButton = confirmButton,
+        modifier = modifier.border(glassBorder(), shape),
+        dismissButton = dismissButton,
+        icon = icon,
+        title = title,
+        text = text,
+        shape = shape,
+        containerColor = MaterialTheme.colorScheme.surface.copy(
+            alpha = if (isDarkTheme()) 0.90f else 0.93f
+        ),
+        iconContentColor = iconContentColor,
+        titleContentColor = titleContentColor,
+        textContentColor = textContentColor,
+        tonalElevation = 0.dp,
+        properties = properties
+    )
+}
+
+// ---------- SoftFab: floating circular action button ----------
+
+/**
+ * Floating circular action button — a plain glass circle with the icon
+ * centered, nothing else. Replaces Material 3 FloatingActionButton whose
+ * newer spec draws an extra inner tonal icon container (the octagon-like
+ * shape in the middle of the button).
+ */
+@Composable
+fun SoftFab(
+    icon: ImageVector,
+    contentDescription: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    backgroundColor: Color = MaterialTheme.colorScheme.primary,
+    iconTint: Color = Color.White,
+    size: Dp = 56.dp
+) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .shadow(
+                elevation = 8.dp,
+                shape = CircleShape,
+                ambientColor = Color(0x1F000000),
+                spotColor = Color(0x2E000000)
+            )
+            .clip(CircleShape)
+            .background(backgroundColor.copy(alpha = 0.88f))
+            .border(glassBorder(), CircleShape)
+            .softClickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = iconTint,
+            modifier = Modifier.size(24.dp)
+        )
     }
 }
 
@@ -283,7 +425,8 @@ fun AppIconBox(
         modifier = modifier
             .size(size)
             .clip(RoundedCornerShape(cornerRadius))
-            .background(backgroundColor),
+            .background(backgroundColor.copy(alpha = 0.75f))
+            .border(glassBorder(), RoundedCornerShape(cornerRadius)),
         contentAlignment = Alignment.Center
     ) {
         if (content != null) {
@@ -419,3 +562,166 @@ fun StatsCardRow(
     }
 }
 
+
+// ---------- AmbientBackground: living light blobs behind glass ----------
+
+/**
+ * Decorative ambient light blobs placed behind the translucent glass
+ * surfaces so the frosted effect has color to refract.
+ *
+ * The background is alive: four blobs (mint / blue / gold / violet)
+ * slowly drift, breathe (alpha pulses) and flow between high-saturation
+ * cold-warm color pairs, with deliberately different cycle durations so
+ * the motion stays organic. Because the blobs live under the translucent
+ * glass, the liquid-glass surfaces pick up the motion — a true dynamic
+ * backdrop.
+ */
+@Composable
+fun AmbientBackground(
+    modifier: Modifier = Modifier
+) {
+    val dark = isDarkTheme()
+    val transition = rememberInfiniteTransition(label = "ambientBg")
+
+    // 波光轨迹：x/y 用不同频率的三角波经正弦变换 → Lissajous 曲线，幅度大，
+    // 光斑可以在整个屏幕范围内游走
+    val t1x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(13000, easing = LinearEasing), RepeatMode.Reverse), label = "t1x")
+    val t1y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(9500, easing = LinearEasing), RepeatMode.Reverse), label = "t1y")
+    val t2x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(16000, easing = LinearEasing), RepeatMode.Reverse), label = "t2x")
+    val t2y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(12000, easing = LinearEasing), RepeatMode.Reverse), label = "t2y")
+    val t3x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(19000, easing = LinearEasing), RepeatMode.Reverse), label = "t3x")
+    val t3y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(14500, easing = LinearEasing), RepeatMode.Reverse), label = "t3y")
+    val t4x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(22000, easing = LinearEasing), RepeatMode.Reverse), label = "t4x")
+    val t4y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(17000, easing = LinearEasing), RepeatMode.Reverse), label = "t4y")
+
+    // 颜色缓慢流动：高饱和冷暖交替（薄荷↔暖金 / 雾蓝↔紫罗兰 / 暖金↔珊瑚 / 亮紫↔青 / 草绿↔金黄 / 粉↔蓝）
+    val c1 by transition.animateColor(GradientBrandStart, SandGold, infiniteRepeatable(tween(20000, easing = LinearEasing), RepeatMode.Reverse), label = "c1")
+    val c2 by transition.animateColor(MistBlue, Color(0xFFA97BD6), infiniteRepeatable(tween(24000, easing = LinearEasing), RepeatMode.Reverse), label = "c2")
+    val c3 by transition.animateColor(SandGold, Color(0xFFEE7B6C), infiniteRepeatable(tween(28000, easing = LinearEasing), RepeatMode.Reverse), label = "c3")
+    val c4 by transition.animateColor(Color(0xFF9B8CE8), Color(0xFF4CB5C0), infiniteRepeatable(tween(32000, easing = LinearEasing), RepeatMode.Reverse), label = "c4")
+    val c5 by transition.animateColor(Color(0xFF3FAE7E), Color(0xFFF2B84B), infiniteRepeatable(tween(22000, easing = LinearEasing), RepeatMode.Reverse), label = "c5")
+    val c6 by transition.animateColor(Color(0xFFEE7BA6), Color(0xFF5B9BD8), infiniteRepeatable(tween(26000, easing = LinearEasing), RepeatMode.Reverse), label = "c6")
+
+    // 中部光斑轨迹（填补屏幕中间的空缺）
+    val t5x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(15000, easing = LinearEasing), RepeatMode.Reverse), label = "t5x")
+    val t5y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(11500, easing = LinearEasing), RepeatMode.Reverse), label = "t5y")
+    val t6x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(18000, easing = LinearEasing), RepeatMode.Reverse), label = "t6x")
+    val t6y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(13500, easing = LinearEasing), RepeatMode.Reverse), label = "t6y")
+
+    Box(modifier = modifier.fillMaxSize()) {
+        // Mint blob — top-left（薄荷 ↔ 暖金），大范围游走
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(
+                    x = ((-80 + sin(t1x * PI.toFloat()) * 90).dp),
+                    y = ((-110 + sin(t1y * PI.toFloat()) * 85).dp)
+                )
+                .size(400.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        listOf(
+                            c1.copy(alpha = if (dark) 0.34f else 0.50f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+        // Blue blob — top-right（雾蓝 ↔ 紫罗兰），大范围游走
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(
+                    x = ((90 - sin(t2x * PI.toFloat()) * 90).dp),
+                    y = ((40 + sin(t2y * PI.toFloat()) * 80).dp)
+                )
+                .size(360.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        listOf(
+                            c2.copy(alpha = if (dark) 0.30f else 0.44f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+        // Gold blob — bottom-left（暖金 ↔ 珊瑚红），大范围游走
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .offset(
+                    x = ((-70 + sin(t3x * PI.toFloat()) * 95).dp),
+                    y = ((70 + sin(t3y * PI.toFloat()) * 85).dp)
+                )
+                .size(380.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        listOf(
+                            c3.copy(alpha = if (dark) 0.26f else 0.38f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+        // Violet blob — bottom-right（亮紫 ↔ 青），大范围游走
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .offset(
+                    x = ((-90 - sin(t4x * PI.toFloat()) * 85).dp),
+                    y = ((-50 + sin(t4y * PI.toFloat()) * 80).dp)
+                )
+                .size(340.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        listOf(
+                            c4.copy(alpha = if (dark) 0.22f else 0.32f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+        // Center blob — 屏幕正中（草绿 ↔ 金黄），填补中间空缺
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .offset(
+                    x = (sin(t5x * PI.toFloat()) * 55).dp,
+                    y = (sin(t5y * PI.toFloat()) * 50).dp
+                )
+                .size(320.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        listOf(
+                            c5.copy(alpha = if (dark) 0.22f else 0.32f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+        // Lower-middle blob — 中下部（粉 ↔ 蓝），填补下方中部空缺
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .offset(
+                    x = (sin(t6x * PI.toFloat()) * 60).dp,
+                    y = ((100 + sin(t6y * PI.toFloat()) * 55).dp)
+                )
+                .size(300.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        listOf(
+                            c6.copy(alpha = if (dark) 0.18f else 0.28f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+    }
+}

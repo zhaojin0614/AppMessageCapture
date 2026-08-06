@@ -26,7 +26,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +34,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -57,7 +57,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.data.PlatformAccountEntity
 import com.aifactory.appmessagecapture.ui.components.SoftButton
 import com.aifactory.appmessagecapture.ui.components.SoftCard
+import com.aifactory.appmessagecapture.ui.components.SoftFab
 import com.aifactory.appmessagecapture.ui.components.SoftGradientCard
+import com.aifactory.appmessagecapture.ui.components.GlassAlertDialog
+import com.aifactory.appmessagecapture.ui.components.glassBorder
+import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.GradientBrandEnd
 import com.aifactory.appmessagecapture.ui.theme.GradientBrandStart
@@ -88,9 +92,11 @@ fun PlatformAccountScreen(
 
     BackHandler { onBack() }
 
-    Scaffold(
-        modifier = modifier,
-        topBar = {
+    Box(modifier = modifier.fillMaxSize()) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = Color.Transparent,
+            topBar = {
             TopAppBar(
                 title = {
                     Text(
@@ -110,26 +116,23 @@ fun PlatformAccountScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color.Transparent
                 )
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
+            SoftFab(
+                icon = Icons.Default.Add,
+                contentDescription = "添加平台",
                 onClick = { showAddDialog = true },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = CircleShape
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "添加平台")
-            }
+                modifier = Modifier.padding(bottom = 88.dp)
+            )
         }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
         ) {
             // 总金额大卡片
             Box(
@@ -197,6 +200,7 @@ fun PlatformAccountScreen(
             }
         }
     }
+    }
 
     // 新增平台弹窗
     if (showAddDialog) {
@@ -230,7 +234,7 @@ fun PlatformAccountScreen(
     // 删除确认弹窗
     if (deletingAccount != null) {
         val account = deletingAccount!!
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = {
                 deletingAccount = null
                 viewModel.consumeDeleteResult()
@@ -275,7 +279,7 @@ fun PlatformAccountScreen(
         }
     }
     if (deleteResultMessage != null) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { deleteResultMessage = null },
             confirmButton = {
                 TextButton(onClick = { deleteResultMessage = null }) { Text("知道了") }
@@ -369,7 +373,8 @@ private fun PlatformEditDialog(
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp),
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            colors = CardDefaults.cardColors(containerColor = glassFill()),
+            border = glassBorder()
         ) {
             Column(
                 modifier = Modifier
@@ -385,6 +390,7 @@ private fun PlatformEditDialog(
                 Spacer(modifier = Modifier.height(12.dp))
                 TextField(
                     value = name,
+                     colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, disabledContainerColor = Color.Transparent),
                     onValueChange = { name = it },
                     label = { Text("平台名称（如：微信钱包）") },
                     modifier = Modifier.fillMaxWidth(),
@@ -393,6 +399,7 @@ private fun PlatformEditDialog(
                 Spacer(modifier = Modifier.height(10.dp))
                 TextField(
                     value = balanceText,
+                     colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, disabledContainerColor = Color.Transparent),
                     onValueChange = { balanceText = it },
                     label = { Text("当前余额") },
                     modifier = Modifier.fillMaxWidth(),

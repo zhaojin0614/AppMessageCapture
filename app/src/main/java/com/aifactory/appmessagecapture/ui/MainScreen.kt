@@ -16,6 +16,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -60,7 +61,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -106,7 +106,11 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.R
 import com.aifactory.appmessagecapture.data.NotificationEntity
+import com.aifactory.appmessagecapture.ui.components.SoftFab
 import com.aifactory.appmessagecapture.ui.components.SwipeableItem
+import com.aifactory.appmessagecapture.ui.components.GlassAlertDialog
+import com.aifactory.appmessagecapture.ui.components.glassBorder
+import com.aifactory.appmessagecapture.ui.components.glassFill
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.time.Instant
@@ -224,9 +228,11 @@ fun MainScreen(
         viewModel.exitSelectionMode()
     }
 
-    Scaffold(
-        modifier = modifier,
-        topBar = {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            modifier = modifier,
+            containerColor = Color.Transparent,
+            topBar = {
             TopAppBar(
                 title = {
                     if (isSelectionMode) {
@@ -248,7 +254,7 @@ fun MainScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = Color.Transparent,
                     titleContentColor = MaterialTheme.colorScheme.onSurface
                 ),
                 actions = {
@@ -333,38 +339,30 @@ fun MainScreen(
             )
         },
         floatingActionButton = {
-            Column(horizontalAlignment = Alignment.End) {
+            Column(modifier = Modifier.padding(bottom = 88.dp), horizontalAlignment = Alignment.End) {
                 AnimatedVisibility(
                     visible = showScrollToTop,
                     enter = fadeIn() + slideInVertically { it },
                     exit = fadeOut() + slideOutVertically { it }
                 ) {
-                    FloatingActionButton(
+                    SoftFab(
+                        icon = Icons.Default.ArrowUpward,
+                        contentDescription = stringResource(R.string.scroll_to_top),
                         onClick = {
                             scope.launch {
                                 listState.animateScrollToItem(index = 0)
                             }
                         },
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                        shape = CircleShape,
                         modifier = Modifier.padding(bottom = 12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowUpward,
-                            contentDescription = stringResource(R.string.scroll_to_top)
-                        )
-                    }
+                    )
                 }
                 if (notifications.isNotEmpty()) {
-                    FloatingActionButton(
+                    SoftFab(
+                        icon = Icons.Default.Delete,
+                        contentDescription = stringResource(R.string.clear_all),
                         onClick = { showClearDialog = true },
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError,
-                        shape = CircleShape
-                    ) {
-                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.clear_all))
-                    }
+                        backgroundColor = MaterialTheme.colorScheme.error
+                    )
                 }
             }
         }
@@ -373,7 +371,6 @@ fun MainScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
         ) {
             // Pull-down stats panel
             PullDownStatsPanel(
@@ -388,9 +385,10 @@ fun MainScreen(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .border(glassBorder(), RoundedCornerShape(24.dp)),
                 shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                color = glassFill(),
                 shadowElevation = 0.dp
             ) {
                 TextField(
@@ -450,7 +448,7 @@ fun MainScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .nestedScroll(nestedScrollConnection),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 4.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(
@@ -498,12 +496,13 @@ fun MainScreen(
                 }
             }
         }
+        }
     }
 
     if (showClearDialog) {
         val visibleIds = notifications.map { it.id }
         val isFiltered = visibleIds.size < count
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { showClearDialog = false },
             title = { Text(if (isFiltered) "确认删除筛选结果" else "确认清空") },
             text = {
@@ -538,7 +537,7 @@ fun MainScreen(
 
     // Single item delete confirmation
     if (notificationToDelete != null) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { notificationToDelete = null },
             title = { Text("删除消息") },
             text = { Text("确定要删除这条消息吗？") },
@@ -562,7 +561,7 @@ fun MainScreen(
 
     // Multi-select delete confirmation
     if (showDeleteSelectedDialog) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { showDeleteSelectedDialog = false },
             title = { Text("删除选中消息") },
             text = { Text("确定要删除选中的 ${selectedIds.size} 条消息吗？此操作不可恢复。") },
@@ -751,12 +750,6 @@ fun NotificationCard(
         } catch (_: Exception) { null }
     }
 
-    val borderColor = if (isSelected) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-    } else {
-        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-    }
-
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -769,11 +762,13 @@ fun NotificationCard(
             ),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            else MaterialTheme.colorScheme.surface
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+            else glassFill()
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, borderColor)
+        border = if (isSelected)
+            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+        else glassBorder()
     ) {
         Row(
             modifier = Modifier
@@ -878,7 +873,7 @@ fun EmptyState() {
             Surface(
                 modifier = Modifier.size(96.dp),
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
@@ -917,7 +912,7 @@ fun AppFilterDialog(
 ) {
     val isAllShown = filteredApps.isEmpty()
 
-    AlertDialog(
+    GlassAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.filter_apps)) },
         text = {
@@ -984,7 +979,7 @@ fun BlockedAppsDialog(
 ) {
     val isNoneBlocked = blockedApps.isEmpty()
 
-    AlertDialog(
+    GlassAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("屏蔽管理") },
         text = {
@@ -1042,7 +1037,7 @@ fun ExportDialog(
     onExportCsv: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    GlassAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.export)) },
         text = {
@@ -1052,8 +1047,9 @@ fun ExportDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.75f)
+                    ),
+                    border = glassBorder()
                 ) {
                     Row(
                         modifier = Modifier
@@ -1079,8 +1075,9 @@ fun ExportDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                    )
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.75f)
+                    ),
+                    border = glassBorder()
                 ) {
                     Row(
                         modifier = Modifier

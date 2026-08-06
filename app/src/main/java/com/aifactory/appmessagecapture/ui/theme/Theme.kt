@@ -2,6 +2,9 @@ package com.aifactory.appmessagecapture.ui.theme
 
 import android.app.Activity
 import android.os.Build
+import androidx.compose.foundation.IndicationNodeFactory
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -11,9 +14,12 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.node.DelegatableNode
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
@@ -80,6 +86,16 @@ val SoftShapes = Shapes(
     extraLarge = RoundedCornerShape(24.dp)
 )
 
+/** No-op indication: components show no ripple / press shadow on click. */
+private object NoIndication : IndicationNodeFactory {
+    override fun create(interactionSource: InteractionSource): DelegatableNode =
+        object : Modifier.Node() {}
+
+    override fun equals(other: Any?): Boolean = this === other
+
+    override fun hashCode(): Int = System.identityHashCode(this)
+}
+
 @Composable
 fun AppMessageCaptureTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -106,7 +122,14 @@ fun AppMessageCaptureTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
-        shapes = SoftShapes,
-        content = content
-    )
+        shapes = SoftShapes
+    ) {
+        // Must be INSIDE MaterialTheme: material3's MaterialTheme provides
+        // its own ripple as LocalIndication, which would shadow an outer
+        // provider. This inner override wins, so every default-indication
+        // clickable (cards, rows, tabs) shows no ripple / press shadow.
+        CompositionLocalProvider(LocalIndication provides NoIndication) {
+            content()
+        }
+    }
 }

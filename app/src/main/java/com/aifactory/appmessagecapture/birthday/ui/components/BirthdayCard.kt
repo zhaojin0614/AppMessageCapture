@@ -33,6 +33,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.aifactory.appmessagecapture.birthday.data.BirthdayEntity
 import com.aifactory.appmessagecapture.birthday.logic.DateCalculator
+import com.aifactory.appmessagecapture.ui.components.glassFill
+import com.aifactory.appmessagecapture.ui.components.isDarkTheme
 
 /**
  * 生日列表项卡片。
@@ -59,12 +61,12 @@ fun BirthdayCard(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isToday)
-                MaterialTheme.colorScheme.primaryContainer
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
             else
-                MaterialTheme.colorScheme.surface
+                glassFill()
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        border = BorderStroke(1.dp, Color.White.copy(alpha = if (isDarkTheme()) 0.18f else 0.5f))
     ) {
         Row(
             modifier = Modifier

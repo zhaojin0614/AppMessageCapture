@@ -76,8 +76,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.2")
     implementation("androidx.activity:activity-compose:1.9.0")
 
-    // Compose BOM
-    val composeBom = platform("androidx.compose:compose-bom:2025.02.00")
+    // Compose BOM (ui 1.8.x for rememberGraphicsLayer / RenderEffect blur)
+    val composeBom = platform("androidx.compose:compose-bom:2025.06.00")
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
@@ -85,7 +85,8 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material3:material3")
+    // material3 pinned to 1.3.1 (compatible with glance-material3 1.1.1)
+    implementation("androidx.compose.material3:material3:1.3.1")
     implementation("androidx.compose.material:material-icons-extended")
 
     // Lifecycle & ViewModel Compose

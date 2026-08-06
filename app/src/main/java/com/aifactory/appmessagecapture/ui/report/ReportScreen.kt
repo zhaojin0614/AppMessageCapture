@@ -5,6 +5,7 @@ package com.aifactory.appmessagecapture.ui.report
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -45,7 +46,9 @@ import java.time.LocalDate
 import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.sin
+import com.aifactory.appmessagecapture.ui.components.AmbientBackground
 import com.aifactory.appmessagecapture.ui.components.SoftCard
+import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.getCategoryColor
 import com.aifactory.appmessagecapture.ui.getCategoryIconRes
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
@@ -118,99 +121,110 @@ fun ReportScreen(
     }
 
     CompositionLocalProvider(LocalReportColors provides rememberReportColors()) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("收支报表", fontWeight = FontWeight.Bold, color = LocalReportColors.current.textDark) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = LocalReportColors.current.textDark)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = LocalReportColors.current.cardBg)
-            )
-        }
-    ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(LocalReportColors.current.bgGray)
-                .padding(innerPadding)
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .verticalScroll(rememberScrollState())
+                .background(MaterialTheme.colorScheme.background)
         ) {
-            // Period tabs
-            PeriodTypeTabs(
-                selected = periodType,
-                onSelect = { viewModel.setPeriodType(it) },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-            )
-
-            // Date nav + income/expense toggle
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                DateNavigation(
-                    periodType = periodType,
-                    label = uiState.periodLabel,
-                    currentYear = uiState.currentYear,
-                    currentMonth = uiState.currentMonth,
-                    canGoNext = currentOffset < 0,
-                    onPrev = { viewModel.prevPeriod() },
-                    onNext = { viewModel.nextPeriod() },
-                    onSelectMonth = { y, m -> viewModel.setMonth(y, m) },
-                    onSelectYear = { y -> viewModel.setYear(y) }
+            AmbientBackground()
+            Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    title = { Text("收支报表", fontWeight = FontWeight.Bold, color = LocalReportColors.current.textDark) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = LocalReportColors.current.textDark)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
                 )
-                IncomeExpenseToggle(showIncome) { viewModel.toggleShowIncome() }
             }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Summary cards
-            SummaryCards(
-                periodType = periodType,
-                showIncome = showIncome,
-                periodTotal = uiState.periodTotal,
-                dailyAvg = uiState.dailyAvg,
-                prevDiff = uiState.prevDiff,
-                balance = uiState.balance,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Trend line chart
-            TrendLineChartSection(
-                periodType = periodType,
-                showIncome = showIncome,
-                data = uiState.trendData,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Bar chart
-            TrendBarChartSection(
-                showIncome = showIncome,
-                data = uiState.barData,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Category breakdown
-            CategorySection(
-                showIncome = showIncome,
-                data = uiState.categoryData,
-                onItemClick = { category -> selectedCategory = category },
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(80.dp))
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // Period tabs
+                PeriodTypeTabs(
+                    selected = periodType,
+                    onSelect = { viewModel.setPeriodType(it) },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                )
+    
+                // Date nav + income/expense toggle
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    DateNavigation(
+                        periodType = periodType,
+                        label = uiState.periodLabel,
+                        currentYear = uiState.currentYear,
+                        currentMonth = uiState.currentMonth,
+                        canGoNext = currentOffset < 0,
+                        onPrev = { viewModel.prevPeriod() },
+                        onNext = { viewModel.nextPeriod() },
+                        onSelectMonth = { y, m -> viewModel.setMonth(y, m) },
+                        onSelectYear = { y -> viewModel.setYear(y) }
+                    )
+                    IncomeExpenseToggle(
+                        showIncome,
+                        { viewModel.toggleShowIncome() },
+                        modifier = Modifier.width(150.dp)
+                    )
+                }
+    
+                Spacer(modifier = Modifier.height(6.dp))
+    
+                // Summary cards
+                SummaryCards(
+                    periodType = periodType,
+                    showIncome = showIncome,
+                    periodTotal = uiState.periodTotal,
+                    dailyAvg = uiState.dailyAvg,
+                    prevDiff = uiState.prevDiff,
+                    balance = uiState.balance,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+    
+                Spacer(modifier = Modifier.height(6.dp))
+    
+                // Trend line chart
+                TrendLineChartSection(
+                    periodType = periodType,
+                    showIncome = showIncome,
+                    data = uiState.trendData,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+    
+                Spacer(modifier = Modifier.height(6.dp))
+    
+                // Bar chart
+                TrendBarChartSection(
+                    showIncome = showIncome,
+                    data = uiState.barData,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+    
+                Spacer(modifier = Modifier.height(6.dp))
+    
+                // Category breakdown
+                CategorySection(
+                    showIncome = showIncome,
+                    data = uiState.categoryData,
+                    onItemClick = { category -> selectedCategory = category },
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+    
+                Spacer(modifier = Modifier.height(80.dp))
+            }
         }
     }
     }
@@ -231,7 +245,8 @@ private fun PeriodTypeTabs(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(LocalReportColors.current.neutralGray)
+            .background(LocalReportColors.current.neutralGray.copy(alpha = 0.35f))
+            .border(glassBorder(), RoundedCornerShape(12.dp))
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -280,7 +295,11 @@ private fun DateNavigation(
                     fontSize = 14.sp,
                     color = LocalReportColors.current.textDark,
                     fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(horizontal = 4.dp)
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .padding(horizontal = 4.dp)
                 )
                 IconButton(onClick = onNext, modifier = Modifier.size(32.dp), enabled = canGoNext) {
                     Icon(Icons.Default.KeyboardArrowRight, contentDescription = "下一周期", tint = if (canGoNext) LocalReportColors.current.textGray else LocalReportColors.current.textGray.copy(alpha = 0.3f))
@@ -382,31 +401,37 @@ private fun DateNavigation(
 }
 
 @Composable
-private fun IncomeExpenseToggle(showIncome: Boolean, onToggle: () -> Unit) {
+private fun IncomeExpenseToggle(
+    showIncome: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val options = listOf("支出" to ExpenseRed, "收入" to IncomeGreen)
     Row(
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(LocalReportColors.current.neutralGray)
+            .background(LocalReportColors.current.neutralGray.copy(alpha = 0.35f))
+            .border(glassBorder(), RoundedCornerShape(16.dp))
             .padding(2.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        listOf(false to "支出", true to "收入").forEach { (income, label) ->
-            val selected = showIncome == income
-            val bg = if (selected) {
-                if (income) IncomeGreen else ExpenseRed
-            } else Color.Transparent
+        options.forEachIndexed { index, (label, color) ->
+            val selected = (index == 1) == showIncome
             Box(
                 modifier = Modifier
+                    .weight(1f)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(bg)
-                    .clickable { onToggle() }
+                    .background(if (selected) color else Color.Transparent)
+                    .clickable {
+                        if ((index == 1) != showIncome) onToggle()
+                    }
                     .padding(horizontal = 14.dp, vertical = 5.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = label,
                     fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                     color = if (selected) Color.White else LocalReportColors.current.textGray
                 )
             }

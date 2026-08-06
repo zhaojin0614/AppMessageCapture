@@ -5,11 +5,14 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -49,6 +52,10 @@ import com.aifactory.appmessagecapture.birthday.widget.BirthdayWidget
 import com.aifactory.appmessagecapture.service.MessageCaptureService
 import com.aifactory.appmessagecapture.ui.BillScreen
 import com.aifactory.appmessagecapture.ui.MainScreen
+import com.aifactory.appmessagecapture.ui.components.AmbientBackground
+import com.aifactory.appmessagecapture.ui.components.GlassBackdropRoot
+import com.aifactory.appmessagecapture.ui.components.glassBorder
+import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.theme.AppMessageCaptureTheme
 import com.aifactory.appmessagecapture.ui.theme.GradientBrandStart
 import com.aifactory.appmessagecapture.ui.theme.GradientBrandEnd
@@ -108,21 +115,36 @@ fun MainApp(initialTab: String? = null) {
         }
     }
 
-    Scaffold(
-        bottomBar = {
-            SoftNavBar(
-                selectedIndex = selectedTab,
-                onSelect = { selectedTab = it }
-            )
-        }
-    ) { innerPadding ->
-        // Only pass bottom padding (nav bar height) to child screens;
-        // let each screen's own Scaffold handle status bar insets.
-        val bottomPadding = innerPadding.calculateBottomPadding()
-        when (selectedTab) {
-            0 -> MainScreen(modifier = Modifier.padding(bottom = bottomPadding))
-            1 -> BillScreen(modifier = Modifier.padding(bottom = bottomPadding))
-            2 -> BirthdayScreen(modifier = Modifier.padding(bottom = bottomPadding))
+    // Single ambient background for the whole app: the bottom nav area and
+    // every transparent screen share the same gradient layer, so the
+    // floating nav pill has no solid strip on either side.
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        AmbientBackground()
+        // Real-time backdrop blur (iOS-style): screen content is captured
+        // to an off-screen layer, blurred underneath, then redrawn sharp —
+        // transparent glass components reveal the blurred copy.
+        GlassBackdropRoot(modifier = Modifier.fillMaxSize()) {
+            Scaffold(
+                containerColor = Color.Transparent,
+                bottomBar = {
+                    SoftNavBar(
+                        selectedIndex = selectedTab,
+                        onSelect = { selectedTab = it }
+                    )
+                }
+            ) { _ ->
+                // No bottom padding: like the report screen, tab content
+                // extends behind the floating nav pill and scrolls beneath it.
+                when (selectedTab) {
+                    0 -> MainScreen()
+                    1 -> BillScreen()
+                    2 -> BirthdayScreen()
+                }
+            }
         }
     }
 }
@@ -137,7 +159,6 @@ private fun SoftNavBar(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val scheme = MaterialTheme.colorScheme
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -154,16 +175,16 @@ private fun SoftNavBar(
                     spotColor = Color(0x33000000)
                 )
                 .clip(RoundedCornerShape(28.dp))
-                .background(scheme.surface)
+                .background(glassFill())
+                .border(glassBorder(), RoundedCornerShape(28.dp))
                 .padding(6.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             AppTab.entries.forEachIndexed { index, tab ->
-                val selected = selectedIndex == index
                 SoftNavItem(
                     tab = tab,
-                    selected = selected,
+                    selected = selectedIndex == index,
                     onClick = { onSelect(index) }
                 )
             }
@@ -185,6 +206,12 @@ private fun SoftNavItem(
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(22.dp))
+            .then(
+                if (selected) Modifier.border(
+                    BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                    RoundedCornerShape(22.dp)
+                ) else Modifier
+            )
             .background(
                 brush = if (selected) {
                     Brush.horizontalGradient(listOf(GradientBrandStart, GradientBrandEnd))
@@ -194,7 +221,7 @@ private fun SoftNavItem(
             )
             .clickable(
                 interactionSource = interactionSource,
-                indication = ripple(color = scheme.primary.copy(alpha = 0.15f)),
+                indication = null,
                 onClick = onClick
             )
             .padding(horizontal = 18.dp, vertical = 8.dp),

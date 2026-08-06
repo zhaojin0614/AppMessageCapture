@@ -30,6 +30,10 @@ import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.data.BillEntity
+import com.aifactory.appmessagecapture.ui.components.AmbientBackground
+import com.aifactory.appmessagecapture.ui.components.SoftCard
+import com.aifactory.appmessagecapture.ui.components.glassBorder
+import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
 import java.time.Instant
@@ -51,8 +55,15 @@ fun CategoryDetailScreen(
 
     BackHandler { onBack() }
 
-    Scaffold(
-        topBar = {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        AmbientBackground()
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
             TopAppBar(
                 title = {
                     Text(
@@ -70,14 +81,13 @@ fun CategoryDetailScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         }
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
                 .windowInsetsPadding(WindowInsets.navigationBars)
         ) {
@@ -122,6 +132,7 @@ fun CategoryDetailScreen(
             }
         }
     }
+    }
 }
 
 @Composable
@@ -143,13 +154,12 @@ private fun CategoryDetailBillItem(bill: BillEntity) {
         DateTimeFormatter.ofPattern("HH:mm").format(zoned)
     }
 
-    Card(
+    SoftCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        contentPadding = 0.dp
     ) {
         Row(
             modifier = Modifier
