@@ -120,6 +120,7 @@ import com.aifactory.appmessagecapture.ui.components.SwipeableItemCoordinator
 import com.aifactory.appmessagecapture.ui.components.GlassAlertDialog
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
+import com.aifactory.appmessagecapture.ui.components.glassHighlightBrush
 import com.aifactory.appmessagecapture.ui.components.isDarkTheme
 import com.aifactory.appmessagecapture.ui.theme.CategoryBeauty
 import com.aifactory.appmessagecapture.ui.theme.CategoryEducation
@@ -1397,21 +1398,29 @@ fun AddBillDialog(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        // Nearly opaque so the form is readable; keeps a faint glass tint.
+        // Frosted glass: translucent surface lets the animated ambient
+        // background glow show through, highlight keeps the glass look.
         containerColor = MaterialTheme.colorScheme.surface.copy(
-            alpha = if (isDarkTheme()) 0.90f else 0.96f
+            alpha = if (isDarkTheme()) 0.82f else 0.88f
         ),
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .imePadding()
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 20.dp)
-        ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            // Top light reflection (liquid glass highlight)
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(glassHighlightBrush())
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .imePadding()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 20.dp)
+            ) {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
@@ -1611,6 +1620,7 @@ fun AddBillDialog(
                 }
             }
         }
+    }
 
     // Date picker dialog
     if (showDatePicker) {
