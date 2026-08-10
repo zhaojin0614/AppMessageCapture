@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.toIntSize
 @Composable
 fun GlassBackdropRoot(
     modifier: Modifier = Modifier,
-    blurRadius: Dp = 16.dp,
+    blurRadius: Dp = 22.dp,
     content: @Composable () -> Unit
 ) {
     val graphicsLayer = rememberGraphicsLayer()

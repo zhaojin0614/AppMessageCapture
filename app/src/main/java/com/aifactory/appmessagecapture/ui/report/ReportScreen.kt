@@ -30,6 +30,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
@@ -49,6 +50,7 @@ import kotlin.math.sin
 import com.aifactory.appmessagecapture.ui.components.AmbientBackground
 import com.aifactory.appmessagecapture.ui.components.SoftCard
 import com.aifactory.appmessagecapture.ui.components.glassBorder
+import com.aifactory.appmessagecapture.ui.components.gradientBrush
 import com.aifactory.appmessagecapture.ui.getCategoryColor
 import com.aifactory.appmessagecapture.ui.getCategoryIconRes
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
@@ -256,7 +258,10 @@ private fun PeriodTypeTabs(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .background(
+                        if (isSelected) gradientBrush(MaterialTheme.colorScheme.primary)
+                        else SolidColor(Color.Transparent)
+                    )
                     .clickable { onSelect(type) }
                     .padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center
@@ -421,7 +426,7 @@ private fun IncomeExpenseToggle(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(if (selected) color else Color.Transparent)
+                    .background(if (selected) gradientBrush(color) else SolidColor(Color.Transparent))
                     .clickable {
                         if ((index == 1) != showIncome) onToggle()
                     }

@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -34,6 +35,7 @@ import com.aifactory.appmessagecapture.ui.components.AmbientBackground
 import com.aifactory.appmessagecapture.ui.components.SoftCard
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
+import com.aifactory.appmessagecapture.ui.components.gradientBrush
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
 import java.time.Instant
@@ -171,10 +173,8 @@ private fun CategoryDetailBillItem(bill: BillEntity) {
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        if (iconBitmap == null) MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
-                        else Color.Transparent
-                    ),
+                    .background(gradientBrush(MaterialTheme.colorScheme.secondary, alpha = 0.18f))
+                    .border(glassBorder(), RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 if (iconBitmap != null) {

@@ -111,6 +111,7 @@ import com.aifactory.appmessagecapture.ui.components.SwipeableItem
 import com.aifactory.appmessagecapture.ui.components.GlassAlertDialog
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
+import com.aifactory.appmessagecapture.ui.components.gradientBrush
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.time.Instant
@@ -753,6 +754,11 @@ fun NotificationCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .then(
+                if (isSelected)
+                    Modifier.background(gradientBrush(MaterialTheme.colorScheme.primaryContainer, alpha = 0.45f))
+                else Modifier
+            )
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = {
@@ -762,8 +768,7 @@ fun NotificationCard(
             ),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-            else glassFill()
+            containerColor = if (isSelected) Color.Transparent else glassFill()
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = if (isSelected)
@@ -783,16 +788,13 @@ fun NotificationCard(
                     modifier = Modifier.padding(end = 8.dp)
                 )
             }
-            // Rounded-square app icon (Android 12+ style)
+            // Rounded-square app icon (Android 12+ style) with gradient tray
             Box(
                 modifier = Modifier
                     .size(42.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        if (iconBitmap == null)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else Color.Transparent
-                    ),
+                    .background(gradientBrush(MaterialTheme.colorScheme.primaryContainer, alpha = 0.75f))
+                    .border(glassBorder(), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 if (iconBitmap != null) {
@@ -1049,13 +1051,15 @@ fun ExportDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.75f)
+                        containerColor = Color.Transparent
                     ),
                     border = glassBorder()
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(gradientBrush(MaterialTheme.colorScheme.primaryContainer, alpha = 0.75f))
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -1077,13 +1081,15 @@ fun ExportDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.75f)
+                        containerColor = Color.Transparent
                     ),
                     border = glassBorder()
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(gradientBrush(MaterialTheme.colorScheme.secondaryContainer, alpha = 0.75f))
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {

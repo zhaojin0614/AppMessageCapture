@@ -121,6 +121,7 @@ import com.aifactory.appmessagecapture.ui.components.GlassAlertDialog
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.components.glassHighlightBrush
+import com.aifactory.appmessagecapture.ui.components.gradientBrush
 import com.aifactory.appmessagecapture.ui.components.isDarkTheme
 import com.aifactory.appmessagecapture.ui.theme.CategoryBeauty
 import com.aifactory.appmessagecapture.ui.theme.CategoryEducation
@@ -1167,9 +1168,8 @@ fun BillCard(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        if (iconBitmap == null) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                    ),
+                    .background(gradientBrush(MaterialTheme.colorScheme.primaryContainer, alpha = 0.75f))
+                    .border(glassBorder(), RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 if (iconBitmap != null) {

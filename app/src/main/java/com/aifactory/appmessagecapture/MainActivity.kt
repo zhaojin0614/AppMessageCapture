@@ -54,6 +54,7 @@ import com.aifactory.appmessagecapture.ui.BillScreen
 import com.aifactory.appmessagecapture.ui.MainScreen
 import com.aifactory.appmessagecapture.ui.components.AmbientBackground
 import com.aifactory.appmessagecapture.ui.components.GlassBackdropRoot
+import com.aifactory.appmessagecapture.ui.components.isDarkTheme
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.theme.AppMessageCaptureTheme
@@ -121,7 +122,15 @@ fun MainApp(initialTab: String? = null) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(
+                Brush.verticalGradient(
+                    if (isDarkTheme()) {
+                        listOf(Color(0xFF162521), Color(0xFF1B2030), Color(0xFF211B16))
+                    } else {
+                        listOf(Color(0xFFD9F2EC), Color(0xFFE3E9F8), Color(0xFFF6EDE2))
+                    }
+                )
+            )
     ) {
         AmbientBackground()
         // Real-time backdrop blur (iOS-style): screen content is captured

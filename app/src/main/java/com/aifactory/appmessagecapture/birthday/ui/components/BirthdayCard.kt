@@ -2,7 +2,6 @@
 
 package com.aifactory.appmessagecapture.birthday.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -33,8 +32,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.aifactory.appmessagecapture.birthday.data.BirthdayEntity
 import com.aifactory.appmessagecapture.birthday.logic.DateCalculator
+import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
-import com.aifactory.appmessagecapture.ui.components.isDarkTheme
+import com.aifactory.appmessagecapture.ui.components.gradientBrush
 
 /**
  * 生日列表项卡片。
@@ -66,7 +66,7 @@ fun BirthdayCard(
                 glassFill()
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = if (isDarkTheme()) 0.18f else 0.5f))
+        border = glassBorder()
     ) {
         Row(
             modifier = Modifier
@@ -161,7 +161,7 @@ private fun DayCircle(daysLeft: Int, isToday: Boolean) {
         modifier = Modifier
             .size(44.dp)
             .clip(CircleShape)
-            .background(bgColor),
+            .background(gradientBrush(bgColor, alpha = 0.92f)),
         contentAlignment = Alignment.Center
     ) {
         Column(

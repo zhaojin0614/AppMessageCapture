@@ -39,6 +39,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -60,28 +62,66 @@ import kotlin.math.sin
 @Composable
 fun isDarkTheme(): Boolean = isSystemInDarkTheme()
 
-/** Fully transparent panel fill — no white panel at all.
- *  The liquid-glass look comes from the real-time backdrop blur
- *  (GlassBackdropRoot) plus the highlight border / top reflection. */
+/**
+ * 玻璃渐变填充：由单一颜色生成"左亮 → 中实 → 右暗"的水平渐变，
+ * 用于彩色按钮/卡片/图标块，替代纯实色背景，保留透明度透出底层光斑。
+ */
 @Composable
-fun glassFill(): Color = Color.Transparent
-
-/** 1dp highlight border for glass surfaces. */
-@Composable
-fun glassBorder(): BorderStroke {
-    val alpha = if (isDarkTheme()) 0.18f else 0.45f
-    return BorderStroke(1.dp, Color.White.copy(alpha = alpha))
+fun gradientBrush(
+    color: Color,
+    alpha: Float = 1f,
+    highlight: Float = 0.30f,
+    shade: Float = 0.10f
+): Brush {
+    val base = color.copy(alpha = alpha)
+    return Brush.horizontalGradient(
+        listOf(
+            lerp(base, Color.White, highlight),
+            base,
+            lerp(base, Color.Black, shade)
+        )
+    )
 }
 
-/** Top-edge light reflection used inside glass surfaces.
- *  Kept very faint so cards never read as white panels. */
+/** Frosted-glass panel fill — a faint translucent white tint so the
+ *  glass surface reads as a distinct pane against the background while
+ *  the animated backdrop blobs still shine through (no solid white
+ *  panels, just a hint of glass body). */
+@Composable
+fun glassFill(): Color {
+    val alpha = if (isDarkTheme()) 0.04f else 0.10f
+    return Color.White.copy(alpha = alpha)
+}
+
+/** Edge light for glass surfaces — a gradient rim (brightest at the
+ *  top edge, fading down into the background) instead of a uniform
+ *  outline, so surfaces blend into the backdrop like liquid glass
+ *  instead of drawing a hard divider line. */
+@Composable
+fun glassBorder(): BorderStroke {
+    val dark = isDarkTheme()
+    return BorderStroke(
+        1.dp,
+        Brush.verticalGradient(
+            0f to Color.White.copy(alpha = if (dark) 0.22f else 0.45f),
+            0.5f to Color.White.copy(alpha = if (dark) 0.12f else 0.25f),
+            1f to Color.White.copy(alpha = if (dark) 0.07f else 0.15f)
+        )
+    )
+}
+
+/** Top-edge light reflection used inside glass surfaces: a bright
+ *  catch-light band along the top edge that fades down into the pane,
+ *  giving the liquid-glass rim its signature sheen. */
 @Composable
 fun glassHighlightBrush(): Brush {
-    val alpha = if (isDarkTheme()) 0.04f else 0.10f
+    val dark = isDarkTheme()
     return Brush.verticalGradient(
-        colors = listOf(Color.White.copy(alpha = alpha), Color.Transparent),
+        0f to Color.White.copy(alpha = if (dark) 0.12f else 0.28f),
+        0.10f to Color.White.copy(alpha = if (dark) 0.05f else 0.12f),
+        1f to Color.Transparent,
         startY = 0f,
-        endY = 120f
+        endY = 240f
     )
 }
 
@@ -176,8 +216,8 @@ fun SoftButton(
             .height(height)
             .clip(shape)
             .background(
-                if (enabled) backgroundColor.copy(alpha = 0.88f)
-                else backgroundColor.copy(alpha = 0.4f)
+                if (enabled) gradientBrush(backgroundColor, alpha = 0.88f)
+                else gradientBrush(backgroundColor, alpha = 0.4f)
             )
             .border(glassBorder(), shape)
             .softClickable(
@@ -236,8 +276,8 @@ fun PillToggle(
                     .weight(1f)
                     .clip(RoundedCornerShape(11.dp))
                     .background(
-                        if (selected) color.copy(alpha = 0.92f)
-                        else Color.Transparent
+                        if (selected) gradientBrush(color, alpha = 0.92f)
+                        else SolidColor(Color.Transparent)
                     )
                     .softClickable(onClick = { onSelect(index) })
                     .padding(vertical = 8.dp),
@@ -325,7 +365,7 @@ fun SoftFab(
                 spotColor = Color(0x2E000000)
             )
             .clip(CircleShape)
-            .background(backgroundColor.copy(alpha = 0.88f))
+            .background(gradientBrush(backgroundColor, alpha = 0.88f))
             .border(glassBorder(), CircleShape)
             .softClickable(onClick = onClick),
         contentAlignment = Alignment.Center
@@ -387,7 +427,7 @@ fun SoftEmptyState(
             modifier = Modifier
                 .size(iconSize)
                 .clip(RoundedCornerShape(iconSize / 2.5f))
-                .background(MaterialTheme.colorScheme.primaryContainer),
+                .background(gradientBrush(MaterialTheme.colorScheme.primaryContainer, alpha = 0.9f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -425,7 +465,7 @@ fun AppIconBox(
         modifier = modifier
             .size(size)
             .clip(RoundedCornerShape(cornerRadius))
-            .background(backgroundColor.copy(alpha = 0.75f))
+            .background(gradientBrush(backgroundColor, alpha = 0.75f))
             .border(glassBorder(), RoundedCornerShape(cornerRadius)),
         contentAlignment = Alignment.Center
     ) {
@@ -617,12 +657,12 @@ fun AmbientBackground(
                     x = ((-80 + sin(t1x * PI.toFloat()) * 90).dp),
                     y = ((-110 + sin(t1y * PI.toFloat()) * 85).dp)
                 )
-                .size(400.dp)
+                .size(440.dp)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
                         listOf(
-                            c1.copy(alpha = if (dark) 0.34f else 0.50f),
+                            c1.copy(alpha = if (dark) 0.44f else 0.62f),
                             Color.Transparent
                         )
                     )
@@ -636,12 +676,12 @@ fun AmbientBackground(
                     x = ((90 - sin(t2x * PI.toFloat()) * 90).dp),
                     y = ((40 + sin(t2y * PI.toFloat()) * 80).dp)
                 )
-                .size(360.dp)
+                .size(400.dp)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
                         listOf(
-                            c2.copy(alpha = if (dark) 0.30f else 0.44f),
+                            c2.copy(alpha = if (dark) 0.40f else 0.56f),
                             Color.Transparent
                         )
                     )
@@ -655,12 +695,12 @@ fun AmbientBackground(
                     x = ((-70 + sin(t3x * PI.toFloat()) * 95).dp),
                     y = ((70 + sin(t3y * PI.toFloat()) * 85).dp)
                 )
-                .size(380.dp)
+                .size(420.dp)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
                         listOf(
-                            c3.copy(alpha = if (dark) 0.26f else 0.38f),
+                            c3.copy(alpha = if (dark) 0.36f else 0.50f),
                             Color.Transparent
                         )
                     )
@@ -674,12 +714,12 @@ fun AmbientBackground(
                     x = ((-90 - sin(t4x * PI.toFloat()) * 85).dp),
                     y = ((-50 + sin(t4y * PI.toFloat()) * 80).dp)
                 )
-                .size(340.dp)
+                .size(380.dp)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
                         listOf(
-                            c4.copy(alpha = if (dark) 0.22f else 0.32f),
+                            c4.copy(alpha = if (dark) 0.32f else 0.44f),
                             Color.Transparent
                         )
                     )
@@ -693,12 +733,12 @@ fun AmbientBackground(
                     x = (sin(t5x * PI.toFloat()) * 55).dp,
                     y = (sin(t5y * PI.toFloat()) * 50).dp
                 )
-                .size(320.dp)
+                .size(360.dp)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
                         listOf(
-                            c5.copy(alpha = if (dark) 0.22f else 0.32f),
+                            c5.copy(alpha = if (dark) 0.32f else 0.44f),
                             Color.Transparent
                         )
                     )
@@ -712,12 +752,12 @@ fun AmbientBackground(
                     x = (sin(t6x * PI.toFloat()) * 60).dp,
                     y = ((100 + sin(t6y * PI.toFloat()) * 55).dp)
                 )
-                .size(300.dp)
+                .size(340.dp)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
                         listOf(
-                            c6.copy(alpha = if (dark) 0.18f else 0.28f),
+                            c6.copy(alpha = if (dark) 0.28f else 0.40f),
                             Color.Transparent
                         )
                     )
