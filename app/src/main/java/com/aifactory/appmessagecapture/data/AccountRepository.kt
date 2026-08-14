@@ -83,6 +83,25 @@ class AccountRepository(
     }
 
     /**
+     * 修改账单金额，并同步调整已关联平台的余额（差值方向调整）。
+     *
+     * - 已对账支出：平台余额 += (旧金额 - 新金额) 的差值效果，即按 delta = 新金额 - 旧金额 的支出方向调整
+     * - 已对账收入：同样按差值调整
+     * - 待对账：仅更新金额
+     */
+    suspend fun updateBillAmount(billId: Long, newAmount: Double) {
+        db.withTransaction {
+            val bill = billDao.getBillByIdOnce(billId) ?: return@withTransaction
+            if (bill.amount == newAmount) return@withTransaction
+            bill.platformAccountId?.let { platformId ->
+                adjustPlatformForBill(platformId, newAmount - bill.amount, bill.isIncome)
+            }
+            billDao.updateAmount(billId, newAmount)
+            BirthdayLog.i("[AccountRepo] updateBillAmount id=$billId old=${bill.amount} new=$newAmount")
+        }
+    }
+
+    /**
      * 新增平台账户。
      */
     suspend fun addAccount(name: String, balance: Double): Long {

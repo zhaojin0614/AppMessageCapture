@@ -143,6 +143,15 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * 修改账单金额，已对账平台余额同步按差值调整。
+     */
+    fun updateAmount(id: Long, amount: Double) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.updateBillAmount(id, amount)
+        }
+    }
+
+    /**
      * 为账单分配扣款平台（对账）。传 null 表示取消对账。
      * 会自动回滚旧平台余额并应用新平台余额。
      */

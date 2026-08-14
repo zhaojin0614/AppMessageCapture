@@ -68,6 +68,9 @@ interface BillDao {
     @Query("UPDATE bills SET title = :title WHERE id = :id")
     suspend fun updateTitle(id: Long, title: String)
 
+    @Query("UPDATE bills SET amount = :amount WHERE id = :id")
+    suspend fun updateAmount(id: Long, amount: Double)
+
     /**
      * Update the platform account associated with a bill.
      * Pass null to mark the bill as unreconciled (待对账).

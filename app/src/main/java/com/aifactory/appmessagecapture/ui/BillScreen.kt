@@ -588,6 +588,12 @@ fun BillScreen(
     if (showEditDialog && billToEdit != null) {
         val bill = billToEdit!!
         var editTitle by remember { mutableStateOf(bill.title) }
+        var editAmount by remember {
+            mutableStateOf(
+                if (bill.amount % 1.0 == 0.0) bill.amount.toLong().toString()
+                else bill.amount.toString()
+            )
+        }
         var showEditPlatformPicker by remember { mutableStateOf(false) }
         GlassAlertDialog(
             onDismissRequest = {
@@ -604,6 +610,24 @@ fun BillScreen(
                         label = { Text("标题") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    TextField(
+                        value = editAmount,
+                         colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, disabledContainerColor = Color.Transparent),
+                        onValueChange = { newValue ->
+                            // 仅允许数字与小数点
+                            if (newValue.all { it.isDigit() || it == '.' }) {
+                                editAmount = newValue
+                            }
+                        },
+                        label = { Text("金额") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        prefix = { Text("¥") },
+                        textStyle = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold
+                        )
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     // 平台修改入口
@@ -648,6 +672,10 @@ fun BillScreen(
                     onClick = {
                         if (editTitle.isNotBlank()) {
                             viewModel.updateTitle(bill.id, editTitle)
+                        }
+                        val newAmount = editAmount.toDoubleOrNull()
+                        if (newAmount != null && newAmount > 0 && newAmount != bill.amount) {
+                            viewModel.updateAmount(bill.id, newAmount)
                         }
                         showEditDialog = false
                         billToEdit = null
