@@ -168,8 +168,8 @@ fun BillScreen(
     val totalIncome by viewModel.totalIncome.collectAsState()
     val totalAccountBalance by viewModel.totalAccountBalance.collectAsState()
     val platforms by viewModel.platforms.collectAsState()
-    val todayExpense by viewModel.todayExpense.collectAsState()
-    val todayIncome by viewModel.todayIncome.collectAsState()
+    val monthExpense by viewModel.monthExpense.collectAsState()
+    val monthIncome by viewModel.monthIncome.collectAsState()
     val expenseCount by viewModel.expenseCount.collectAsState()
     val incomeCount by viewModel.incomeCount.collectAsState()
     val selectedIds by viewModel.selectedIds.collectAsState()
@@ -408,8 +408,8 @@ fun BillScreen(
     
                 // Income / Expense Summary Cards
                 IncomeExpenseSummary(
-                    todayExpense = todayExpense,
-                    todayIncome = todayIncome
+                    monthExpense = monthExpense,
+                    monthIncome = monthIncome
                 )
     
                 Spacer(modifier = Modifier.height(8.dp))
@@ -853,8 +853,8 @@ fun BillPullDownStatsPanel(
 
 @Composable
 fun IncomeExpenseSummary(
-    todayExpense: Double,
-    todayIncome: Double
+    monthExpense: Double,
+    monthIncome: Double
 ) {
     Column(
         modifier = Modifier
@@ -865,7 +865,7 @@ fun IncomeExpenseSummary(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Today Expense
+            // Month Expense
             SoftGradientCard(
                 modifier = Modifier.weight(1f).heightIn(min = 96.dp),
                 brush = Brush.linearGradient(
@@ -884,7 +884,7 @@ fun IncomeExpenseSummary(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "今日支出",
+                            text = "本月支出",
                             color = Color.White.copy(alpha = 0.85f),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
@@ -892,7 +892,7 @@ fun IncomeExpenseSummary(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "¥${String.format("%.2f", todayExpense)}",
+                        text = "¥${String.format("%.2f", monthExpense)}",
                         color = Color.White,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
@@ -900,7 +900,7 @@ fun IncomeExpenseSummary(
                 }
             }
 
-            // Today Income
+            // Month Income
             SoftGradientCard(
                 modifier = Modifier.weight(1f).heightIn(min = 96.dp),
                 brush = Brush.linearGradient(
@@ -919,7 +919,7 @@ fun IncomeExpenseSummary(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "今日收入",
+                            text = "本月收入",
                             color = Color.White.copy(alpha = 0.85f),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
@@ -927,7 +927,7 @@ fun IncomeExpenseSummary(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "¥${String.format("%.2f", todayIncome)}",
+                        text = "¥${String.format("%.2f", monthIncome)}",
                         color = Color.White,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold

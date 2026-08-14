@@ -37,6 +37,18 @@ interface BillDao {
     @Query("SELECT SUM(amount) FROM bills WHERE isIncome = 1 AND timestamp >= :startOfDay")
     fun getTodayIncome(startOfDay: Long): Flow<Double?>
 
+    @Query("SELECT SUM(amount) FROM bills WHERE isIncome = 0 AND timestamp >= :startOfMonth")
+    fun getMonthExpense(startOfMonth: Long): Flow<Double?>
+
+    @Query("SELECT SUM(amount) FROM bills WHERE isIncome = 1 AND timestamp >= :startOfMonth")
+    fun getMonthIncome(startOfMonth: Long): Flow<Double?>
+
+    @Query("SELECT COUNT(*) FROM bills WHERE isIncome = 0 AND timestamp >= :startOfMonth")
+    fun getMonthExpenseCount(startOfMonth: Long): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM bills WHERE isIncome = 1 AND timestamp >= :startOfMonth")
+    fun getMonthIncomeCount(startOfMonth: Long): Flow<Int>
+
     @Query("SELECT COUNT(*) FROM bills")
     fun getBillCount(): Flow<Int>
 

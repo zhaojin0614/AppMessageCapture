@@ -24,7 +24,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -126,12 +125,6 @@ fun SwipeableItem(
                         scaleX = 0.85f + 0.15f * revealProgress
                         scaleY = 0.85f + 0.15f * revealProgress
                     }
-                    .shadow(
-                        elevation = 3.dp,
-                        shape = CircleShape,
-                        ambientColor = Color(0x26000000),
-                        spotColor = Color(0x33000000)
-                    )
                     .clip(CircleShape)
                     .background(
                         MaterialTheme.colorScheme.error.copy(

@@ -60,26 +60,40 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /**
-     * Reactive startOfDay that re-emits at every midnight,
-     * ensuring today's stats stay correct across day boundaries.
+     * Reactive startOfMonth that re-emits at every month boundary,
+     * ensuring this month's stats stay correct across month changes.
      */
-    private val reactiveStartOfDay: StateFlow<Long> = flow {
+    private val reactiveStartOfMonth: StateFlow<Long> = flow {
         while (true) {
-            emit(NotificationViewModel.computeStartOfDay())
-            val nextMidnight = NotificationViewModel.computeStartOfDay() + 24 * 60 * 60 * 1000
-            delay(nextMidnight - System.currentTimeMillis() + 1000)
+            val now = System.currentTimeMillis()
+            val start = computeStartOfMonth(now)
+            emit(start)
+            // 下月 1 日零点触发刷新
+            val nextMonthStart = computeStartOfMonth(start + 35L * 24 * 60 * 60 * 1000)
+            delay(nextMonthStart - now + 1000)
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), NotificationViewModel.computeStartOfDay())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), computeStartOfMonth(System.currentTimeMillis()))
 
-    val todayExpense: StateFlow<Double> = reactiveStartOfDay
+    private fun computeStartOfMonth(nowMillis: Long): Long =
+        java.time.Instant.ofEpochMilli(nowMillis)
+            .atZone(java.time.ZoneId.systemDefault())
+            .toLocalDate()
+            .withDayOfMonth(1)
+            .atStartOfDay(java.time.ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
+
+    /** 本月支出合计（记账界面大卡片展示） */
+    val monthExpense: StateFlow<Double> = reactiveStartOfMonth
         .flatMapLatest { start ->
-            billDao.getTodayExpense(start).map { it ?: 0.0 }
+            billDao.getMonthExpense(start).map { it ?: 0.0 }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 
-    val todayIncome: StateFlow<Double> = reactiveStartOfDay
+    /** 本月收入合计（记账界面大卡片展示） */
+    val monthIncome: StateFlow<Double> = reactiveStartOfMonth
         .flatMapLatest { start ->
-            billDao.getTodayIncome(start).map { it ?: 0.0 }
+            billDao.getMonthIncome(start).map { it ?: 0.0 }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 

@@ -625,30 +625,83 @@ fun AmbientBackground(
 
     // 波光轨迹：x/y 用不同频率的三角波经正弦变换 → Lissajous 曲线，幅度大，
     // 光斑可以在整个屏幕范围内游走
-    val t1x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(8500, easing = LinearEasing), RepeatMode.Reverse), label = "t1x")
-    val t1y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(6200, easing = LinearEasing), RepeatMode.Reverse), label = "t1y")
-    val t2x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(10500, easing = LinearEasing), RepeatMode.Reverse), label = "t2x")
-    val t2y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(7800, easing = LinearEasing), RepeatMode.Reverse), label = "t2y")
-    val t3x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(12500, easing = LinearEasing), RepeatMode.Reverse), label = "t3x")
-    val t3y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(9500, easing = LinearEasing), RepeatMode.Reverse), label = "t3y")
-    val t4x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(14500, easing = LinearEasing), RepeatMode.Reverse), label = "t4x")
-    val t4y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(11000, easing = LinearEasing), RepeatMode.Reverse), label = "t4y")
+    val t1x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(13000, easing = LinearEasing), RepeatMode.Reverse), label = "t1x")
+    val t1y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(9500, easing = LinearEasing), RepeatMode.Reverse), label = "t1y")
+    val t2x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(16000, easing = LinearEasing), RepeatMode.Reverse), label = "t2x")
+    val t2y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(12000, easing = LinearEasing), RepeatMode.Reverse), label = "t2y")
+    val t3x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(19000, easing = LinearEasing), RepeatMode.Reverse), label = "t3x")
+    val t3y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(14500, easing = LinearEasing), RepeatMode.Reverse), label = "t3y")
+    val t4x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(22000, easing = LinearEasing), RepeatMode.Reverse), label = "t4x")
+    val t4y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(17000, easing = LinearEasing), RepeatMode.Reverse), label = "t4y")
 
     // 颜色缓慢流动：高饱和冷暖交替（薄荷↔暖金 / 雾蓝↔紫罗兰 / 暖金↔珊瑚 / 亮紫↔青 / 草绿↔金黄 / 粉↔蓝）
-    val c1 by transition.animateColor(GradientBrandStart, SandGold, infiniteRepeatable(tween(14000, easing = LinearEasing), RepeatMode.Reverse), label = "c1")
-    val c2 by transition.animateColor(MistBlue, Color(0xFFA97BD6), infiniteRepeatable(tween(16500, easing = LinearEasing), RepeatMode.Reverse), label = "c2")
-    val c3 by transition.animateColor(SandGold, Color(0xFFEE7B6C), infiniteRepeatable(tween(19000, easing = LinearEasing), RepeatMode.Reverse), label = "c3")
-    val c4 by transition.animateColor(Color(0xFF9B8CE8), Color(0xFF4CB5C0), infiniteRepeatable(tween(22000, easing = LinearEasing), RepeatMode.Reverse), label = "c4")
-    val c5 by transition.animateColor(Color(0xFF3FAE7E), Color(0xFFF2B84B), infiniteRepeatable(tween(14500, easing = LinearEasing), RepeatMode.Reverse), label = "c5")
-    val c6 by transition.animateColor(Color(0xFFEE7BA6), Color(0xFF5B9BD8), infiniteRepeatable(tween(17500, easing = LinearEasing), RepeatMode.Reverse), label = "c6")
+    val c1 by transition.animateColor(GradientBrandStart, SandGold, infiniteRepeatable(tween(20000, easing = LinearEasing), RepeatMode.Reverse), label = "c1")
+    val c2 by transition.animateColor(MistBlue, Color(0xFFA97BD6), infiniteRepeatable(tween(24000, easing = LinearEasing), RepeatMode.Reverse), label = "c2")
+    val c3 by transition.animateColor(SandGold, Color(0xFFEE7B6C), infiniteRepeatable(tween(28000, easing = LinearEasing), RepeatMode.Reverse), label = "c3")
+    val c4 by transition.animateColor(Color(0xFF9B8CE8), Color(0xFF4CB5C0), infiniteRepeatable(tween(32000, easing = LinearEasing), RepeatMode.Reverse), label = "c4")
+    val c5 by transition.animateColor(Color(0xFF3FAE7E), Color(0xFFF2B84B), infiniteRepeatable(tween(22000, easing = LinearEasing), RepeatMode.Reverse), label = "c5")
+    val c6 by transition.animateColor(Color(0xFFEE7BA6), Color(0xFF5B9BD8), infiniteRepeatable(tween(26000, easing = LinearEasing), RepeatMode.Reverse), label = "c6")
 
     // 中部光斑轨迹（填补屏幕中间的空缺）
-    val t5x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(9800, easing = LinearEasing), RepeatMode.Reverse), label = "t5x")
-    val t5y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(7500, easing = LinearEasing), RepeatMode.Reverse), label = "t5y")
-    val t6x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(11800, easing = LinearEasing), RepeatMode.Reverse), label = "t6x")
-    val t6y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(8800, easing = LinearEasing), RepeatMode.Reverse), label = "t6y")
+    val t5x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(15000, easing = LinearEasing), RepeatMode.Reverse), label = "t5x")
+    val t5y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(11500, easing = LinearEasing), RepeatMode.Reverse), label = "t5y")
+    val t6x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(18000, easing = LinearEasing), RepeatMode.Reverse), label = "t6x")
+    val t6y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(13500, easing = LinearEasing), RepeatMode.Reverse), label = "t6y")
+
+    // 光斑 7/8/9 轨迹：中上 / 左中 / 右中，填补屏幕边缘与中部之间的空隙
+    val t7x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(16500, easing = LinearEasing), RepeatMode.Reverse), label = "t7x")
+    val t7y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(12000, easing = LinearEasing), RepeatMode.Reverse), label = "t7y")
+    val t8x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(19500, easing = LinearEasing), RepeatMode.Reverse), label = "t8x")
+    val t8y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(14000, easing = LinearEasing), RepeatMode.Reverse), label = "t8y")
+    val t9x by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(15500, easing = LinearEasing), RepeatMode.Reverse), label = "t9x")
+    val t9y by transition.animateFloat(-1f, 1f, infiniteRepeatable(tween(17500, easing = LinearEasing), RepeatMode.Reverse), label = "t9y")
+
+    // 光斑 7/8/9 颜色：金黄↔青 / 珊瑚↔薄荷 / 紫罗兰↔暖金
+    val c7 by transition.animateColor(Color(0xFFF2B84B), Color(0xFF4CB5C0), infiniteRepeatable(tween(25000, easing = LinearEasing), RepeatMode.Reverse), label = "c7")
+    val c8 by transition.animateColor(Color(0xFFEE7B6C), Color(0xFF3FAE7E), infiniteRepeatable(tween(21000, easing = LinearEasing), RepeatMode.Reverse), label = "c8")
+    val c9 by transition.animateColor(Color(0xFFA97BD6), Color(0xFFF2B84B), infiniteRepeatable(tween(27000, easing = LinearEasing), RepeatMode.Reverse), label = "c9")
+
+    // 极光渐变底色：四段色带独立往复流动（周期错相不同步），整屏色调持续漂移，
+    // 玻璃面板后面是"全屏在动"的柔和色彩，而非只有光斑在移动
+    val bg1 by transition.animateColor(
+        if (dark) Color(0xFF12231E) else Color(0xFFBFEBDD),
+        if (dark) Color(0xFF1B1A2E) else Color(0xFFC2C4F7),
+        infiniteRepeatable(tween(12000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "bg1"
+    )
+    val bg2 by transition.animateColor(
+        if (dark) Color(0xFF16222F) else Color(0xFFD8E6F8),
+        if (dark) Color(0xFF241A28) else Color(0xFFF4DCE9),
+        infiniteRepeatable(tween(15000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "bg2"
+    )
+    val bg3 by transition.animateColor(
+        if (dark) Color(0xFF221C15) else Color(0xFFF6E9D4),
+        if (dark) Color(0xFF132423) else Color(0xFFD4F0EA),
+        infiniteRepeatable(tween(13500, easing = LinearEasing), RepeatMode.Reverse),
+        label = "bg3"
+    )
+    val bg4 by transition.animateColor(
+        if (dark) Color(0xFF1E1730) else Color(0xFFEADFF5),
+        if (dark) Color(0xFF122622) else Color(0xFFCDEFE6),
+        infiniteRepeatable(tween(10500, easing = LinearEasing), RepeatMode.Reverse),
+        label = "bg4"
+    )
 
     Box(modifier = modifier.fillMaxSize()) {
+        // 全屏流动的极光渐变底色（最底层）
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0f to bg1,
+                        0.33f to bg2,
+                        0.67f to bg3,
+                        1f to bg4
+                    )
+                )
+        )
         // Mint blob — top-left（薄荷 ↔ 暖金），大范围游走
         Box(
             modifier = Modifier
@@ -758,6 +811,63 @@ fun AmbientBackground(
                     Brush.radialGradient(
                         listOf(
                             c6.copy(alpha = if (dark) 0.32f else 0.44f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+        // Upper-middle blob — 中上（金黄 ↔ 青），填补顶部中部空缺
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .offset(
+                    x = (sin(t7x * PI.toFloat()) * 65).dp,
+                    y = ((-150 + sin(t7y * PI.toFloat()) * 55).dp)
+                )
+                .size(260.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        listOf(
+                            c7.copy(alpha = if (dark) 0.26f else 0.38f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+        // Left-middle blob — 左中（珊瑚 ↔ 薄荷），填补左侧中部空缺
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .offset(
+                    x = ((-70 + sin(t8x * PI.toFloat()) * 65).dp),
+                    y = (sin(t8y * PI.toFloat()) * 90).dp
+                )
+                .size(280.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        listOf(
+                            c8.copy(alpha = if (dark) 0.24f else 0.36f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+        // Right-middle blob — 右中（紫罗兰 ↔ 暖金），填补右侧中部空缺
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .offset(
+                    x = ((70 - sin(t9x * PI.toFloat()) * 65).dp),
+                    y = (sin(t9y * PI.toFloat()) * 90).dp
+                )
+                .size(300.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        listOf(
+                            c9.copy(alpha = if (dark) 0.22f else 0.34f),
                             Color.Transparent
                         )
                     )
