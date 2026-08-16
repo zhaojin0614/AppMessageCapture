@@ -89,7 +89,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -107,7 +106,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.data.BillEntity
 import com.aifactory.appmessagecapture.ui.components.PillToggle
@@ -123,6 +121,7 @@ import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.components.glassHighlightBrush
 import com.aifactory.appmessagecapture.ui.components.gradientBrush
 import com.aifactory.appmessagecapture.ui.components.isDarkTheme
+import com.aifactory.appmessagecapture.utils.rememberAppIcon
 import com.aifactory.appmessagecapture.ui.theme.CategoryBeauty
 import com.aifactory.appmessagecapture.ui.theme.CategoryEducation
 import com.aifactory.appmessagecapture.ui.theme.CategoryEntertainment
@@ -1060,30 +1059,16 @@ fun MergedAppIcon(
     secondaryPackage: String?,
     sizeDp: androidx.compose.ui.unit.Dp = 40.dp
 ) {
-    val context = LocalContext.current
-    val pxSize = with(LocalDensity.current) { sizeDp.toPx().toInt() }
-
-    val primaryIcon = remember(primaryPackage, pxSize) {
-        try {
-            context.packageManager.getApplicationIcon(primaryPackage)
-                ?.toBitmap(width = pxSize, height = pxSize)
-                ?.asImageBitmap()
-        } catch (_: Exception) { null }
-    }
-    val secondaryIcon = remember(secondaryPackage, pxSize) {
-        if (secondaryPackage == null) return@remember null
-        try {
-            context.packageManager.getApplicationIcon(secondaryPackage)
-                ?.toBitmap(width = pxSize, height = pxSize)
-                ?.asImageBitmap()
-        } catch (_: Exception) { null }
-    }
+    val primaryIcon by rememberAppIcon(primaryPackage, sizeDp)
+    val secondaryIcon by rememberAppIcon(secondaryPackage ?: "", sizeDp)
+    val primary = primaryIcon
+    val secondary = secondaryIcon
 
     Box(
         modifier = Modifier.size(sizeDp),
         contentAlignment = Alignment.Center
     ) {
-        if (secondaryIcon != null && primaryIcon != null) {
+        if (secondary != null && primary != null) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val s = size.width
                 val iSize = s.toInt()
@@ -1097,7 +1082,7 @@ fun MergedAppIcon(
                 }
                 clipPath(pathPrimary) {
                     drawImage(
-                        image = primaryIcon,
+                        image = primary,
                         dstOffset = IntOffset(0, 0),
                         dstSize = IntSize(iSize, iSize)
                     )
@@ -1112,7 +1097,7 @@ fun MergedAppIcon(
                 }
                 clipPath(pathSecondary) {
                     drawImage(
-                        image = secondaryIcon,
+                        image = secondary,
                         dstOffset = IntOffset(0, 0),
                         dstSize = IntSize(iSize, iSize)
                     )
@@ -1126,9 +1111,9 @@ fun MergedAppIcon(
                     strokeWidth = 2.5f
                 )
             }
-        } else if (primaryIcon != null) {
+        } else if (primary != null) {
             Image(
-                bitmap = primaryIcon,
+                bitmap = primary,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
@@ -1149,16 +1134,9 @@ fun BillCard(
     onReconcile: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val hasMergedIcon = bill.secondaryPackageName != null
-    val iconBitmap = remember(bill.packageName) {
-        try {
-            context.packageManager.getApplicationIcon(bill.packageName)
-                ?.toBitmap(width = 192, height = 192)
-                ?.asImageBitmap()
-        } catch (_: Exception) { null }
-    }
+    val iconBitmap by rememberAppIcon(bill.packageName)
 
     Row(
         modifier = modifier
@@ -1200,9 +1178,10 @@ fun BillCard(
                     .border(glassBorder(), RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                if (iconBitmap != null) {
+                val icon = iconBitmap
+                if (icon != null) {
                     Image(
-                        bitmap = iconBitmap,
+                        bitmap = icon,
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
@@ -1332,8 +1311,8 @@ fun DayGroupCard(
     onReconcile: (BillEntity) -> Unit,
     onDelete: (BillEntity) -> Unit
 ) {
-    val dayExpense = bills.filter { !it.isIncome }.sumOf { it.amount }
-    val dayIncome = bills.filter { it.isIncome }.sumOf { it.amount }
+    val dayExpense = remember(bills) { bills.filter { !it.isIncome }.sumOf { it.amount } }
+    val dayIncome = remember(bills) { bills.filter { it.isIncome }.sumOf { it.amount } }
     // 平台ID -> 名称，用于在卡片上显示扣款平台
     val platformNameById = remember(platforms) {
         platforms.associate { it.id to it.name }
@@ -1983,9 +1962,11 @@ internal fun getCategoryIconRes(category: String): Int {
     }
 }
 
+private val billTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
 private fun formatBillTimeOnly(timestamp: Long): String {
     val zoned = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault())
-    return DateTimeFormatter.ofPattern("HH:mm").format(zoned)
+    return billTimeFormatter.format(zoned)
 }
 
 private fun formatDayHeader(date: LocalDate): String {

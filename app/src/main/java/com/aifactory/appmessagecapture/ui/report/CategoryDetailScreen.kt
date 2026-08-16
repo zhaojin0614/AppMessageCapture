@@ -22,13 +22,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.data.BillEntity
 import com.aifactory.appmessagecapture.ui.components.AmbientBackground
@@ -38,6 +35,7 @@ import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.components.gradientBrush
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
+import com.aifactory.appmessagecapture.utils.rememberAppIcon
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -52,8 +50,10 @@ fun CategoryDetailScreen(
     onBack: () -> Unit,
     viewModel: CategoryDetailViewModel = viewModel()
 ) {
+    // null = still loading; distinguish "not loaded yet" from "loaded but empty"
+    // so the empty state doesn't flash on first frame.
     val bills by viewModel.getBillsInTimeRange(category, isIncome, startTime, endTime)
-        .collectAsState(initial = emptyList())
+        .collectAsState(initial = null)
 
     BackHandler { onBack() }
 
@@ -87,69 +87,66 @@ fun CategoryDetailScreen(
             )
         }
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .windowInsetsPadding(WindowInsets.navigationBars)
-        ) {
-            val grouped = bills.groupBy {
-                Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
-            }
-
-            grouped.forEach { (date, dayBills) ->
-                item {
-                    Text(
-                        text = formatDetailDate(date),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                    )
+        val billList = bills
+        if (billList != null) {
+            // Grouped OUTSIDE the LazyColumn scope (not composable there)
+            val grouped = remember(billList) {
+                billList.groupBy {
+                    Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
                 }
-                items(dayBills) { bill ->
-                    CategoryDetailBillItem(bill = bill)
-                }
-                item { Spacer(modifier = Modifier.height(4.dp)) }
             }
+            LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                ) {
+                    grouped.forEach { (date, dayBills) ->
+                        item(key = "hdr_$date") {
+                            Text(
+                                text = formatDetailDate(date),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                            )
+                        }
+                        items(dayBills, key = { it.id }) { bill ->
+                            CategoryDetailBillItem(bill = bill)
+                        }
+                        item(key = "gap_$date") { Spacer(modifier = Modifier.height(4.dp)) }
+                    }
 
-            // 留出底部 Tab 栏空间，避免被 MainApp 的 NavigationBar 遮挡
-            item {
-                Spacer(modifier = Modifier.height(80.dp))
-            }
+                    // 留出底部 Tab 栏空间，避免被 MainApp 的 NavigationBar 遮挡
+                    item(key = "bottom_space") {
+                        Spacer(modifier = Modifier.height(80.dp))
+                    }
 
-            if (bills.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier.fillParentMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "暂无数据",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    if (billList.isEmpty()) {
+                        item(key = "empty") {
+                            Box(
+                                modifier = Modifier.fillParentMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "暂无数据",
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
-    }
 }
 
 @Composable
 private fun CategoryDetailBillItem(bill: BillEntity) {
-    val context = LocalContext.current
-    val iconBitmap = remember(bill.packageName) {
-        if (bill.packageName.isBlank()) return@remember null
-        try {
-            context.packageManager.getApplicationIcon(bill.packageName)
-                ?.toBitmap(width = 192, height = 192)
-                ?.asImageBitmap()
-        } catch (_: Exception) {
-            null
-        }
-    }
+    // Blank packageName = 手动记账/周期记账, no launcher icon to look up
+    val iconBitmap = if (bill.packageName.isBlank()) null
+    else rememberAppIcon(bill.packageName).value
 
     val timeStr = remember(bill.timestamp) {
         val zoned = Instant.ofEpochMilli(bill.timestamp).atZone(ZoneId.systemDefault())

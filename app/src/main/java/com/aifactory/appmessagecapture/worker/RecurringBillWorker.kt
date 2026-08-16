@@ -5,7 +5,6 @@ import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
@@ -46,11 +45,9 @@ class RecurringBillWorker(
             BirthdayLog.i("[$TAG] Scheduled daily recurring bill check")
 
             // One-shot catch-up at app start: the daily window may not have fired
-            // yet today, so run an immediate (expedited where possible) check to
-            // record bills that came due since the last run.
-            val startupRequest = OneTimeWorkRequestBuilder<RecurringBillWorker>()
-                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_RESERVATION)
-                .build()
+            // yet today, so run an immediate check to record bills that came due
+            // since the last run.
+            val startupRequest = OneTimeWorkRequestBuilder<RecurringBillWorker>().build()
             WorkManager.getInstance(context).enqueueUniqueWork(
                 STARTUP_WORK_NAME,
                 ExistingWorkPolicy.KEEP,

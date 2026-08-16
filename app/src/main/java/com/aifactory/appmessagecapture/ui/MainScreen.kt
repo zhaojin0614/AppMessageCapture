@@ -87,7 +87,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -102,7 +101,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat.startActivity
-import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.R
 import com.aifactory.appmessagecapture.data.NotificationEntity
@@ -112,15 +110,13 @@ import com.aifactory.appmessagecapture.ui.components.GlassAlertDialog
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.components.gradientBrush
+import com.aifactory.appmessagecapture.utils.rememberAppIcon
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import java.util.Date
-import java.util.Locale
 
 sealed class NotificationListItem {
     data class Header(val date: String) : NotificationListItem()
@@ -464,6 +460,7 @@ fun MainScreen(
                         when (item) {
                             is NotificationListItem.Header -> DateHeader(item.date)
                             is NotificationListItem.Item -> SwipeableItem(
+                                itemKey = item.notification.id,
                                 isSelectionMode = isSelectionMode,
                                 onDelete = {
                                     notificationToDelete = item.notification
@@ -740,16 +737,9 @@ fun NotificationCard(
     onLongClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
 
-    val iconBitmap = remember(notification.packageName) {
-        try {
-            context.packageManager.getApplicationIcon(notification.packageName)
-                ?.toBitmap(width = 192, height = 192)
-                ?.asImageBitmap()
-        } catch (_: Exception) { null }
-    }
+    val iconBitmap by rememberAppIcon(notification.packageName)
 
     Card(
         modifier = modifier
@@ -797,9 +787,10 @@ fun NotificationCard(
                     .border(glassBorder(), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                if (iconBitmap != null) {
+                val icon = iconBitmap
+                if (icon != null) {
                     Image(
-                        bitmap = iconBitmap,
+                        bitmap = icon,
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
@@ -1116,35 +1107,33 @@ fun ExportDialog(
     )
 }
 
-private fun formatDateHeader(timestamp: Long): String {
-    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-    val dateStr = sdf.format(Date(timestamp))
-    val todayStr = sdf.format(Date())
-    val yesterdayStr = sdf.format(Date(System.currentTimeMillis() - 86400000))
-    return when (dateStr) {
-        todayStr -> "今天"
-        yesterdayStr -> "昨天"
-        else -> dateStr
-    }
-}
+private val headerDateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+private val shortTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+private val shortDateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd HH:mm")
 
-private fun formatTime(timestamp: Long): String {
-    val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-    return sdf.format(Date(timestamp))
+private fun formatDateHeader(timestamp: Long): String {
+    val zone = ZoneId.systemDefault()
+    val date = Instant.ofEpochMilli(timestamp).atZone(zone).toLocalDate()
+    val today = LocalDate.now(zone)
+    return when {
+        date.isEqual(today) -> "今天"
+        date.isEqual(today.minusDays(1)) -> "昨天"
+        else -> date.format(headerDateFormatter)
+    }
 }
 
 private fun formatShortTime(timestamp: Long): String {
     val now = System.currentTimeMillis()
     val diff = now - timestamp
-    if (diff < 60000) return "刚刚"
-    if (diff < 3600000) return "${diff / 60000}分钟前"
+    if (diff < 60_000) return "刚刚"
+    if (diff < 3_600_000) return "${diff / 60_000}分钟前"
 
     val zoned = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault())
     val dayDiff = ChronoUnit.DAYS.between(zoned.toLocalDate(), LocalDate.now())
-    val timeStr = DateTimeFormatter.ofPattern("HH:mm").format(zoned)
+    val timeStr = shortTimeFormatter.format(zoned)
     return when (dayDiff) {
         0L -> timeStr
         1L -> "昨天 $timeStr"
-        else -> DateTimeFormatter.ofPattern("MM/dd HH:mm").format(zoned)
+        else -> shortDateTimeFormatter.format(zoned)
     }
 }

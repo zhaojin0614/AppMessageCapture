@@ -85,7 +85,9 @@ fun SwipeableItem(
     // Drives the delete button's fade/scale. The button sits BEHIND the
     // frosted card, so without this it would show through the translucent
     // glass surface even when the item is at rest.
-    val revealProgress = (offsetX.value / -maxSwipe).coerceIn(0f, 1f)
+    // NOTE: the progress is derived INSIDE the graphicsLayer lambda below so the
+    // animated offset is read at the draw phase — reading it here would recompose
+    // the whole item on every drag frame.
 
     // 当数据项标识变化时（如删除导致列表缩短、槽位复用），重置滑动偏移
     LaunchedEffect(itemKey) {
@@ -121,6 +123,7 @@ fun SwipeableItem(
                     .padding(end = 6.dp)
                     .size(40.dp)
                     .graphicsLayer {
+                        val revealProgress = (offsetX.value / -maxSwipe).coerceIn(0f, 1f)
                         alpha = revealProgress
                         scaleX = 0.85f + 0.15f * revealProgress
                         scaleY = 0.85f + 0.15f * revealProgress
