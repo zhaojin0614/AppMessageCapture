@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -148,10 +149,14 @@ fun MainApp(initialTab: String? = null) {
             ) { _ ->
                 // No bottom padding: like the report screen, tab content
                 // extends behind the floating nav pill and scrolls beneath it.
+                // SaveableStateProvider keeps each tab's scroll position and
+                // remember state alive across tab switches (previously the
+                // whole screen was disposed and lists reset to the top).
+                val stateHolder = rememberSaveableStateHolder()
                 when (selectedTab) {
-                    0 -> MainScreen()
-                    1 -> BillScreen()
-                    2 -> BirthdayScreen()
+                    0 -> stateHolder.SaveableStateProvider(key = "tab_messages") { MainScreen() }
+                    1 -> stateHolder.SaveableStateProvider(key = "tab_bills") { BillScreen() }
+                    2 -> stateHolder.SaveableStateProvider(key = "tab_birthday") { BirthdayScreen() }
                 }
             }
         }
