@@ -4,22 +4,19 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.aifactory.appmessagecapture.data.AppDatabase
-import com.aifactory.appmessagecapture.data.BillEntity
 import com.aifactory.appmessagecapture.data.RecurringBillEntity
+import com.aifactory.appmessagecapture.data.RecurringBillProcessor
 import com.aifactory.appmessagecapture.data.RecurringFrequency
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.ZoneId
 
 class RecurringBillViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = AppDatabase.getDatabase(application)
     private val recurringBillDao = db.recurringBillDao()
-    private val billDao = db.billDao()
 
     val allRecurringBills: StateFlow<List<RecurringBillEntity>> = recurringBillDao.getAllRecurringBills()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -86,38 +83,8 @@ class RecurringBillViewModel(application: Application) : AndroidViewModel(applic
     }
 
     private suspend fun executeDueBillsInternal() {
-        val currentTime = System.currentTimeMillis()
-        val dueBills = recurringBillDao.getDueRecurringBills(currentTime)
-        val zoneId = ZoneId.systemDefault()
-
-        for (recurring in dueBills) {
-            val bill = BillEntity(
-                amount = recurring.amount,
-                appName = "周期记账",
-                packageName = "",
-                title = recurring.title,
-                category = recurring.category,
-                isIncome = recurring.isIncome,
-                timestamp = recurring.nextDueDate
-            )
-            billDao.insert(bill)
-
-            // Calculate next due date
-            val currentDueDate = Instant.ofEpochMilli(recurring.nextDueDate)
-                .atZone(zoneId)
-                .toLocalDate()
-
-            val nextDate = when (recurring.frequency) {
-                RecurringFrequency.DAILY.name -> currentDueDate.plusDays(1)
-                RecurringFrequency.WEEKLY.name -> currentDueDate.plusWeeks(1)
-                RecurringFrequency.BIWEEKLY.name -> currentDueDate.plusWeeks(2)
-                RecurringFrequency.MONTHLY.name -> currentDueDate.plusMonths(1)
-                RecurringFrequency.YEARLY.name -> currentDueDate.plusYears(1)
-                else -> currentDueDate.plusMonths(1)
-            }
-
-            val nextDueMillis = nextDate.atStartOfDay(zoneId).toInstant().toEpochMilli()
-            recurringBillDao.updateNextDueDate(recurring.id, nextDueMillis)
-        }
+        // Shared with RecurringBillWorker: transactional + catch-up execution,
+        // so concurrent triggers from UI and Worker never duplicate bills.
+        RecurringBillProcessor.processDueBills(db)
     }
 }
