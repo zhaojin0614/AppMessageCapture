@@ -5,14 +5,15 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.aifactory.appmessagecapture.data.AppDatabase
 import com.aifactory.appmessagecapture.data.BillEntity
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
-import java.time.Period
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.time.temporal.WeekFields
@@ -34,161 +35,141 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
     private val _currentOffset = MutableStateFlow(0)
     val currentOffset: StateFlow<Int> = _currentOffset
 
-    init { loadData() }
+    init {
+        // Reactive pipeline: any change of period/income/offset re-queries the
+        // time-ranged Flow, and new bills inserted while the report is open
+        // automatically refresh it (previously a one-shot load that went stale).
+        viewModelScope.launch {
+            combine(_periodType, _showIncome, _currentOffset) { type, income, offset ->
+                Triple(type, income, offset)
+            }.flatMapLatest { (type, income, offset) ->
+                val earliestMillis = earliestMillisFor(type, offset)
+                billDao.getBillsSince(earliestMillis).mapLatest { bills ->
+                    buildUiState(bills, type, income, offset)
+                }
+            }.collect { _uiState.value = it }
+        }
+    }
 
     fun setPeriodType(type: PeriodType) {
         _periodType.value = type
         _currentOffset.value = 0
-        loadData()
     }
 
     fun toggleShowIncome() {
         _showIncome.value = !_showIncome.value
-        loadData()
     }
 
     fun prevPeriod() {
         _currentOffset.value -= 1
-        loadData()
     }
 
     fun nextPeriod() {
         _currentOffset.value += 1
-        loadData()
     }
 
     fun setMonth(year: Int, month: Int) {
         val now = LocalDate.now()
         val selected = LocalDate.of(year, month, 1)
         _currentOffset.value = (selected.year - now.year) * 12 + (selected.monthValue - now.monthValue)
-        loadData()
     }
 
     fun setYear(year: Int) {
         val now = LocalDate.now()
         _currentOffset.value = year - now.year
-        loadData()
     }
 
-    fun loadData() {
-        viewModelScope.launch {
-            val type = _periodType.value
-            val showIncome = _showIncome.value
-            val offset = _currentOffset.value
+    // ------------------------------------------------------------------
+    // UI state derivation (pure, given a bill list)
+    // ------------------------------------------------------------------
 
-            val now = LocalDate.now()
-
-            // Calculate earliest time needed (bar data goes back 5 periods from current)
-            val earliestDate = when (type) {
-                PeriodType.WEEK -> now.plusWeeks((offset - 5).toLong())
-                    .with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1)
-                PeriodType.MONTH -> now.plusMonths((offset - 5).toLong()).withDayOfMonth(1)
-                PeriodType.YEAR -> now.plusYears((offset - 5).toLong()).withMonth(1).withDayOfMonth(1)
-            }
-            val earliestMillis = earliestDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-
-            // Only load bills from the needed time range instead of all records
-            val bills = withContext(Dispatchers.IO) { billDao.getBillsSinceOnce(earliestMillis) }
-
-            val currentRange = when (type) {
-                PeriodType.WEEK -> getWeekRange(now.plusWeeks(offset.toLong()))
-                PeriodType.MONTH -> getMonthRange(now.plusMonths(offset.toLong()))
-                PeriodType.YEAR -> getYearRange(now.plusYears(offset.toLong()))
-            }
-            val prevRange = when (type) {
-                PeriodType.WEEK -> getWeekRange(now.plusWeeks(offset.toLong()).minusWeeks(1))
-                PeriodType.MONTH -> getMonthRange(now.plusMonths(offset.toLong()).minusMonths(1))
-                PeriodType.YEAR -> getYearRange(now.plusYears(offset.toLong()).minusYears(1))
-            }
-
-            val currentBills = bills.filter { it.timestamp in currentRange.startMillis..currentRange.endMillis }
-            val prevBills = bills.filter { it.timestamp in prevRange.startMillis..prevRange.endMillis }
-
-            val currentIncome = currentBills.filter { it.isIncome }.sumOf { it.amount }
-            val currentExpense = currentBills.filter { !it.isIncome }.sumOf { it.amount }
-            val prevIncome = prevBills.filter { it.isIncome }.sumOf { it.amount }
-            val prevExpense = prevBills.filter { !it.isIncome }.sumOf { it.amount }
-
-            val selectedCurrentTotal = if (showIncome) currentIncome else currentExpense
-            val selectedPrevTotal = if (showIncome) prevIncome else prevExpense
-            val balance = currentIncome - currentExpense
-
-            // 日均/月均分母：历史周期按完整周期算，当前/未来周期按已过去的实际天数算。
-            // 例如今天是周二查看本周，分母应为2（已过2天），而非7（整周），因为后面几天还没账单。
-            val today = LocalDate.now()
-            val elapsedDays = when {
-                // 历史周期已完整结束，按完整周期天数算
-                offset < 0 -> when (type) {
-                    PeriodType.WEEK -> 7L
-                    PeriodType.MONTH -> ChronoUnit.DAYS.between(currentRange.start, currentRange.end) + 1
-                    PeriodType.YEAR -> 12L
-                }
-                // 当前/未来周期：按周期内已过去的实际天数算
-                else -> {
-                    val periodStart = currentRange.start
-                    val periodEnd = currentRange.end
-                    when {
-                        // 周期尚未开始（未来周期）
-                        today.isBefore(periodStart) -> 1L
-                        // 周期已结束（offset>=0 的边界情况），按完整周期
-                        today.isAfter(periodEnd) -> when (type) {
-                            PeriodType.WEEK -> 7L
-                            PeriodType.MONTH -> ChronoUnit.DAYS.between(currentRange.start, currentRange.end) + 1
-                            PeriodType.YEAR -> 12L
-                        }
-                        // 年视图按已过月数算（含当月）
-                        type == PeriodType.YEAR -> today.monthValue.toLong()
-                        // 周/月视图按已过天数算（含今天）
-                        else -> ChronoUnit.DAYS.between(periodStart, today) + 1
-                    }
-                }
-            }.coerceAtLeast(1)
-
-            val dailyAvg = selectedCurrentTotal / elapsedDays
-
-            val trendData = calculateTrendData(currentBills, type, showIncome)
-            val barData = calculateBarData(bills, type, showIncome, offset)
-            val categoryData = calculateCategoryData(currentBills, showIncome)
-
-            _uiState.value = ReportUiState(
-                periodLabel = currentRange.label,
-                periodTotal = selectedCurrentTotal,
-                dailyAvg = dailyAvg,
-                prevDiff = selectedCurrentTotal - selectedPrevTotal,
-                balance = balance,
-                trendData = trendData,
-                barData = barData,
-                categoryData = categoryData,
-                currentIncome = currentIncome,
-                currentExpense = currentExpense,
-                currentYear = currentRange.start.year,
-                currentMonth = currentRange.start.monthValue,
-                periodStartMillis = currentRange.startMillis,
-                periodEndMillis = currentRange.endMillis,
-                isLoading = false,
-                showIncome = showIncome
-            )
+    private fun earliestMillisFor(type: PeriodType, offset: Int): Long {
+        val now = LocalDate.now()
+        // Bar data goes back 5 periods from the current one
+        val earliestDate = when (type) {
+            PeriodType.WEEK -> now.plusWeeks((offset - 5).toLong())
+                .with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1)
+            PeriodType.MONTH -> now.plusMonths((offset - 5).toLong()).withDayOfMonth(1)
+            PeriodType.YEAR -> now.plusYears((offset - 5).toLong()).withMonth(1).withDayOfMonth(1)
         }
+        return earliestDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    }
+
+    private fun buildUiState(
+        bills: List<BillEntity>,
+        type: PeriodType,
+        showIncome: Boolean,
+        offset: Int
+    ): ReportUiState {
+        val now = LocalDate.now()
+
+        val currentRange = when (type) {
+            PeriodType.WEEK -> getWeekRange(now.plusWeeks(offset.toLong()))
+            PeriodType.MONTH -> getMonthRange(now.plusMonths(offset.toLong()))
+            PeriodType.YEAR -> getYearRange(now.plusYears(offset.toLong()))
+        }
+        val prevRange = when (type) {
+            PeriodType.WEEK -> getWeekRange(now.plusWeeks(offset.toLong()).minusWeeks(1))
+            PeriodType.MONTH -> getMonthRange(now.plusMonths(offset.toLong()).minusMonths(1))
+            PeriodType.YEAR -> getYearRange(now.plusYears(offset.toLong()).minusYears(1))
+        }
+
+        val currentBills = bills.filter { it.timestamp in currentRange.startMillis..currentRange.endMillis }
+        val prevBills = bills.filter { it.timestamp in prevRange.startMillis..prevRange.endMillis }
+
+        val currentIncome = currentBills.filter { it.isIncome }.sumOf { it.amount }
+        val currentExpense = currentBills.filter { !it.isIncome }.sumOf { it.amount }
+        val prevIncome = prevBills.filter { it.isIncome }.sumOf { it.amount }
+        val prevExpense = prevBills.filter { !it.isIncome }.sumOf { it.amount }
+
+        val selectedCurrentTotal = if (showIncome) currentIncome else currentExpense
+        val selectedPrevTotal = if (showIncome) prevIncome else prevExpense
+        val balance = currentIncome - currentExpense
+
+        val elapsedDays = calculateElapsedDays(type, offset, currentRange.start, currentRange.end, LocalDate.now())
+        val dailyAvg = selectedCurrentTotal / elapsedDays
+
+        return ReportUiState(
+            periodLabel = currentRange.label,
+            periodTotal = selectedCurrentTotal,
+            dailyAvg = dailyAvg,
+            prevDiff = selectedCurrentTotal - selectedPrevTotal,
+            balance = balance,
+            trendData = calculateTrendData(currentBills, type, showIncome, offset),
+            barData = calculateBarData(bills, type, showIncome, offset),
+            categoryData = calculateCategoryData(currentBills, showIncome),
+            currentIncome = currentIncome,
+            currentExpense = currentExpense,
+            currentYear = currentRange.start.year,
+            currentMonth = currentRange.start.monthValue,
+            periodStartMillis = currentRange.startMillis,
+            periodEndMillis = currentRange.endMillis,
+            isLoading = false,
+            showIncome = showIncome
+        )
     }
 
     private fun calculateTrendData(
         bills: List<BillEntity>,
         type: PeriodType,
-        income: Boolean
+        income: Boolean,
+        offset: Int
     ): List<TrendPoint> {
+        val zone = ZoneId.systemDefault()
+        // One-pass bucketing: group bills by date once instead of re-filtering
+        // the whole list (with a timezone conversion per bill) for every bucket.
         val filtered = bills.filter { it.isIncome == income }
-        val offset = _currentOffset.value
+        val byDate = filtered.groupBy { Instant.ofEpochMilli(it.timestamp).atZone(zone).toLocalDate() }
+
         return when (type) {
             PeriodType.WEEK -> {
                 val base = LocalDate.now().plusWeeks(offset.toLong())
                     .with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1)
                 (0..6).map { dayOffset ->
                     val date = base.plusDays(dayOffset.toLong())
-                    val dayBills = filtered.filter {
-                        Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate() == date
-                    }
+                    val amount = byDate[date].orEmpty().sumOf { it.amount }
                     val label = String.format("%02d.%02d", date.monthValue, date.dayOfMonth)
-                    TrendPoint(label, dayBills.sumOf { it.amount }, date.toString())
+                    TrendPoint(label, amount, date.toString())
                 }
             }
             PeriodType.MONTH -> {
@@ -196,21 +177,19 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                 val daysInMonth = base.lengthOfMonth()
                 (0 until daysInMonth).map { dayOffset ->
                     val date = base.plusDays(dayOffset.toLong())
-                    val dayBills = filtered.filter {
-                        Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate() == date
-                    }
-                    TrendPoint("${date.dayOfMonth}日", dayBills.sumOf { it.amount }, date.toString())
+                    val amount = byDate[date].orEmpty().sumOf { it.amount }
+                    TrendPoint("${date.dayOfMonth}日", amount, date.toString())
                 }
             }
             PeriodType.YEAR -> {
                 val base = LocalDate.now().plusYears(offset.toLong()).withMonth(1).withDayOfMonth(1)
+                val byMonth = filtered.groupBy {
+                    YearMonth.from(Instant.ofEpochMilli(it.timestamp).atZone(zone).toLocalDate())
+                }
                 (0..11).map { monthOffset ->
                     val month = base.plusMonths(monthOffset.toLong())
-                    val monthBills = filtered.filter {
-                        val d = Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
-                        d.year == month.year && d.monthValue == month.monthValue
-                    }
-                    TrendPoint("${month.monthValue}月", monthBills.sumOf { it.amount }, "${month.year}-${month.monthValue}")
+                    val amount = byMonth[YearMonth.from(month)].orEmpty().sumOf { it.amount }
+                    TrendPoint("${month.monthValue}月", amount, "${month.year}-${month.monthValue}")
                 }
             }
         }
@@ -222,17 +201,19 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
         income: Boolean,
         currentOffset: Int
     ): List<BarPoint> {
+        val zone = ZoneId.systemDefault()
         val filtered = bills.filter { it.isIncome == income }
+        val byDate = filtered.groupBy { Instant.ofEpochMilli(it.timestamp).atZone(zone).toLocalDate() }
+
+        fun sumDays(start: LocalDate, dayCount: Long): Double =
+            (0 until dayCount).sumOf { i -> byDate[start.plusDays(i)].orEmpty().sumOf { it.amount } }
+
         return when (type) {
             PeriodType.WEEK -> {
                 (-5..0).map { offset ->
                     val weekStart = LocalDate.now().plusWeeks((currentOffset + offset).toLong())
                         .with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1)
                     val weekEnd = weekStart.plusDays(6)
-                    val weekBills = filtered.filter {
-                        val d = Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
-                        !d.isBefore(weekStart) && !d.isAfter(weekEnd)
-                    }
                     val weekNumber = weekStart.get(WeekFields.of(Locale.getDefault()).weekOfWeekBasedYear())
                     val label = when {
                         currentOffset == 0 && offset == 0 -> "本周"
@@ -241,42 +222,38 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                     }
                     val tooltip = String.format(
                         "%d.%02d.%02d~%02d",
-                        weekStart.year,
-                        weekStart.monthValue,
-                        weekStart.dayOfMonth,
-                        weekEnd.dayOfMonth
+                        weekStart.year, weekStart.monthValue, weekStart.dayOfMonth, weekEnd.dayOfMonth
                     )
-                    BarPoint(label, weekBills.sumOf { it.amount }, tooltip)
+                    BarPoint(label, sumDays(weekStart, 7), tooltip)
                 }
             }
             PeriodType.MONTH -> {
+                val byMonth = filtered.groupBy {
+                    YearMonth.from(Instant.ofEpochMilli(it.timestamp).atZone(zone).toLocalDate())
+                }
                 (-5..0).map { offset ->
                     val monthStart = LocalDate.now().plusMonths((currentOffset + offset).toLong()).withDayOfMonth(1)
-                    val monthBills = filtered.filter {
-                        val d = Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
-                        d.year == monthStart.year && d.monthValue == monthStart.monthValue
-                    }
                     val label = when (offset) {
                         0 -> "本月"
                         -1 -> "上月"
                         else -> "${monthStart.monthValue}月"
                     }
                     val tooltip = String.format("%d年%02d月", monthStart.year, monthStart.monthValue)
-                    BarPoint(label, monthBills.sumOf { it.amount }, tooltip)
+                    BarPoint(label, byMonth[YearMonth.from(monthStart)].orEmpty().sumOf { it.amount }, tooltip)
                 }
             }
             PeriodType.YEAR -> {
+                val byYear = filtered.groupBy {
+                    Instant.ofEpochMilli(it.timestamp).atZone(zone).toLocalDate().year
+                }
                 (-5..0).map { offset ->
                     val year = LocalDate.now().plusYears((currentOffset + offset).toLong())
-                    val yearBills = filtered.filter {
-                        Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate().year == year.year
-                    }
                     val label = when (offset) {
                         0 -> "本年"
                         -1 -> "上年"
                         else -> "${year.year}年"
                     }
-                    BarPoint(label, yearBills.sumOf { it.amount }, "${year.year}年")
+                    BarPoint(label, byYear[year.year].orEmpty().sumOf { it.amount }, "${year.year}年")
                 }
             }
         }
@@ -364,4 +341,44 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
     )
 
     enum class PeriodType { WEEK, MONTH, YEAR }
+}
+
+/**
+ * 日均/月均分母计算（顶层纯函数，单元测试直连）：
+ * - 历史周期（offset < 0）按完整周期天数算
+ * - 当前/未来周期（offset >= 0）按周期内已过去的实际天数算（含今天），
+ *   年视图按已过月数（含当月）
+ */
+internal fun calculateElapsedDays(
+    type: ReportViewModel.PeriodType,
+    offset: Int,
+    periodStart: LocalDate,
+    periodEnd: LocalDate,
+    today: LocalDate
+): Long {
+    return when {
+        // 历史周期已完整结束，按完整周期天数算
+        offset < 0 -> when (type) {
+            ReportViewModel.PeriodType.WEEK -> 7L
+            ReportViewModel.PeriodType.MONTH -> ChronoUnit.DAYS.between(periodStart, periodEnd) + 1
+            ReportViewModel.PeriodType.YEAR -> 12L
+        }
+        // 当前/未来周期：按周期内已过去的实际天数算
+        else -> {
+            when {
+                // 周期尚未开始（未来周期）
+                today.isBefore(periodStart) -> 1L
+                // 周期已结束（offset>=0 的边界情况），按完整周期
+                today.isAfter(periodEnd) -> when (type) {
+                    ReportViewModel.PeriodType.WEEK -> 7L
+                    ReportViewModel.PeriodType.MONTH -> ChronoUnit.DAYS.between(periodStart, periodEnd) + 1
+                    ReportViewModel.PeriodType.YEAR -> 12L
+                }
+                // 年视图按已过月数算（含当月）
+                type == ReportViewModel.PeriodType.YEAR -> today.monthValue.toLong()
+                // 周/月视图按已过天数算（含今天）
+                else -> ChronoUnit.DAYS.between(periodStart, today) + 1
+            }
+        }
+    }.coerceAtLeast(1)
 }
