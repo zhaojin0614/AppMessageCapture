@@ -2,9 +2,11 @@ package com.aifactory.appmessagecapture.birthday.utils
 
 import android.content.Context
 import android.net.Uri
+import androidx.room.withTransaction
 import com.aifactory.appmessagecapture.birthday.data.BirthdayDao
 import com.aifactory.appmessagecapture.birthday.data.BirthdayEntity
 import com.aifactory.appmessagecapture.birthday.data.ReminderType
+import com.aifactory.appmessagecapture.data.AppDatabase
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
@@ -41,11 +43,12 @@ object BackupManager {
             BirthdayLog.i("[$TAG] Export started. recordCount=%d, uri=%s", birthdays.size, uri)
 
             val jsonString = gson.toJson(birthdays)
+            val bytes = jsonString.toByteArray(Charsets.UTF_8)
             context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                outputStream.write(jsonString.toByteArray(Charsets.UTF_8))
+                outputStream.write(bytes)
             } ?: throw IllegalStateException("Failed to open output stream for URI: $uri")
 
-            BirthdayLog.i("[$TAG] Export completed. writtenBytes=%d", jsonString.toByteArray().size)
+            BirthdayLog.i("[$TAG] Export completed. writtenBytes=%d", bytes.size)
             Result.success(birthdays.size)
         } catch (e: Exception) {
             BirthdayLog.logException("$TAG.exportToUri", e)
@@ -87,34 +90,45 @@ object BackupManager {
             var updated = 0
             var failed = 0
 
-            backupItems.forEachIndexed { index, item ->
-                try {
-                    val entity = item.toEntity()
-                    val existing = dao.getByName(entity.name)
-                    if (existing != null) {
-                        // 覆盖：保留原 id
-                        val toUpdate = entity.copy(id = existing.id)
-                        dao.update(toUpdate)
-                        updated++
-                        BirthdayLog.d(
-                            "[$TAG] Import update[%d] name=%s, id=%d",
-                            index, toUpdate.name, toUpdate.id
-                        )
-                    } else {
-                        // 新增：id = 0 让 Room 自增
-                        val toInsert = entity.copy(id = 0)
-                        val newId = dao.insert(toInsert)
-                        inserted++
-                        BirthdayLog.d(
-                            "[$TAG] Import insert[%d] name=%s, newId=%d",
-                            index, toInsert.name, newId
-                        )
+            // 预加载 name -> entity 映射，消除逐条 getByName 的 N+1 查询
+            // （name 已有索引，但一次全量加载仍远快于 N 次往返）
+            val existingByName = dao.getAllOnce().associateBy { it.name }.toMutableMap()
+
+            // 整体放入事务：中途进程被杀/异常不会留下半截导入。
+            // 单条失败仍按原有语义计数并继续（best-effort）。
+            AppDatabase.getDatabase(context.applicationContext).withTransaction {
+                    backupItems.forEachIndexed { index, item ->
+                        try {
+                            val entity = item.toEntity()
+                            val existing = existingByName[entity.name]
+                            if (existing != null) {
+                                // 覆盖：保留原 id
+                                val toUpdate = entity.copy(id = existing.id)
+                                dao.update(toUpdate)
+                                updated++
+                                BirthdayLog.d(
+                                    "[$TAG] Import update[%d] name=%s, id=%d",
+                                    index, toUpdate.name, toUpdate.id
+                                )
+                            } else {
+                                // 新增：id = 0 让 Room 自增
+                                val toInsert = entity.copy(id = 0)
+                                val newId = dao.insert(toInsert)
+                                // 同一文件内的重名记录也应被后续条目覆盖，
+                                // 与旧实现逐条查询数据库的行为一致
+                                existingByName[entity.name] = toInsert.copy(id = newId.toInt())
+                                inserted++
+                                BirthdayLog.d(
+                                    "[$TAG] Import insert[%d] name=%s, newId=%d",
+                                    index, toInsert.name, newId
+                                )
+                            }
+                        } catch (e: Exception) {
+                            failed++
+                            BirthdayLog.logException("$TAG.importFromUri item[$index] name=${item.name}", e)
+                        }
                     }
-                } catch (e: Exception) {
-                    failed++
-                    BirthdayLog.logException("$TAG.importFromUri item[$index] name=${item.name}", e)
                 }
-            }
 
             val result = ImportResult(
                 total = backupItems.size,
