@@ -3,7 +3,6 @@ package com.aifactory.appmessagecapture.service
 import android.app.Notification
 import android.content.ComponentName
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -16,6 +15,7 @@ import com.aifactory.appmessagecapture.utils.PreferencesManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 
@@ -61,9 +61,6 @@ class MessageCaptureService : NotificationListenerService() {
         // Skip this app itself to avoid noise
         if (packageName == packageNameOfThisApp()) return
 
-        // Skip blocked apps
-        if (PreferencesManager.getInstance(this).isAppBlocked(packageName)) return
-
         val notification = sbn.notification ?: return
         val extras = notification.extras
 
@@ -78,10 +75,6 @@ class MessageCaptureService : NotificationListenerService() {
         // Filter 2: Skip common system packages that send invisible/ghost notifications
         if (isGhostNotificationPackage(packageName)) return
 
-        // Filter 3: Skip non-clearable notifications from system apps
-        // These are usually ongoing service status that don't appear in the notification shade
-        if (!sbn.isClearable && isSystemApp(packageName)) return
-
         // Filter 4: Skip OEM foreground-service "running" notifications
         // e.g. MIUI/ColorOS: "短信正在运行" + "点按即可了解详情或停止应用"
         if (isRunningNotification(title, content)) return
@@ -90,29 +83,37 @@ class MessageCaptureService : NotificationListenerService() {
         // These contain a MediaSession token and fire repeatedly on every song change
         if (extras.containsKey(Notification.EXTRA_MEDIA_SESSION)) return
 
-        val appName = try {
-            val appInfo = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
-            val label = packageManager.getApplicationLabel(appInfo)
-            if (!label.isNullOrBlank()) label.toString() else packageName
-        } catch (e: Exception) {
-            packageName
-        }
-
         // Extract the PendingIntent before the coroutine — this is the click action
         // that the system fires when the user taps the notification in the shade.
         val contentIntent = notification.contentIntent
-
-        val entity = NotificationEntity(
-            packageName = packageName,
-            appName = appName,
-            title = title,
-            content = content,
-            timestamp = if (sbn.postTime > 0) sbn.postTime else System.currentTimeMillis()
-        )
+        val postTime = if (sbn.postTime > 0) sbn.postTime else System.currentTimeMillis()
 
         val app = application as AppMessageCaptureApplication
-        val dao = app.database.notificationDao()
+
+        // Everything below is IO-bound (SharedPreferences first load is disk IO,
+        // PackageManager lookups are binder IPC) — keep it off the main thread.
+        // Notification storms (media/IM apps) otherwise jank the service thread.
         serviceScope.launch {
+            // Filter: blocked apps (service-level block list)
+            if (PreferencesManager.getInstance(this@MessageCaptureService)
+                    .isAppBlocked(packageName)
+            ) return@launch
+
+            val (appName, isSystem) = appLabelCache.getOrLoad(packageName)
+
+            // Filter 3: Skip non-clearable notifications from system apps
+            // These are usually ongoing service status that don't appear in the shade
+            if (!sbn.isClearable && isSystem) return@launch
+
+            val entity = NotificationEntity(
+                packageName = packageName,
+                appName = appName,
+                title = title,
+                content = content,
+                timestamp = postTime
+            )
+
+            val dao = app.database.notificationDao()
             val insertedId = dao.insert(entity)
             // Cache the PendingIntent in memory so the UI can replay the click action.
             // Room auto-increment ID is used as the cache key.
@@ -126,12 +127,41 @@ class MessageCaptureService : NotificationListenerService() {
         }
     }
 
-    override fun onNotificationRemoved(sbn: StatusBarNotification?) {
-        // Optional: handle notification removal if needed
+    override fun onDestroy() {
+        serviceScope.cancel()
+        super.onDestroy()
     }
 
     private fun packageNameOfThisApp(): String {
         return applicationContext.packageName
+    }
+
+    /**
+     * Per-package cache of (label, isSystemApp). Each notification previously
+     * cost up to two PackageManager binder calls on the main thread; now at most
+     * one call per package for the service's lifetime.
+     */
+    private val appLabelCache = AppLabelCache()
+
+    private inner class AppLabelCache {
+        private val cache = android.util.LruCache<String, Pair<String, Boolean>>(128)
+
+        suspend fun getOrLoad(packageName: String): Pair<String, Boolean> {
+            cache.get(packageName)?.let { return it }
+            return try {
+                val appInfo = packageManager.getApplicationInfo(packageName, 0)
+                val label = packageManager.getApplicationLabel(appInfo)
+                val entry = Pair(
+                    if (!label.isNullOrBlank()) label.toString() else packageName,
+                    (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0 ||
+                        (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+                )
+                cache.put(packageName, entry)
+                entry
+            } catch (e: Exception) {
+                packageName to false
+            }
+        }
     }
 
     /**
@@ -144,19 +174,6 @@ class MessageCaptureService : NotificationListenerService() {
                 packageName.startsWith("com.android.system") ||
                 packageName == "com.google.android.gms" ||
                 packageName == "com.google.android.googlequicksearchbox"
-    }
-
-    /**
-     * Check whether the package belongs to a system app.
-     */
-    private fun isSystemApp(packageName: String): Boolean {
-        return try {
-            val appInfo = packageManager.getApplicationInfo(packageName, 0)
-            (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0 ||
-                    (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
-        } catch (e: PackageManager.NameNotFoundException) {
-            false
-        }
     }
 
     /**
