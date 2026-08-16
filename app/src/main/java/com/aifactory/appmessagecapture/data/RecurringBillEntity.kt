@@ -1,13 +1,17 @@
 package com.aifactory.appmessagecapture.data
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
  * 周期性账单实体
  * 用于存储用户设置的周期性账单（如房租、会员费、话费等）
  */
-@Entity(tableName = "recurring_bills")
+@Entity(
+    tableName = "recurring_bills",
+    indices = [Index(value = ["isActive", "nextDueDate"])]
+)
 data class RecurringBillEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

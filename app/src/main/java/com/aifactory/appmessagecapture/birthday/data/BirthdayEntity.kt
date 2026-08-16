@@ -1,6 +1,7 @@
 package com.aifactory.appmessagecapture.birthday.data
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
@@ -15,7 +16,10 @@ import androidx.room.PrimaryKey
  * @property reminderType 提醒类型，见 [ReminderType]
  * @property reminderTime 提醒时间，格式 "HH:mm"（如 "08:30"），null 表示使用默认时间
  */
-@Entity(tableName = "birthdays")
+@Entity(
+    tableName = "birthdays",
+    indices = [Index(value = ["name"])]
+)
 data class BirthdayEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,

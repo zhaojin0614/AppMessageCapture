@@ -17,7 +17,7 @@ import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
  */
 @Database(
     entities = [NotificationEntity::class, BillEntity::class, BirthdayEntity::class, RecurringBillEntity::class, PlatformAccountEntity::class],
-    version = 12,
+    version = 13,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -106,8 +106,8 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
-         * Migrate from v5 to v6:
-         * Removed the `content` column from the `bills` table.
+         * Migrate from v6 to v7:
+         * Added `isIncome` column to the `bills` table.
          */
         private val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -286,6 +286,27 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Migrate from v12 to v13:
+         * Add indexes for hot query paths that previously caused full table scans:
+         * - bills: time-range stats, dedup lookups (package/amount + time window)
+         * - notifications: time-range cleanup/count, time-ordered listing
+         * - recurring_bills: due-bill lookup (isActive + nextDueDate)
+         * - birthdays: name lookup used by backup import
+         */
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                BirthdayLog.i("[DB Migration] Executing MIGRATION_12_13: adding indexes")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_bills_timestamp ON bills(timestamp)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_bills_packageName_timestamp ON bills(packageName, timestamp)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_bills_amount_timestamp ON bills(amount, timestamp)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_notifications_timestamp ON notifications(timestamp)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_recurring_bills_isActive_nextDueDate ON recurring_bills(isActive, nextDueDate)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_birthdays_name ON birthdays(name)")
+                BirthdayLog.i("[DB Migration] MIGRATION_12_13 completed")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -293,10 +314,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "notification_database"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
                     .build()
                 INSTANCE = instance
-                BirthdayLog.i("AppDatabase initialized. Version=12")
+                BirthdayLog.i("AppDatabase initialized. Version=13")
                 instance
             }
         }

@@ -1,9 +1,19 @@
 package com.aifactory.appmessagecapture.data
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "bills")
+@Entity(
+    tableName = "bills",
+    indices = [
+        // 时间范围统计（今日/本月/报表）与按时间排序
+        Index(value = ["timestamp"]),
+        // 去重查询：同 App 同金额时间窗
+        Index(value = ["packageName", "timestamp"]),
+        Index(value = ["amount", "timestamp"])
+    ]
+)
 data class BillEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
