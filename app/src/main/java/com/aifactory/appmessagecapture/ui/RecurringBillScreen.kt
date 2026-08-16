@@ -268,7 +268,7 @@ private fun RecurringBillCard(
     onDelete: () -> Unit,
     onClick: () -> Unit
 ) {
-    val categoryColor = getRecurringCategoryColor(bill.category)
+    val categoryColor = getCategoryColor(bill.category)
     val frequency = RecurringFrequency.values().find { it.name == bill.frequency }
     val frequencyText = frequency?.displayName ?: "每月"
     val nextDueDate = Instant.ofEpochMilli(bill.nextDueDate)
@@ -304,7 +304,7 @@ private fun RecurringBillCard(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                val iconRes = getRecurringCategoryIconRes(bill.category)
+                val iconRes = getCategoryIconRes(bill.category)
                 if (iconRes != 0) {
                     Icon(
                         painter = painterResource(id = iconRes),
@@ -979,54 +979,3 @@ private fun EditRecurringBillDialog(
     }
 }
 
-private fun getRecurringCategoryColor(category: String): Color {
-    return when (category) {
-        ExpenseCategories.FOOD -> CategoryFood
-        ExpenseCategories.TRANSPORT -> CategoryTransport
-        ExpenseCategories.SHOPPING -> CategoryShopping
-        ExpenseCategories.ENTERTAINMENT -> CategoryEntertainment
-        ExpenseCategories.LIVING -> CategoryLiving
-        ExpenseCategories.MEDICAL -> CategoryMedical
-        ExpenseCategories.EDUCATION -> CategoryEducation
-        ExpenseCategories.SOCIAL -> CategorySocial
-        ExpenseCategories.BEAUTY -> CategoryBeauty
-        ExpenseCategories.PET -> CategoryPet
-        ExpenseCategories.FINANCE -> CategoryFinance
-        ExpenseCategories.OTHER -> CategoryUncategorized
-        IncomeCategories.SALARY -> CategorySalary
-        IncomeCategories.PARTTIME -> CategoryParttime
-        IncomeCategories.INVESTMENT -> CategoryInvestment
-        IncomeCategories.RENTAL -> CategoryRental
-        IncomeCategories.REFUND -> CategoryRefund
-        IncomeCategories.RED_PACKET -> CategoryRedPacket
-        IncomeCategories.REIMBURSEMENT -> CategoryReimbursement
-        IncomeCategories.OTHER -> CategoryOtherIncome
-        else -> CategoryUncategorized
-    }
-}
-
-private fun getRecurringCategoryIconRes(category: String): Int {
-    return when (category) {
-        ExpenseCategories.FOOD -> com.aifactory.appmessagecapture.R.drawable.ic_category_food
-        ExpenseCategories.TRANSPORT -> com.aifactory.appmessagecapture.R.drawable.ic_category_transport
-        ExpenseCategories.SHOPPING -> com.aifactory.appmessagecapture.R.drawable.ic_category_shopping
-        ExpenseCategories.ENTERTAINMENT -> com.aifactory.appmessagecapture.R.drawable.ic_category_entertainment
-        ExpenseCategories.LIVING -> com.aifactory.appmessagecapture.R.drawable.ic_category_living
-        ExpenseCategories.MEDICAL -> com.aifactory.appmessagecapture.R.drawable.ic_category_medical
-        ExpenseCategories.EDUCATION -> com.aifactory.appmessagecapture.R.drawable.ic_category_education
-        ExpenseCategories.SOCIAL -> com.aifactory.appmessagecapture.R.drawable.ic_category_social
-        ExpenseCategories.BEAUTY -> com.aifactory.appmessagecapture.R.drawable.ic_category_beauty
-        ExpenseCategories.PET -> com.aifactory.appmessagecapture.R.drawable.ic_category_pet
-        ExpenseCategories.FINANCE -> com.aifactory.appmessagecapture.R.drawable.ic_category_finance
-        ExpenseCategories.OTHER -> com.aifactory.appmessagecapture.R.drawable.ic_category_other_expense
-        IncomeCategories.SALARY -> com.aifactory.appmessagecapture.R.drawable.ic_category_salary
-        IncomeCategories.PARTTIME -> com.aifactory.appmessagecapture.R.drawable.ic_category_parttime
-        IncomeCategories.INVESTMENT -> com.aifactory.appmessagecapture.R.drawable.ic_category_investment
-        IncomeCategories.RENTAL -> com.aifactory.appmessagecapture.R.drawable.ic_category_rental
-        IncomeCategories.REFUND -> com.aifactory.appmessagecapture.R.drawable.ic_category_refund
-        IncomeCategories.RED_PACKET -> com.aifactory.appmessagecapture.R.drawable.ic_category_redpacket
-        IncomeCategories.REIMBURSEMENT -> com.aifactory.appmessagecapture.R.drawable.ic_category_reimbursement
-        IncomeCategories.OTHER -> com.aifactory.appmessagecapture.R.drawable.ic_category_other_income
-        else -> 0
-    }
-}
