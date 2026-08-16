@@ -48,45 +48,54 @@
 
 | 技术 | 版本 | 用途 |
 |------|------|------|
-| Kotlin | 2.0.21 | 编程语言 |
-| Jetpack Compose | BOM 2025.02.00 | UI 框架 |
-| Material Design 3 | — | 设计系统 |
-| Room | 2.6.1 | 本地数据库（v11，含完整迁移链） |
-| WorkManager | 2.9.1 | 周期任务调度（周期账单执行） |
+| Kotlin | 1.9.24 | 编程语言 |
+| Jetpack Compose | BOM 2025.06.00 | UI 框架 |
+| Material Design 3 | 1.3.1 | 设计系统 |
+| Room | 2.6.1 | 本地数据库（v13，含完整迁移链与查询索引） |
+| WorkManager | 2.9.1 | 周期任务调度（周期账单执行/通知清理） |
 | Glance | 1.1.1 | 桌面小组件 |
 | Gson | 2.11.0 | JSON 序列化（导入导出） |
 | Timber | 5.0.1 | 日志框架 |
 | lunar | 1.7.7 | 农历日期计算 |
-| KSP | 2.0.21-1.0.27 | 注解处理 |
+| KSP | 1.9.24-1.0.20 | 注解处理 |
+| AGP | 8.6.1 | Android Gradle Plugin |
 
 ## 📁 项目结构
 
 ```
 app/src/main/java/com/aifactory/appmessagecapture/
 ├── data/                              # 通用数据层
-│   ├── AppDatabase.kt                 # Room 数据库（v11）
+│   ├── AppDatabase.kt                 # Room 数据库（v13，含索引迁移）
 │   ├── BillEntity.kt                  # 账单实体
 │   ├── BillDao.kt                     # 账单 DAO
 │   ├── RecurringBillEntity.kt         # 周期账单实体
 │   ├── RecurringBillDao.kt            # 周期账单 DAO
+│   ├── RecurringBillProcessor.kt      # 周期账单执行处理器（事务化+补齐）
+│   ├── AccountRepository.kt           # 平台账户仓库
 │   ├── NotificationEntity.kt          # 通知消息实体
 │   ├── NotificationDao.kt             # 通知 DAO
 │   └── Categories.kt                  # 分类常量 + 迁移映射
 ├── service/                           # 服务层
 │   ├── MessageCaptureService.kt       # 通知监听 + 自动记账
-│   └── BootReceiver.kt                # 开机自启
+│   ├── BillParsing.kt                 # 账单解析纯函数（金额/方向/去重）
+│   ├── BillNotificationHelper.kt      # 记账成功通知
+│   └── BootReceiver.kt                # 开机重连监听
 ├── worker/                            # 后台任务
-│   └── RecurringBillWorker.kt         # 周期账单执行 Worker
+│   ├── RecurringBillWorker.kt         # 周期账单执行 Worker
+│   └── NotificationCleanupWorker.kt   # 通知保留期清理 Worker
 ├── ui/                                # 记账 UI 层
 │   ├── BillScreen.kt                  # 账单主界面（列表 + 手动记账 + 日期选择）
+│   ├── AddBillDialog.kt               # 添加账单弹窗
+│   ├── BillCard.kt                    # 账单卡片 + 合并图标
+│   ├── PlatformDialogs.kt             # 平台选择/对账弹窗
 │   ├── BillViewModel.kt               # 账单 ViewModel
 │   ├── RecurringBillScreen.kt         # 周期账单界面
 │   ├── RecurringBillViewModel.kt      # 周期账单 ViewModel
 │   ├── CategoryMigrationScreen.kt     # 分类迁移界面
-│   ├── Categories.kt                  # 分类颜色/图标映射
+│   ├── CategoryUi.kt                  # 分类颜色/图标映射（唯一实现）
 │   ├── report/                        # 收支报表
 │   │   ├── ReportScreen.kt            # 报表主界面（趋势图 + 分类构成）
-│   │   ├── ReportViewModel.kt         # 报表 ViewModel
+│   │   ├── ReportViewModel.kt         # 报表 ViewModel（响应式 Flow）
 │   │   ├── CategoryDetailScreen.kt    # 分类详情下钻
 │   │   └── CategoryDetailViewModel.kt
 │   ├── setup/                         # 引导页
@@ -111,7 +120,7 @@ app/src/main/java/com/aifactory/appmessagecapture/
 │   │   └── components/
 │   │       └── BirthdayCard.kt        # 生日卡片组件
 │   ├── utils/
-│   │   ├── BackupManager.kt           # 导入导出
+│   │   ├── BackupManager.kt           # 导入导出（事务化）
 │   │   └── PermissionHelper.kt        # 权限辅助
 │   └── widget/
 │       ├── BirthdayWidget.kt          # Glance 小组件
@@ -120,6 +129,8 @@ app/src/main/java/com/aifactory/appmessagecapture/
 │       └── BirthdayWidgetWorker.kt    # 小组件定时刷新
 ├── utils/                             # 工具类
 │   ├── PreferencesManager.kt          # 偏好设置
+│   ├── AppIconCache.kt                # 应用图标全局缓存（异步解码）
+│   ├── PendingIntentCache.kt          # PendingIntent LruCache
 │   └── NotificationServiceHelper.kt   # 服务状态检测
 └── MainActivity.kt                    # 入口 Activity（三栏 Tab 导航）
 ```
