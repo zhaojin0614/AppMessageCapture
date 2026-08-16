@@ -40,6 +40,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -703,13 +704,15 @@ fun AmbientBackground(
                 )
         )
         // Mint blob — top-left（薄荷 ↔ 暖金），大范围游走
+        // 光斑位移用 graphicsLayer 平移（draw 阶段读取动画值）而非 Modifier.offset，
+        // 避免 9 个光斑每帧触发布局传递，视觉效果完全一致
         Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(
-                    x = ((-80 + sin(t1x * PI.toFloat()) * 90).dp),
-                    y = ((-110 + sin(t1y * PI.toFloat()) * 85).dp)
-                )
+                .graphicsLayer {
+                    translationX = (-80 + sin(t1x * PI.toFloat()) * 90).dp.toPx()
+                    translationY = (-110 + sin(t1y * PI.toFloat()) * 85).dp.toPx()
+                }
                 .size(470.dp)
                 .clip(CircleShape)
                 .background(
@@ -725,10 +728,10 @@ fun AmbientBackground(
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .offset(
-                    x = ((90 - sin(t2x * PI.toFloat()) * 90).dp),
-                    y = ((40 + sin(t2y * PI.toFloat()) * 80).dp)
-                )
+                .graphicsLayer {
+                    translationX = (90 - sin(t2x * PI.toFloat()) * 90).dp.toPx()
+                    translationY = (40 + sin(t2y * PI.toFloat()) * 80).dp.toPx()
+                }
                 .size(430.dp)
                 .clip(CircleShape)
                 .background(
@@ -744,10 +747,10 @@ fun AmbientBackground(
         Box(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .offset(
-                    x = ((-70 + sin(t3x * PI.toFloat()) * 95).dp),
-                    y = ((70 + sin(t3y * PI.toFloat()) * 85).dp)
-                )
+                .graphicsLayer {
+                    translationX = (-70 + sin(t3x * PI.toFloat()) * 95).dp.toPx()
+                    translationY = (70 + sin(t3y * PI.toFloat()) * 85).dp.toPx()
+                }
                 .size(450.dp)
                 .clip(CircleShape)
                 .background(
@@ -763,10 +766,10 @@ fun AmbientBackground(
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .offset(
-                    x = ((-90 - sin(t4x * PI.toFloat()) * 85).dp),
-                    y = ((-50 + sin(t4y * PI.toFloat()) * 80).dp)
-                )
+                .graphicsLayer {
+                    translationX = (-90 - sin(t4x * PI.toFloat()) * 85).dp.toPx()
+                    translationY = (-50 + sin(t4y * PI.toFloat()) * 80).dp.toPx()
+                }
                 .size(410.dp)
                 .clip(CircleShape)
                 .background(
@@ -782,10 +785,10 @@ fun AmbientBackground(
         Box(
             modifier = Modifier
                 .align(Alignment.Center)
-                .offset(
-                    x = (sin(t5x * PI.toFloat()) * 55).dp,
-                    y = (sin(t5y * PI.toFloat()) * 50).dp
-                )
+                .graphicsLayer {
+                    translationX = (sin(t5x * PI.toFloat()) * 55).dp.toPx()
+                    translationY = (sin(t5y * PI.toFloat()) * 50).dp.toPx()
+                }
                 .size(390.dp)
                 .clip(CircleShape)
                 .background(
@@ -801,10 +804,10 @@ fun AmbientBackground(
         Box(
             modifier = Modifier
                 .align(Alignment.Center)
-                .offset(
-                    x = (sin(t6x * PI.toFloat()) * 60).dp,
-                    y = ((100 + sin(t6y * PI.toFloat()) * 55).dp)
-                )
+                .graphicsLayer {
+                    translationX = (sin(t6x * PI.toFloat()) * 60).dp.toPx()
+                    translationY = (100 + sin(t6y * PI.toFloat()) * 55).dp.toPx()
+                }
                 .size(370.dp)
                 .clip(CircleShape)
                 .background(
@@ -820,10 +823,10 @@ fun AmbientBackground(
         Box(
             modifier = Modifier
                 .align(Alignment.Center)
-                .offset(
-                    x = (sin(t7x * PI.toFloat()) * 65).dp,
-                    y = ((-150 + sin(t7y * PI.toFloat()) * 55).dp)
-                )
+                .graphicsLayer {
+                    translationX = (sin(t7x * PI.toFloat()) * 65).dp.toPx()
+                    translationY = (-150 + sin(t7y * PI.toFloat()) * 55).dp.toPx()
+                }
                 .size(260.dp)
                 .clip(CircleShape)
                 .background(
@@ -839,10 +842,10 @@ fun AmbientBackground(
         Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .offset(
-                    x = ((-70 + sin(t8x * PI.toFloat()) * 65).dp),
-                    y = (sin(t8y * PI.toFloat()) * 90).dp
-                )
+                .graphicsLayer {
+                    translationX = (-70 + sin(t8x * PI.toFloat()) * 65).dp.toPx()
+                    translationY = (sin(t8y * PI.toFloat()) * 90).dp.toPx()
+                }
                 .size(280.dp)
                 .clip(CircleShape)
                 .background(
@@ -858,10 +861,10 @@ fun AmbientBackground(
         Box(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .offset(
-                    x = ((70 - sin(t9x * PI.toFloat()) * 65).dp),
-                    y = (sin(t9y * PI.toFloat()) * 90).dp
-                )
+                .graphicsLayer {
+                    translationX = (70 - sin(t9x * PI.toFloat()) * 65).dp.toPx()
+                    translationY = (sin(t9y * PI.toFloat()) * 90).dp.toPx()
+                }
                 .size(300.dp)
                 .clip(CircleShape)
                 .background(

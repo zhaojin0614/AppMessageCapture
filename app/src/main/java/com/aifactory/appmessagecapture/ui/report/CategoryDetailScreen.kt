@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.data.BillEntity
-import com.aifactory.appmessagecapture.ui.components.AmbientBackground
+
 import com.aifactory.appmessagecapture.ui.components.SoftCard
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
@@ -57,12 +57,13 @@ fun CategoryDetailScreen(
 
     BackHandler { onBack() }
 
+    // 背景由 MainApp 根布局的 AmbientBackground 提供（此页原来又叠了一层
+    // 不透明底色+一套无限动画背景，同屏双倍动画开销）
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(Color.Transparent)
     ) {
-        AmbientBackground()
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {

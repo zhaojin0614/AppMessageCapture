@@ -47,7 +47,7 @@ import java.time.LocalDate
 import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.sin
-import com.aifactory.appmessagecapture.ui.components.AmbientBackground
+
 import com.aifactory.appmessagecapture.ui.components.SoftCard
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.gradientBrush
@@ -123,12 +123,13 @@ fun ReportScreen(
     }
 
     CompositionLocalProvider(LocalReportColors provides rememberReportColors()) {
+        // 背景由 MainApp 根布局的 AmbientBackground 提供（此页原来又叠了一层
+        // 不透明底色+一套无限动画背景，同屏双倍动画开销）
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .background(Color.Transparent)
         ) {
-            AmbientBackground()
             Scaffold(
             containerColor = Color.Transparent,
             topBar = {
