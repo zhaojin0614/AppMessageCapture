@@ -38,3 +38,9 @@ Thumbs.db
 
 screenshots/
 .firecrawl/
+
+# AI assistant local state
+.zcode/
+
+# Kotlin 2.x local state
+.kotlin/
