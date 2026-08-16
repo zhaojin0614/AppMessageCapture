@@ -214,14 +214,12 @@ class MessageCaptureService : NotificationListenerService() {
             else -> return
         }
 
-        // Keywords that indicate a payment/expense notification
-        val expenseKeywords = listOf("付款", "支付", "消费", "支出", "扣款", "已付", "交易", "订单已支付")
-        val incomeKeywords = listOf("收款", "入账", "到账", "转入", "存入", "退款", "收益", "工资", "红包")
-        val isIncome = incomeKeywords.any { fullText.contains(it) } && !expenseKeywords.any { fullText.contains(it) }
-        val hasPaymentKeyword = expenseKeywords.any { fullText.contains(it) } || incomeKeywords.any { fullText.contains(it) }
-        if (!hasPaymentKeyword) return
+        // Direction is decided from content ONLY — titles like「微信支付」always
+        // contain "支付" and would poison keyword matching for income/refunds.
+        val isIncome = BillParsing.isIncome(content)
+        if (!BillParsing.hasPaymentKeyword(fullText)) return
 
-        val amount = extractAmount(fullText) ?: return
+        val amount = BillParsing.parseAmount(fullText) ?: return
 
         // Guess category from content keywords
         val category = if (isIncome) guessIncomeCategory(fullText, appName) else guessCategory(fullText, appName)
@@ -245,39 +243,48 @@ class MessageCaptureService : NotificationListenerService() {
 
         // ── 1. Same-app deduplication ──────────────────────────────────────
 
-        // 1a. Content-based dedup: same app + same amount + same title = definite duplicate.
+        // 1a. Content-based dedup: same app + same amount + same title + same
+        //     direction = definite duplicate. Direction matters: a payment and a
+        //     same-amount refund often share the identical title ("微信支付").
         //     Uses a 60-second window to catch delayed duplicate deliveries.
         val contentSince = notificationTime - 60_000
         val contentDuplicate = dao.findRecentByAmountPackageAndTitle(amount, packageName, title, contentSince)
-        if (contentDuplicate != null) return
+        if (contentDuplicate != null && contentDuplicate.isIncome == isIncome) return
 
-        // 1b. Time-proximity dedup: same app + same amount within 60 seconds.
-        //     Even if the title text differs slightly, two notifications from the same
-        //     app with the same amount within 60 seconds are almost certainly the same payment.
+        // 1b. Time-proximity dedup: same app + same amount + same direction within
+        //     60 seconds AND titles share a common origin prefix. Two purchases with
+        //     clearly different titles are distinct transactions and must be kept.
         val timeSince = notificationTime - 60_000
         val sameAppDuplicate = dao.findRecentByAmountAndPackage(amount, packageName, timeSince)
-        if (sameAppDuplicate != null) return
+        if (sameAppDuplicate != null &&
+            sameAppDuplicate.isIncome == isIncome &&
+            BillParsing.isSameOriginTitle(title, sameAppDuplicate.title)
+        ) return
 
         // ── 2. Cross-app deduplication / merge ─────────────────────────────
         // If a different app already recorded a bill with the same amount within
         // 60 seconds, they likely represent the same payment seen through different
         // channels (e.g. merchant app + payment channel).  Keep the higher-weight app.
+        // Only merge when the direction matches — a payment and a refund of the same
+        // amount are genuinely different transactions.
         val crossSince = notificationTime - 60_000
         val existing = dao.findRecentByAmount(amount, crossSince)
-        if (existing != null && existing.packageName != packageName) {
+        if (existing != null && existing.packageName != packageName && existing.isIncome == isIncome) {
             val existingWeight = getAppWeight(existing.packageName)
             val currentWeight = getAppWeight(packageName)
 
             if (currentWeight > existingWeight) {
                 // Current app has higher weight (e.g. Meituan > WeChat Pay)
-                // → replace existing bill's metadata with the merchant app's info
+                // → replace existing bill's metadata with the merchant app's info,
+                //   keeping the previous channel as the secondary source (dual-origin
+                //   record, matching the 3→4 migration semantics).
                 val updatedBill = existing.copy(
                     appName = appName,
                     packageName = packageName,
                     title = title,
                     category = category,
-                    secondaryAppName = null,
-                    secondaryPackageName = null
+                    secondaryAppName = existing.appName,
+                    secondaryPackageName = existing.packageName
                 )
                 dao.update(updatedBill)
                 BillNotificationHelper.showBillRecognizedNotification(
@@ -302,24 +309,6 @@ class MessageCaptureService : NotificationListenerService() {
                 isIncome = bill.isIncome
             )
         }
-    }
-
-    /**
-     * Extract monetary amount from Chinese payment notification text.
-     * Supports formats like: ¥14.40, 14.40元, 已支付14.4, etc.
-     */
-    private fun extractAmount(text: String): Double? {
-        // Pattern 1: ¥14.40 or ¥ 14.40
-        val pattern1 = Regex("""[¥￥]\s*(\d+(?:\.\d{1,2})?)""")
-        // Pattern 2: 14.40元 or 14.4元
-        val pattern2 = Regex("""(\d+(?:\.\d{1,2})?)\s*[元円]""")
-        // Pattern 3: generic number with decimal (fallback)
-        val pattern3 = Regex("""(\d+\.\d{1,2})""")
-
-        pattern1.find(text)?.groupValues?.get(1)?.toDoubleOrNull()?.let { return it }
-        pattern2.find(text)?.groupValues?.get(1)?.toDoubleOrNull()?.let { return it }
-        pattern3.find(text)?.groupValues?.get(1)?.toDoubleOrNull()?.let { return it }
-        return null
     }
 
     /**
