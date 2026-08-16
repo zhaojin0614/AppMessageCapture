@@ -13,12 +13,6 @@ interface BillDao {
     @Query("SELECT * FROM bills WHERE timestamp >= :since ORDER BY timestamp DESC")
     fun getBillsSince(since: Long): Flow<List<BillEntity>>
 
-    @Query("SELECT * FROM bills ORDER BY timestamp DESC")
-    fun getAllBills(): Flow<List<BillEntity>>
-
-    @Query("SELECT * FROM bills ORDER BY timestamp DESC")
-    fun getAllBillsOnce(): List<BillEntity>
-
     @Query("SELECT * FROM bills WHERE timestamp >= :since ORDER BY timestamp DESC")
     fun getBillsSinceOnce(since: Long): List<BillEntity>
 
@@ -43,23 +37,11 @@ interface BillDao {
     @Query("SELECT SUM(amount) FROM bills WHERE isIncome = 1 AND timestamp >= :startOfMonth")
     fun getMonthIncome(startOfMonth: Long): Flow<Double?>
 
-    @Query("SELECT COUNT(*) FROM bills WHERE isIncome = 0 AND timestamp >= :startOfMonth")
-    fun getMonthExpenseCount(startOfMonth: Long): Flow<Int>
-
-    @Query("SELECT COUNT(*) FROM bills WHERE isIncome = 1 AND timestamp >= :startOfMonth")
-    fun getMonthIncomeCount(startOfMonth: Long): Flow<Int>
-
-    @Query("SELECT COUNT(*) FROM bills")
-    fun getBillCount(): Flow<Int>
-
     @Query("SELECT COUNT(*) FROM bills WHERE isIncome = 0")
     fun getExpenseCount(): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM bills WHERE isIncome = 1")
     fun getIncomeCount(): Flow<Int>
-
-    @Query("SELECT * FROM bills WHERE isIncome = :isIncome ORDER BY timestamp DESC")
-    fun getBillsByType(isIncome: Boolean): Flow<List<BillEntity>>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(bill: BillEntity): Long
@@ -114,15 +96,10 @@ interface BillDao {
     @Query("DELETE FROM bills")
     suspend fun deleteAll()
 
-    // Synchronous queries for background notification helper
-    @Query("SELECT SUM(amount) FROM bills WHERE isIncome = 0 AND timestamp >= :startOfDay")
-    fun getTodayExpenseOnce(startOfDay: Long): Double?
-
-    @Query("SELECT SUM(amount) FROM bills WHERE isIncome = 1 AND timestamp >= :startOfDay")
-    fun getTodayIncomeOnce(startOfDay: Long): Double?
-
-    @Query("SELECT COUNT(*) FROM bills WHERE timestamp >= :startOfDay")
-    fun getTodayCountOnce(startOfDay: Long): Int?
+    // Combined today stats for the bill-recognized notification (single round trip
+    // instead of three separate aggregate queries per notification)
+    @Query("SELECT SUM(CASE WHEN isIncome = 0 THEN amount ELSE 0 END) AS expense, SUM(CASE WHEN isIncome = 1 THEN amount ELSE 0 END) AS income, COUNT(*) AS count FROM bills WHERE timestamp >= :startOfDay")
+    fun getTodayStatsOnce(startOfDay: Long): TodayStats?
 
     /**
      * Find a bill with the same amount within the recent time window (any app).
@@ -147,3 +124,10 @@ interface BillDao {
     @Query("SELECT * FROM bills WHERE amount = :amount AND packageName = :packageName AND title = :title AND timestamp >= :since ORDER BY timestamp DESC LIMIT 1")
     suspend fun findRecentByAmountPackageAndTitle(amount: Double, packageName: String, title: String, since: Long): BillEntity?
 }
+
+/** 单次查询返回的今日收支统计（账单识别通知用） */
+data class TodayStats(
+    val expense: Double?,
+    val income: Double?,
+    val count: Int?
+)

@@ -380,35 +380,6 @@ fun SoftFab(
     }
 }
 
-// ---------- SectionHeader ----------
-
-@Composable
-fun SectionHeader(
-    title: String,
-    modifier: Modifier = Modifier,
-    trailing: (@Composable RowScope.() -> Unit)? = null
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            fontWeight = FontWeight.SemiBold
-        )
-        if (trailing != null) {
-            Row(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.End
-            ) {
-                trailing()
-            }
-        }
-    }
-}
-
 // ---------- SoftEmptyState: unified empty view ----------
 
 @Composable
@@ -451,38 +422,6 @@ fun SoftEmptyState(
     }
 }
 
-// ---------- AppIconBox: rounded icon container with fallback ----------
-
-@Composable
-fun AppIconBox(
-    modifier: Modifier = Modifier,
-    size: Dp = 44.dp,
-    cornerRadius: Dp = 12.dp,
-    backgroundColor: Color = MaterialTheme.colorScheme.primaryContainer,
-    icon: ImageVector? = null,
-    content: (@Composable BoxScope.() -> Unit)? = null
-) {
-    Box(
-        modifier = modifier
-            .size(size)
-            .clip(RoundedCornerShape(cornerRadius))
-            .background(gradientBrush(backgroundColor, alpha = 0.75f))
-            .border(glassBorder(), RoundedCornerShape(cornerRadius)),
-        contentAlignment = Alignment.Center
-    ) {
-        if (content != null) {
-            content()
-        } else if (icon != null) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(size * 0.5f)
-            )
-        }
-    }
-}
-
 // ---------- StatPill: small value+label pill for stats strips ----------
 
 @Composable
@@ -510,99 +449,6 @@ fun StatPill(
         )
     }
 }
-
-// ---------- GradientHeader: signature mint-teal screen header ----------
-
-@Composable
-fun GradientHeader(
-    title: String,
-    modifier: Modifier = Modifier,
-    subtitle: String? = null,
-    actions: (@Composable RowScope.() -> Unit)? = null,
-    bottomContent: (@Composable ColumnScope.() -> Unit)? = null,
-    brush: Brush = Brush.linearGradient(listOf(GradientBrandStart, GradientBrandEnd))
-) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(
-                RoundedCornerShape(
-                    bottomStart = 28.dp,
-                    bottomEnd = 28.dp
-                )
-            )
-            .background(brush)
-            .padding(horizontal = 20.dp)
-            .padding(top = 14.dp, bottom = 20.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-                if (subtitle != null) {
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.75f),
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
-                }
-            }
-            if (actions != null) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    actions()
-                }
-            }
-        }
-        if (bottomContent != null) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
-                content = bottomContent
-            )
-        }
-    }
-}
-
-// ---------- StatsCardRow: floating white stats card ----------
-
-@Composable
-fun StatsCardRow(
-    stats: List<Pair<String, String>>,
-    modifier: Modifier = Modifier,
-    valueColors: List<Color> = emptyList()
-) {
-    SoftCard(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        contentPadding = 16.dp
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            stats.forEachIndexed { index, (value, label) ->
-                StatPill(
-                    value = value,
-                    label = label,
-                    valueColor = if (index < valueColors.size) valueColors[index]
-                    else MaterialTheme.colorScheme.onBackground
-                )
-            }
-        }
-    }
-}
-
 
 // ---------- AmbientBackground: living light blobs behind glass ----------
 

@@ -106,7 +106,7 @@ class AccountRepository(
      */
     suspend fun addAccount(name: String, balance: Double): Long {
         val now = System.currentTimeMillis()
-        val nextOrder = (platformDao.getAllOnce().maxOfOrNull { it.sortOrder } ?: -1) + 1
+        val nextOrder = (platformDao.getMaxSortOrder() ?: -1) + 1
         val id = platformDao.insert(
             PlatformAccountEntity(name = name, balance = balance, sortOrder = nextOrder, createdAt = now, updatedAt = now)
         )

@@ -26,6 +26,10 @@ interface PlatformAccountDao {
     @Query("SELECT * FROM platform_accounts WHERE id = :id")
     suspend fun getById(id: Long): PlatformAccountEntity?
 
+    /** 取最大排序号（新增账户排在末尾用），避免全表加载 */
+    @Query("SELECT MAX(sortOrder) FROM platform_accounts")
+    suspend fun getMaxSortOrder(): Int?
+
     @Query("SELECT COUNT(*) FROM bills WHERE platformAccountId = :id")
     suspend fun countBillsByPlatform(id: Long): Int
 

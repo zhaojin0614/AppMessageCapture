@@ -8,6 +8,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
 import com.aifactory.appmessagecapture.data.AppDatabase
+import com.aifactory.appmessagecapture.utils.PendingIntentCache
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
@@ -67,8 +68,12 @@ class NotificationCleanupWorker(
             .toEpochMilli()
 
         return try {
-            val staleCount = dao.countOlderThan(thresholdMillis)
-            BirthdayLog.i("[$TAG] Found $staleCount notifications older than $thresholdDate; deleting")
+            // Evict cached PendingIntents of rows about to be deleted (they'd
+            // otherwise linger until LRU eviction).
+            val staleIds = dao.getIdsOlderThan(thresholdMillis)
+            if (staleIds.isNotEmpty()) {
+                PendingIntentCache.removeAll(staleIds)
+            }
 
             val deleted = dao.deleteOlderThan(thresholdMillis)
             BirthdayLog.i("[$TAG] Deleted $deleted stale notifications (retention=$RETENTION_DAYS days)")

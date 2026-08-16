@@ -1525,20 +1525,26 @@ fun AddBillDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(4),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 210.dp),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    items(categories) { cat ->
-                        CategoryGridItem(
-                            label = cat,
-                            isSelected = selectedCategory == cat,
-                            onClick = { selectedCategory = cat }
-                        )
+                // 分类网格：外层已是 verticalScroll，改用普通分行布局避免
+                // 嵌套同向滚动的手势冲突（条目固定且少，无需 lazy）
+                categories.chunked(4).forEach { rowCategories ->
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        rowCategories.forEach { cat ->
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CategoryGridItem(
+                                    label = cat,
+                                    isSelected = selectedCategory == cat,
+                                    onClick = { selectedCategory = cat }
+                                )
+                            }
+                        }
+                        // 末行不足4个时补齐占位保持等宽
+                        repeat(4 - rowCategories.size) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
                     }
                 }
 

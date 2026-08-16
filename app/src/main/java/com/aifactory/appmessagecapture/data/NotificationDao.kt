@@ -66,9 +66,9 @@ interface NotificationDao {
     @Query("DELETE FROM notifications WHERE timestamp < :before")
     suspend fun deleteOlderThan(before: Long): Int
 
-    /** Count notifications older than [before] (for logging before deletion). */
-    @Query("SELECT COUNT(*) FROM notifications WHERE timestamp < :before")
-    suspend fun countOlderThan(before: Long): Int
+    /** Ids of notifications older than [before] — used to evict PendingIntentCache entries. */
+    @Query("SELECT id FROM notifications WHERE timestamp < :before")
+    suspend fun getIdsOlderThan(before: Long): List<Long>
 }
 
 /**

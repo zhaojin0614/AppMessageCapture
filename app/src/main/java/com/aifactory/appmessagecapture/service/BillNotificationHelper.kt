@@ -54,12 +54,13 @@ object BillNotificationHelper {
 
             createChannelIfNeeded(notificationManager)
 
-            // 查询今日统计
+            // 查询今日统计（单条聚合 SQL，替代原先的三条独立查询）
             val todayStart = getStartOfDayMillis()
             val dao = AppDatabase.getDatabase(context).billDao()
-            val todayExpense = dao.getTodayExpenseOnce(todayStart) ?: 0.0
-            val todayIncome = dao.getTodayIncomeOnce(todayStart) ?: 0.0
-            val todayCount = dao.getTodayCountOnce(todayStart) ?: 0
+            val stats = dao.getTodayStatsOnce(todayStart)
+            val todayExpense = stats?.expense ?: 0.0
+            val todayIncome = stats?.income ?: 0.0
+            val todayCount = stats?.count ?: 0
 
             val timeStr = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.getDefault())
                 .format(Date(timestamp))
