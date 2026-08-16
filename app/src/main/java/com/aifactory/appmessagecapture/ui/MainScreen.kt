@@ -2,10 +2,15 @@
 
 package com.aifactory.appmessagecapture.ui
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -131,6 +136,24 @@ fun MainScreen(
 ) {
     val context = LocalContext.current
     val notifications by viewModel.notifications.collectAsState()
+
+    // Android 13+ requires POST_NOTIFICATIONS at runtime; without it the
+    // bill-recognized notifications silently never show. Ask when the user
+    // has enabled notification capture (the feature that posts them).
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            com.aifactory.appmessagecapture.utils.NotificationServiceHelper
+                .isNotificationServiceEnabled(context) &&
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     val count by viewModel.notificationCount.collectAsState()
     val todayCount by viewModel.todayCount.collectAsState()
     val allApps by viewModel.allApps.collectAsState()
