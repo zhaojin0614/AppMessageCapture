@@ -3,6 +3,9 @@ package com.aifactory.appmessagecapture.worker
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
@@ -23,6 +26,7 @@ class RecurringBillWorker(
     companion object {
         private const val TAG = "RecurringBillWorker"
         private const val WORK_NAME = "recurring_bill_daily_check"
+        private const val STARTUP_WORK_NAME = "recurring_bill_startup_check"
 
         /**
          * Schedule the daily recurring bill check.
@@ -40,6 +44,18 @@ class RecurringBillWorker(
                 request
             )
             BirthdayLog.i("[$TAG] Scheduled daily recurring bill check")
+
+            // One-shot catch-up at app start: the daily window may not have fired
+            // yet today, so run an immediate (expedited where possible) check to
+            // record bills that came due since the last run.
+            val startupRequest = OneTimeWorkRequestBuilder<RecurringBillWorker>()
+                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_RESERVATION)
+                .build()
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                STARTUP_WORK_NAME,
+                ExistingWorkPolicy.KEEP,
+                startupRequest
+            )
         }
 
         /**
