@@ -45,6 +45,10 @@ android {
         compose = true
         buildConfig = true
     }
+    testOptions {
+        // BirthdayLog falls back to android.util.Log in JVM unit tests
+        unitTests.isReturnDefaultValues = true
+    }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
     }
