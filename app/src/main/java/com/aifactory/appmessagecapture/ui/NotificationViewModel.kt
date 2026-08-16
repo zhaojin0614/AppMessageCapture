@@ -15,11 +15,14 @@ import com.aifactory.appmessagecapture.data.NotificationEntity
 import com.aifactory.appmessagecapture.utils.PendingIntentCache
 import com.aifactory.appmessagecapture.utils.PreferencesManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -29,6 +32,8 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileWriter
 import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.Date
 import java.util.Locale
 
@@ -122,7 +127,7 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
      *
      * 逻辑：
      * - 无筛选时：使用 limit 动态加载（默认30条），节省性能
-     * - 有筛选时：加载全部消息再过滤，确保能显示被筛选应用的所有历史消息
+     * - 有筛选时：SQL 层 NOT IN 过滤，避免全表拉取后在内存逐条过滤
      */
     val notifications: StateFlow<List<NotificationEntity>> = combine(
         searchQuery,
@@ -130,15 +135,12 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
         _displayLimit
     ) { query, filtered, limit -> Triple(query, filtered, limit) }
         .flatMapLatest { (query, filtered, limit) ->
-            val hasFilter = filtered.isNotEmpty()
-            val baseFlow = when {
-                query.isBlank() && !hasFilter -> dao.getNotificationsLimit(limit)
-                query.isBlank() && hasFilter -> dao.getAllNotifications()
-                hasFilter -> dao.searchNotifications(query)
-                else -> dao.searchNotificationsLimit(query, limit)
-            }
-            baseFlow.map { list ->
-                list.filter { !filtered.contains(it.packageName) }
+            val excluded = filtered.toList()
+            when {
+                query.isBlank() && excluded.isEmpty() -> dao.getNotificationsLimit(limit)
+                query.isBlank() -> dao.getNotificationsExcluding(excluded)
+                excluded.isEmpty() -> dao.searchNotificationsLimit(query, limit)
+                else -> dao.searchNotificationsExcluding(query, excluded)
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -146,19 +148,30 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
     val notificationCount: StateFlow<Int> = dao.getNotificationCount()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
-    val todayCount: StateFlow<Int> = dao.countNotificationsSince(computeStartOfDay())
+    /**
+     * 每到次日零点自动重发当日起点，修复跨午夜后「今日」统计停留在
+     * 启动那天的问题（旧实现在 VM 构造时计算一次就固定不变）。
+     */
+    private val startOfDayFlow: Flow<Long> = flow {
+        while (true) {
+            val zone = ZoneId.systemDefault()
+            emit(LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli())
+            val nextMidnight = LocalDate.now(zone).plusDays(1)
+                .atStartOfDay(zone).toInstant().toEpochMilli()
+            delay(nextMidnight - System.currentTimeMillis() + 500)
+        }
+    }
+
+    val todayCount: StateFlow<Int> = startOfDayFlow
+        .flatMapLatest { startOfDay -> dao.countNotificationsSince(startOfDay) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     /**
-     * 从当前所有通知中派生应用列表，确保与数据库实际状态一致。
-     * 同时自动清理 _filteredApps 中已不存在的无效项。
+     * 应用列表：基于 DISTINCT 投影查询（getAllApps），不再全表拉取通知
+     * 后在内存去重。同时自动清理 _filteredApps 中已不存在的无效项。
      */
-    val allApps: StateFlow<List<AppInfo>> = dao.getAllNotifications()
-        .map { list ->
-            val apps = list
-                .map { AppInfo(it.appName, it.packageName) }
-                .distinctBy { it.packageName }
-                .sortedBy { it.appName }
+    val allApps: StateFlow<List<AppInfo>> = dao.getAllApps()
+        .map { apps ->
             // 清理已不存在的筛选项
             val validPackages = apps.map { it.packageName }.toSet()
             val currentFiltered = _filteredApps.value

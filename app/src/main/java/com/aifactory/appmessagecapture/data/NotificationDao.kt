@@ -30,6 +30,14 @@ interface NotificationDao {
     @Query("SELECT * FROM notifications WHERE appName LIKE '%' || :query || '%' OR title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%' ORDER BY timestamp DESC LIMIT :limit")
     fun searchNotificationsLimit(query: String, limit: Int): Flow<List<NotificationEntity>>
 
+    /** 筛选：排除指定应用包名的全部通知（SQL 层过滤，替代全表拉取后内存过滤） */
+    @Query("SELECT * FROM notifications WHERE packageName NOT IN (:excludedPackages) ORDER BY timestamp DESC")
+    fun getNotificationsExcluding(excludedPackages: List<String>): Flow<List<NotificationEntity>>
+
+    /** 筛选 + 搜索：排除指定应用包名并按关键词搜索 */
+    @Query("SELECT * FROM notifications WHERE packageName NOT IN (:excludedPackages) AND (appName LIKE '%' || :query || '%' OR title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%') ORDER BY timestamp DESC")
+    fun searchNotificationsExcluding(query: String, excludedPackages: List<String>): Flow<List<NotificationEntity>>
+
     @Query("DELETE FROM notifications WHERE id = :id")
     suspend fun deleteById(id: Long)
 
