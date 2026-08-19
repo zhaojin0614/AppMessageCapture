@@ -110,16 +110,9 @@ class BillDeduplicationTest {
         return "inserted"
     }
 
-    private fun getAppWeight(packageName: String): Int = when (packageName) {
-        "com.sankuai.meituan",
-        "com.sankuai.meituan.takeoutnew" -> 100
-        "com.dianping.v1" -> 90
-        "com.jd.jrapp" -> 80
-        "com.baidu.wallet" -> 70
-        "com.eg.android.AlipayGphone" -> 50
-        "com.tencent.mm" -> 50
-        else -> 0
-    }
+    // Delegates to production weights — no mirrored table drift.
+    private fun getAppWeight(packageName: String): Int =
+        SupportedPaymentApps.appWeight(packageName)
 
     @Before
     fun setUp() {

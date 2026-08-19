@@ -4,6 +4,7 @@ import android.app.Notification
 import android.content.ComponentName
 import android.content.Intent
 import android.os.Build
+import android.os.Process
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.aifactory.appmessagecapture.AppMessageCaptureApplication
@@ -31,10 +32,19 @@ class MessageCaptureService : NotificationListenerService() {
         @Volatile
         var isConnected: Boolean = false
             private set
+
+        /**
+         * 当前运行的服务实例，供 debug 构建的 SimulateNotificationReceiver
+         * 注入模拟通知使用（同进程访问）。
+         */
+        @Volatile
+        internal var instance: MessageCaptureService? = null
+            private set
     }
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             requestRebind(ComponentName(this, MessageCaptureService::class.java))
         }
@@ -128,8 +138,34 @@ class MessageCaptureService : NotificationListenerService() {
     }
 
     override fun onDestroy() {
+        instance = null
         serviceScope.cancel()
         super.onDestroy()
+    }
+
+    /**
+     * Debug-only: feed a synthetic notification from [packageName] through the
+     * real onNotificationPosted pipeline (filters → insert → dedup → bill),
+     * so bill capture can be tested without the actual payment apps installed.
+     */
+    internal fun simulateNotification(packageName: String, title: String, content: String) {
+        val notification = Notification.Builder(this, "debug-simulation")
+            .setContentTitle(title)
+            .setContentText(content)
+            .build()
+        val sbn = StatusBarNotification(
+            packageName,                       // pkg
+            packageName,                       // opPkg
+            System.currentTimeMillis().toInt(), // id
+            null,                              // tag
+            Process.myUid(),                   // uid
+            Process.myPid(),                   // initialPid
+            0,                                 // score
+            notification,                      // notification
+            Process.myUserHandle(),            // user
+            System.currentTimeMillis()        // postTime
+        )
+        onNotificationPosted(sbn)
     }
 
     private fun packageNameOfThisApp(): String {
@@ -207,29 +243,9 @@ class MessageCaptureService : NotificationListenerService() {
         val packageName = sbn.packageName ?: return
         val fullText = "$title $content"
 
-        when (packageName) {
-            "com.tencent.mm" -> {               // WeChat
-                // WeChat pay notifications MUST have title containing payment keywords
-                val validTitle = title.contains("微信支付")
-                if (!validTitle) return
-            }
-            "com.eg.android.AlipayGphone" -> {   // Alipay
-                // Title or content must contain Alipay/payment keywords
-                val validTitle = title.contains("交易提醒")
-                val validContent = content.contains("支出") || content.contains("收入")
-                if (!validTitle || !validContent) return
-            }
-            "com.sankuai.meituan",
-            "com.sankuai.meituan.takeoutnew" -> { // Meituan
-                // Exclude non-expense notifications like rewards, coupons, refunds
-                val validTitle = title.contains("付款")
-                if (!validTitle) return
-            }
-            "com.dianping.v1" -> { }             // Dianping
-            "com.jd.jrapp" -> { }                // JD Finance
-            "com.baidu.wallet" -> { }           // Baidu Wallet
-            else -> return
-        }
+        // Per-app gate: known payment apps only, with app-specific title/content
+        // filters to exclude non-payment noise (coupons, marketing pushes, etc.)
+        if (!SupportedPaymentApps.isBillNotification(packageName, title, content)) return
 
         // Direction is decided from content ONLY — titles like「微信支付」always
         // contain "支付" and would poison keyword matching for income/refunds.
@@ -287,8 +303,8 @@ class MessageCaptureService : NotificationListenerService() {
         val crossSince = notificationTime - 60_000
         val existing = dao.findRecentByAmount(amount, crossSince)
         if (existing != null && existing.packageName != packageName && existing.isIncome == isIncome) {
-            val existingWeight = getAppWeight(existing.packageName)
-            val currentWeight = getAppWeight(packageName)
+            val existingWeight = SupportedPaymentApps.appWeight(existing.packageName)
+            val currentWeight = SupportedPaymentApps.appWeight(packageName)
 
             if (currentWeight > existingWeight) {
                 // Current app has higher weight (e.g. Meituan > WeChat Pay)
@@ -364,21 +380,4 @@ class MessageCaptureService : NotificationListenerService() {
         }
     }
 
-    /**
-     * App weight for merge priority.
-     * Higher weight = primary app when merging bills.
-     * E.g. Meituan (merchant) > WeChat Pay (payment channel).
-     */
-    private fun getAppWeight(packageName: String): Int {
-        return when (packageName) {
-            "com.sankuai.meituan",
-            "com.sankuai.meituan.takeoutnew" -> 100 // Meituan
-            "com.dianping.v1" -> 90                  // Dianping
-            "com.jd.jrapp" -> 80                     // JD Finance
-            "com.baidu.wallet" -> 70                 // Baidu Wallet
-            "com.eg.android.AlipayGphone" -> 50      // Alipay
-            "com.tencent.mm" -> 50                   // WeChat
-            else -> 0
-        }
-    }
 }

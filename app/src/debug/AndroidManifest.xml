@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Debug-only helper: receives adb broadcasts and injects simulated
+      payment notifications into the real capture pipeline.
+      - Absent from release builds (debug source set only).
+      - Guarded by DUMP so only adb shell (or adb-granted apps) can trigger it.
+    -->
+    <application>
+        <receiver
+            android:name="com.aifactory.appmessagecapture.service.SimulateNotificationReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="com.aifactory.appmessagecapture.SIMULATE_NOTIFICATION" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>
