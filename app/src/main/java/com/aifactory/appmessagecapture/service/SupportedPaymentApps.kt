@@ -26,6 +26,8 @@ object SupportedPaymentApps {
                 title.contains("支付助手") && content.contains("消费")
             "com.android.bankabc" ->               // ABC 中国农业银行
                 content.contains("支出")
+            "com.ss.android.ugc.lifeservices" ->   // 抖省省（抖音团购）
+                title.contains("支付成功")
             "com.dianping.v1",                     // Dianping
             "com.jd.jrapp",                        // JD Finance
             "com.baidu.wallet" -> true             // Baidu Wallet
@@ -44,6 +46,7 @@ object SupportedPaymentApps {
             "com.sankuai.meituan",
             "com.sankuai.meituan.takeoutnew" -> 100 // Meituan
             "com.dianping.v1" -> 90                  // Dianping
+            "com.ss.android.ugc.lifeservices" -> 90  // 抖省省（团购商户）
             "com.jd.jrapp" -> 80                     // JD Finance
             "com.baidu.wallet" -> 70                 // Baidu Wallet
             "com.eg.android.AlipayGphone" -> 50      // Alipay

@@ -15,6 +15,7 @@
 #   wallet    百度钱包    com.baidu.wallet
 #   unionpay  云闪付      com.unionpay
 #   abc       农业银行    com.android.bankabc
+#   dss       抖省省      com.ss.android.ugc.lifeservices
 #   （其他值按原样作为包名使用）
 #
 # 示例（两条真实文案，注意引号包裹）:
@@ -43,7 +44,7 @@ RECEIVER="com.aifactory.appmessagecapture/.service.SimulateNotificationReceiver"
 
 if [[ $# -ne 3 ]]; then
     echo "用法: $0 <应用别名|包名> <标题> <内容>"
-    echo "别名: wechat alipay meituan waimai dianping jd wallet unionpay abc"
+    echo "别名: wechat alipay meituan waimai dianping jd wallet unionpay abc dss"
     exit 1
 fi
 
@@ -57,6 +58,7 @@ case "$1" in
     wallet)   PKG="com.baidu.wallet" ;;
     unionpay) PKG="com.unionpay" ;;
     abc)      PKG="com.android.bankabc" ;;
+    dss)      PKG="com.ss.android.ugc.lifeservices" ;;
     *)        PKG="$1" ;;
 esac
 
@@ -95,9 +97,9 @@ echo "→ 内容: $3"
 "$ADB" shell am start -n com.aifactory.appmessagecapture/.MainActivity >/dev/null 2>&1 || true
 sleep 1
 
-"$ADB" shell am broadcast \
-    -a "$ACTION" \
-    -n "$RECEIVER" \
-    --es pkg "$PKG" \
-    --es title "$2" \
-    --es content "$3"
+# Quote an argument for the device-side shell: adb shell concatenates args and
+# the remote /bin/sh re-parses them, so notification text containing > < & ' ;
+# etc. must be single-quoted (with ' escaped as '\'') to survive both shells.
+shquote() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
+
+"$ADB" shell "am broadcast -a $(shquote "$ACTION") -n $(shquote "$RECEIVER") --es pkg $(shquote "$PKG") --es title $(shquote "$2") --es content $(shquote "$3")"

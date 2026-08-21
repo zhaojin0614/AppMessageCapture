@@ -86,4 +86,43 @@ class SupportedPaymentAppsTest {
             )
         )
     }
+
+    /**
+     * 抖省省团购订单通知：门槛要求标题含「支付成功」，金额出现在标题中。
+     * 预期：通过门槛，识别为支出账单，金额取自标题的 11.9。
+     */
+    @Test
+    fun `doushengsheng order notification captures amount from title`() {
+        val packageName = "com.ss.android.ugc.lifeservices"
+        val title = "支付成功11.9元"
+        // 注意内容里「成 功」中间夹了空格，不能依赖内容判断支付状态
+        val content = "【大大大】霸王炸鸡卷了件套订单已支付成 功，点击查看详情>"
+        val fullText = "$title $content"
+
+        assertTrue(
+            "Should pass the Doushengsheng app gate",
+            SupportedPaymentApps.isBillNotification(packageName, title, content)
+        )
+        assertTrue(
+            "Should contain a payment keyword",
+            BillParsing.hasPaymentKeyword(fullText)
+        )
+        assertEquals(
+            "Amount lives in the title, not the content",
+            11.9,
+            BillParsing.parseAmount(fullText)!!,
+            0.001
+        )
+        assertFalse(
+            "Paid order is an expense, not income",
+            BillParsing.isIncome(content)
+        )
+
+        // Gate rejects titles without the 支付成功 marker (marketing pushes etc.)
+        assertFalse(
+            SupportedPaymentApps.isBillNotification(
+                packageName, "您有一张优惠券待使用", content
+            )
+        )
+    }
 }
