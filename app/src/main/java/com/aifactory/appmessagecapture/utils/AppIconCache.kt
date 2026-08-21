@@ -34,11 +34,13 @@ object AppIconCache {
 
     /** 缓存命中时同步返回，未命中或已知失败返回 null */
     fun getSync(packageName: String, sizePx: Int): ImageBitmap? =
-        cache.get(key(packageName, sizePx))?.takeIf { it !== FAILED }?.asImageBitmap()
+        if (packageName.isBlank()) null
+        else cache.get(key(packageName, sizePx))?.takeIf { it !== FAILED }?.asImageBitmap()
 
     /** IO 线程解码并入缓存 */
     suspend fun load(context: Context, packageName: String, sizePx: Int): ImageBitmap? =
-        withContext(Dispatchers.IO) {
+        if (packageName.isBlank()) null   // 手动/周期记账无包名，不查 PackageManager
+        else withContext(Dispatchers.IO) {
             val cached = cache.get(key(packageName, sizePx))
             when {
                 cached === FAILED -> null
