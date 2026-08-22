@@ -42,6 +42,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -69,6 +70,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -79,6 +81,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -101,6 +104,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -939,32 +943,13 @@ fun AppFilterDialog(
                     text = "勾选表示在列表中显示该应用的消息，取消勾选表示隐藏",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 12.dp)
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
-                Column(
-                    modifier = Modifier
-                        .heightIn(max = 400.dp)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    apps.forEach { app ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = !filteredApps.contains(app.packageName),
-                                onCheckedChange = { onToggle(app.packageName) }
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = app.appName,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                    }
-                }
+                SearchableAppList(
+                    apps = apps,
+                    isChecked = { packageName -> !filteredApps.contains(packageName) },
+                    onToggle = onToggle
+                )
             }
         },
         confirmButton = {
@@ -1006,32 +991,13 @@ fun BlockedAppsDialog(
                     text = "勾选的应用将不会被捕获通知（服务级别屏蔽）",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 12.dp)
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
-                Column(
-                    modifier = Modifier
-                        .heightIn(max = 400.dp)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    apps.forEach { app ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = blockedApps.contains(app.packageName),
-                                onCheckedChange = { onToggle(app.packageName) }
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = app.appName,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                    }
-                }
+                SearchableAppList(
+                    apps = apps,
+                    isChecked = { packageName -> blockedApps.contains(packageName) },
+                    onToggle = onToggle
+                )
             }
         },
         confirmButton = {
@@ -1047,6 +1013,145 @@ fun BlockedAppsDialog(
             }
         }
     )
+}
+
+/**
+ * 屏蔽管理 / 筛选应用共用的「搜索 + 应用勾选列表」。
+ *
+ * 紧凑化：默认 Checkbox 自带 48dp 最小交互占位，列表行距视觉上很稀疏；
+ * 这里将最小交互尺寸降为 0、整行 toggleable 承担点击，行高由内容决定。
+ * 搜索支持应用名与包名模糊匹配，命中时行内附带展示包名。
+ */
+@Composable
+private fun SearchableAppList(
+    apps: List<com.aifactory.appmessagecapture.data.AppInfo>,
+    isChecked: (String) -> Boolean,
+    onToggle: (String) -> Unit
+) {
+    var query by remember { mutableStateOf("") }
+    val trimmedQuery = query.trim()
+    val filteredApps = remember(apps, trimmedQuery) {
+        if (trimmedQuery.isEmpty()) apps
+        else apps.filter {
+            it.appName.contains(trimmedQuery, ignoreCase = true) ||
+                it.packageName.contains(trimmedQuery, ignoreCase = true)
+        }
+    }
+
+    Column {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = glassFill(),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            TextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = {
+                    Text(
+                        "搜索应用名或包名",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                trailingIcon = {
+                    AnimatedVisibility(visible = query.isNotEmpty()) {
+                        IconButton(onClick = { query = "" }) {
+                            Icon(
+                                imageVector = Icons.Default.Clear,
+                                contentDescription = "Clear",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { }),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                )
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Column(
+            modifier = Modifier
+                .heightIn(max = 400.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            if (filteredApps.isEmpty()) {
+                Text(
+                    text = "未找到匹配的应用",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 12.dp)
+                )
+            } else {
+                CompositionLocalProvider(
+                    LocalMinimumInteractiveComponentSize provides 0.dp
+                ) {
+                    filteredApps.forEach { app ->
+                        val checked = isChecked(app.packageName)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .toggleable(
+                                    value = checked,
+                                    role = Role.Checkbox,
+                                    onValueChange = { onToggle(app.packageName) }
+                                )
+                                .padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = checked,
+                                onCheckedChange = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            if (trimmedQuery.isNotEmpty()) {
+                                Column {
+                                    Text(
+                                        text = app.appName,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = app.packageName,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = app.appName,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
