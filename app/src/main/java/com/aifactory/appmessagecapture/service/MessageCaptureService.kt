@@ -124,6 +124,14 @@ class MessageCaptureService : NotificationListenerService() {
             )
 
             val dao = app.database.notificationDao()
+
+            // Filter 6: exact-duplicate suppression. ROMs (MIUI/HyperOS) re-deliver
+            // the same StatusBarNotification to the listener — identical postTime,
+            // title and content — which used to produce adjacent duplicate rows.
+            if (dao.findExactDuplicate(postTime, packageName, title, content) != null) {
+                return@launch
+            }
+
             val insertedId = dao.insert(entity)
             // Cache the PendingIntent in memory so the UI can replay the click action.
             // Room auto-increment ID is used as the cache key.
@@ -307,17 +315,15 @@ class MessageCaptureService : NotificationListenerService() {
             val currentWeight = SupportedPaymentApps.appWeight(packageName)
 
             if (currentWeight > existingWeight) {
-                // Current app has higher weight (e.g. Meituan > WeChat Pay)
-                // → replace existing bill's metadata with the merchant app's info,
-                //   keeping the previous channel as the secondary source (dual-origin
-                //   record, matching the 3→4 migration semantics).
+                // Current app has higher weight (e.g. Meituan > UnionPay channel)
+                // → replace existing bill's metadata with the merchant app's info
+                //   entirely; the lower-weight channel notification is discarded
+                //   (single-origin record, no merged icon display).
                 val updatedBill = existing.copy(
                     appName = appName,
                     packageName = packageName,
                     title = title,
-                    category = category,
-                    secondaryAppName = existing.appName,
-                    secondaryPackageName = existing.packageName
+                    category = category
                 )
                 dao.update(updatedBill)
                 BillNotificationHelper.showBillRecognizedNotification(

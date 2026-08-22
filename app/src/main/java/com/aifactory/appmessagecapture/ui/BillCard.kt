@@ -5,7 +5,6 @@ package com.aifactory.appmessagecapture.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -85,11 +84,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -100,8 +96,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.sp
@@ -157,75 +151,6 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 @Composable
-fun MergedAppIcon(
-    primaryPackage: String,
-    secondaryPackage: String?,
-    sizeDp: androidx.compose.ui.unit.Dp = 40.dp
-) {
-    val primaryIcon by rememberAppIcon(primaryPackage, sizeDp)
-    val secondaryIcon by rememberAppIcon(secondaryPackage ?: "", sizeDp)
-    val primary = primaryIcon
-    val secondary = secondaryIcon
-
-    Box(
-        modifier = Modifier.size(sizeDp),
-        contentAlignment = Alignment.Center
-    ) {
-        if (secondary != null && primary != null) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val s = size.width
-                val iSize = s.toInt()
-
-                // Primary icon (left/bottom triangle)
-                val pathPrimary = Path().apply {
-                    moveTo(0f, 0f)
-                    lineTo(s, 0f)
-                    lineTo(0f, s)
-                    close()
-                }
-                clipPath(pathPrimary) {
-                    drawImage(
-                        image = primary,
-                        dstOffset = IntOffset(0, 0),
-                        dstSize = IntSize(iSize, iSize)
-                    )
-                }
-
-                // Secondary icon (right/top triangle)
-                val pathSecondary = Path().apply {
-                    moveTo(s, 0f)
-                    lineTo(s, s)
-                    lineTo(0f, s)
-                    close()
-                }
-                clipPath(pathSecondary) {
-                    drawImage(
-                        image = secondary,
-                        dstOffset = IntOffset(0, 0),
-                        dstSize = IntSize(iSize, iSize)
-                    )
-                }
-
-                // 45° diagonal separator line (top-right to bottom-left)
-                drawLine(
-                    color = Color.White.copy(alpha = 0.9f),
-                    start = Offset(s, 0f),
-                    end = Offset(0f, s),
-                    strokeWidth = 2.5f
-                )
-            }
-        } else if (primary != null) {
-            Image(
-                bitmap = primary,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-        }
-    }
-}
-
-@Composable
 fun BillCard(
     bill: BillEntity,
     isSelected: Boolean,
@@ -238,7 +163,6 @@ fun BillCard(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
-    val hasMergedIcon = bill.secondaryPackageName != null
     val iconBitmap by rememberAppIcon(bill.packageName)
 
     Row(
@@ -266,36 +190,28 @@ fun BillCard(
                 modifier = Modifier.padding(end = 8.dp)
             )
         }
-        if (hasMergedIcon) {
-            MergedAppIcon(
-                primaryPackage = bill.packageName,
-                secondaryPackage = bill.secondaryPackageName,
-                sizeDp = 40.dp
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(gradientBrush(MaterialTheme.colorScheme.primaryContainer, alpha = 0.75f))
-                    .border(glassBorder(), RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                val icon = iconBitmap
-                if (icon != null) {
-                    Image(
-                        bitmap = icon,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Text(
-                        text = bill.appName.take(1).uppercase(),
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(gradientBrush(MaterialTheme.colorScheme.primaryContainer, alpha = 0.75f))
+                .border(glassBorder(), RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            val icon = iconBitmap
+            if (icon != null) {
+                Image(
+                    bitmap = icon,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Text(
+                    text = bill.appName.take(1).uppercase(),
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             }
         }
 
@@ -308,13 +224,8 @@ fun BillCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val displayAppName = if (bill.secondaryAppName != null) {
-                    "${bill.appName} - ${bill.secondaryAppName}"
-                } else {
-                    bill.appName
-                }
                 Text(
-                    text = displayAppName,
+                    text = bill.appName,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onBackground,

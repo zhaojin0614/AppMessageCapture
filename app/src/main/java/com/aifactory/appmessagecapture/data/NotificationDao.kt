@@ -38,6 +38,22 @@ interface NotificationDao {
     @Query("SELECT * FROM notifications WHERE packageName NOT IN (:excludedPackages) AND (appName LIKE '%' || :query || '%' OR title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%') ORDER BY timestamp DESC")
     fun searchNotificationsExcluding(query: String, excludedPackages: List<String>): Flow<List<NotificationEntity>>
 
+    /**
+     * Exact-duplicate probe: MIUI/HyperOS 等 ROM 会把同一条通知（相同 postTime）
+     * 重复投递给监听器，不查重会导致消息列表出现相邻的重复条目。
+     * 以 timestamp 等值匹配走已有索引，其余字段命中即判定为同一次投递的重放。
+     */
+    @Query(
+        "SELECT * FROM notifications WHERE timestamp = :timestamp " +
+            "AND packageName = :packageName AND title = :title AND content = :content LIMIT 1"
+    )
+    suspend fun findExactDuplicate(
+        timestamp: Long,
+        packageName: String,
+        title: String,
+        content: String
+    ): NotificationEntity?
+
     @Query("DELETE FROM notifications WHERE id = :id")
     suspend fun deleteById(id: Long)
 
