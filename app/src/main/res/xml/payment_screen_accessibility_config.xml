@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    屏幕记账无障碍服务配置。
+    packageNames 把事件投递收紧到监视名单（与 SupportedPaymentApps.screenWatchPackages
+    保持一致）：其他应用的窗口内容不会投递到服务，也省电。
+    新增监视应用时两处要同步更新。
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/accessibility_service_description"
+    android:notificationTimeout="200"
+    android:packageNames="com.jingdong.app.mall,com.jd.jrapp" />

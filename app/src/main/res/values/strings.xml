@@ -33,4 +33,8 @@
     <string name="today">今天</string>
     <string name="yesterday">昨天</string>
     <string name="app_widget_description">展示即将到来的生日倒计时</string>
+
+    <string name="accessibility_service_label">屏幕记账（支付成功页）</string>
+    <string name="accessibility_service_description">在京东等应用的支付成功页自动读取支付金额并记账。仅监视名单内应用前台时读取页面文本，不上传任何数据。</string>
+    <string name="accessibility_settings">屏幕记账权限</string>
 </resources>

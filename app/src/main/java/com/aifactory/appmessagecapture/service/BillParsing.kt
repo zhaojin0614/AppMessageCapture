@@ -21,6 +21,12 @@ object BillParsing {
     private val AMOUNT_AFTER_VERB =
         Regex("""(?:支付|付款|消费|扣款|已付|收款|退款|入账|到账|收入)\s*[¥￥]?\s*$AMOUNT_NUMBER""")
 
+    // 屏幕成功页变体：金额跟在「支付成功/付款完成」这类状态词后面
+    // （如「支付成功¥30.38」），仅 [parseAmountAfterPaymentVerb] 使用，
+    // 不影响通知路径的 [parseAmount] 行为
+    private val VERB_STATUS_AMOUNT =
+        Regex("""(?:支付|付款)\s*(?:成功|完成)\s*[¥￥]?\s*$AMOUNT_NUMBER""")
+
     val EXPENSE_KEYWORDS = listOf("付款", "支付", "消费", "支出", "扣款", "已付", "交易", "订单已支付")
 
     /** 「收款」需排除「收款方」（付款通知中的商户字段） */
@@ -41,6 +47,17 @@ object BillParsing {
         AMOUNT_WITH_UNIT.find(text)?.let { return it.groupValues.toAmount() }
         AMOUNT_AFTER_VERB.find(text)?.let { return it.groupValues.toAmount() }
         return null
+    }
+
+    /**
+     * 仅当支付动词（支付/付款/消费…）后紧跟金额时才提取。
+     * 屏幕成功页（无障碍）用：页面上散落大量「满6减5」「领5元红包」「¥3 到手价」
+     * 等营销金额，[parseAmount] 的货币符号/元后缀规则会被污染；
+     * 只有「京东支付¥30.38」这类动词紧跟数字的行才是支付金额本身。
+     */
+    fun parseAmountAfterPaymentVerb(text: String): Double? {
+        AMOUNT_AFTER_VERB.find(text)?.let { return it.groupValues.toAmount() }
+        return VERB_STATUS_AMOUNT.find(text)?.let { it.groupValues.toAmount() }
     }
 
     private fun List<String>.toAmount(): Double? {

@@ -36,6 +36,20 @@ object SupportedPaymentApps {
     }
 
     /**
+     * 无障碍屏幕记账监视的包名（支付成功页捕获）。
+     * 用于「付款了但不发通知/通知里没有金额」的应用：从支付完成页的
+     * 屏幕文本里提取金额。系统层只投递这些包的窗口事件（见
+     * res/xml/payment_screen_accessibility_config.xml 的 packageNames）。
+     */
+    val screenWatchPackages = setOf(
+        "com.jingdong.app.mall",   // 京东（支付成功页不发系统通知）
+        "com.jd.jrapp"             // 京东金融
+    )
+
+    fun isScreenCaptureApp(packageName: String): Boolean =
+        packageName in screenWatchPackages
+
+    /**
      * App weight for cross-app merge priority.
      * Higher weight = primary app when merging bills.
      * E.g. Meituan (merchant) > WeChat Pay (payment channel).
@@ -47,6 +61,7 @@ object SupportedPaymentApps {
             "com.sankuai.meituan.takeoutnew" -> 100 // Meituan
             "com.dianping.v1" -> 90                  // Dianping
             "com.ss.android.ugc.lifeservices" -> 90  // 抖省省（团购商户）
+            "com.jingdong.app.mall" -> 80            // 京东（屏幕捕获，与京东金融同档）
             "com.jd.jrapp" -> 80                     // JD Finance
             "com.baidu.wallet" -> 70                 // Baidu Wallet
             "com.eg.android.AlipayGphone" -> 50      // Alipay

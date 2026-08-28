@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # =============================================================================
-# 模拟支付通知，测试 AppMessageCapture 的自动记账功能（仅 debug 构建）
+# 模拟支付通知/支付成功页，测试 AppMessageCapture 的自动记账功能（仅 debug 构建）
 #
 # 用法:
-#   ./scripts/simulate_notification.sh <应用别名|包名> <标题> <内容>
+#   ./scripts/simulate_notification.sh <应用别名|包名> <标题> <内容> [--screen]
+#
+#   默认为通知模式（喂给通知监听服务）；
+#   加 --screen 为屏幕模式（把标题/内容当作无障碍读到的窗口文本节点，
+#   喂给屏幕记账服务，需先开启「屏幕记账（支付成功页）」无障碍服务）
 #
 # 应用别名 → 包名:
 #   wechat    微信        com.tencent.mm
@@ -12,6 +16,7 @@
 #   waimai    美团外卖    com.sankuai.meituan.takeoutnew
 #   dianping  大众点评    com.dianping.v1
 #   jd        京东金融    com.jd.jrapp
+#   jdapp     京东        com.jingdong.app.mall
 #   wallet    百度钱包    com.baidu.wallet
 #   unionpay  云闪付      com.unionpay
 #   abc       农业银行    com.android.bankabc
@@ -25,14 +30,20 @@
 #   ./scripts/simulate_notification.sh abc "中国农业银行" \
 #     "您尾号为7374的农行借记卡于08月13日18:45发生一笔支出17.66元，详情请点击。"
 #
+# 屏幕模式示例（模拟京东支付成功页，效果等同真实付款后的屏幕捕获）:
+#   ./scripts/simulate_notification.sh jdapp "支付成功" \
+#     "京东支付¥30.38，共优惠¥0.02" --screen
+#
 # 前置条件:
 #   1. 已安装 debug 构建: ./gradlew :app:installDebug（release 包不含此入口）
-#   2. 系统设置中已给本应用开启「通知使用权」
+#   2. 系统设置中已给本应用开启「通知使用权」（通知模式）或
+#      「屏幕记账（支付成功页）」无障碍服务（屏幕模式）
 #   3. 多台设备时用 ANDROID_SERIAL=<serial> 指定，如:
 #      ANDROID_SERIAL=emulator-5554 ./scripts/simulate_notification.sh ...
 #
-# 结果: 广播输出 result=-1 表示已注入；捕获成功后设备会弹「记账成功」通知，
-#       账单可在 App 首页查看。同一消息 60 秒内重复发送会被去重规则忽略。
+# 结果: 广播输出 result=-1 表示已注入（result=2 通知服务未连接，
+#       result=3 屏幕记账服务未开启）；捕获成功后设备会弹「记账成功」通知，
+#       账单可在 App 首页查看。同一笔账 60 秒内重复发送会被去重规则忽略。
 # =============================================================================
 set -euo pipefail
 
@@ -42,24 +53,31 @@ PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ACTION="com.aifactory.appmessagecapture.SIMULATE_NOTIFICATION"
 RECEIVER="com.aifactory.appmessagecapture/.service.SimulateNotificationReceiver"
 
-if [[ $# -ne 3 ]]; then
-    echo "用法: $0 <应用别名|包名> <标题> <内容>"
-    echo "别名: wechat alipay meituan waimai dianping jd wallet unionpay abc dss"
+SCREEN_MODE=0
+ARGS=()
+for arg in "$@"; do
+    if [[ "$arg" == "--screen" ]]; then SCREEN_MODE=1; else ARGS+=("$arg"); fi
+done
+
+if [[ ${#ARGS[@]} -ne 3 ]]; then
+    echo "用法: $0 <应用别名|包名> <标题> <内容> [--screen]"
+    echo "别名: wechat alipay meituan waimai dianping jd jdapp wallet unionpay abc dss"
     exit 1
 fi
 
-case "$1" in
+case "${ARGS[0]}" in
     wechat)   PKG="com.tencent.mm" ;;
     alipay)   PKG="com.eg.android.AlipayGphone" ;;
     meituan)  PKG="com.sankuai.meituan" ;;
     waimai)   PKG="com.sankuai.meituan.takeoutnew" ;;
     dianping) PKG="com.dianping.v1" ;;
     jd)       PKG="com.jd.jrapp" ;;
+    jdapp)    PKG="com.jingdong.app.mall" ;;
     wallet)   PKG="com.baidu.wallet" ;;
     unionpay) PKG="com.unionpay" ;;
     abc)      PKG="com.android.bankabc" ;;
     dss)      PKG="com.ss.android.ugc.lifeservices" ;;
-    *)        PKG="$1" ;;
+    *)        PKG="${ARGS[0]}" ;;
 esac
 
 # Locate adb: PATH > project local.properties > ANDROID_HOME > default SDK dirs
@@ -88,9 +106,13 @@ if [[ -z "$ADB" ]]; then
     exit 1
 fi
 
-echo "→ 模拟通知  包名: $PKG"
-echo "→ 标题: $2"
-echo "→ 内容: $3"
+if [[ $SCREEN_MODE -eq 1 ]]; then
+    echo "→ 模拟支付成功页（屏幕模式）  包名: $PKG"
+else
+    echo "→ 模拟通知  包名: $PKG"
+fi
+echo "→ 标题: ${ARGS[1]}"
+echo "→ 内容: ${ARGS[2]}"
 
 # MIUI/HyperOS 的 Greezer 会把发给缓存进程的广播转入延迟队列导致注入失效，
 # 先把 App 拉到前台保证接收器立即执行（测试时也方便直接看到账单）。
@@ -102,4 +124,9 @@ sleep 1
 # etc. must be single-quoted (with ' escaped as '\'') to survive both shells.
 shquote() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
 
-"$ADB" shell "am broadcast -a $(shquote "$ACTION") -n $(shquote "$RECEIVER") --es pkg $(shquote "$PKG") --es title $(shquote "$2") --es content $(shquote "$3")"
+SCREEN_EXTRA=""
+if [[ $SCREEN_MODE -eq 1 ]]; then
+    SCREEN_EXTRA="--ez screen true "
+fi
+
+"$ADB" shell "am broadcast -a $(shquote "$ACTION") -n $(shquote "$RECEIVER") ${SCREEN_EXTRA}--es pkg $(shquote "$PKG") --es title $(shquote "${ARGS[1]}") --es content $(shquote "${ARGS[2]}")"

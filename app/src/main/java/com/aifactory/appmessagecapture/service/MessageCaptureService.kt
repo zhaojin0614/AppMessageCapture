@@ -9,8 +9,6 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.aifactory.appmessagecapture.AppMessageCaptureApplication
 import com.aifactory.appmessagecapture.data.NotificationEntity
-import com.aifactory.appmessagecapture.ui.ExpenseCategories
-import com.aifactory.appmessagecapture.ui.IncomeCategories
 import com.aifactory.appmessagecapture.utils.PendingIntentCache
 import com.aifactory.appmessagecapture.utils.PreferencesManager
 import kotlinx.coroutines.CoroutineScope
@@ -18,7 +16,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.withLock
 
 /**
  * Service that listens to system notifications and persists them locally.
@@ -26,7 +23,6 @@ import kotlinx.coroutines.sync.withLock
 class MessageCaptureService : NotificationListenerService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val billMutex = kotlinx.coroutines.sync.Mutex()
 
     companion object {
         @Volatile
@@ -138,10 +134,9 @@ class MessageCaptureService : NotificationListenerService() {
             if (contentIntent != null) {
                 PendingIntentCache.put(insertedId, contentIntent)
             }
-            // Auto-extract bill from payment notifications (serialized to avoid race conditions)
-            billMutex.withLock {
-                tryExtractBill(app, sbn, title, content, appName)
-            }
+            // Auto-extract bill from payment notifications (BillIngestor serializes
+            // all bill ingestion internally)
+            tryExtractBill(app, sbn, title, content, appName)
         }
     }
 
@@ -240,6 +235,7 @@ class MessageCaptureService : NotificationListenerService() {
 
     /**
      * Try to extract payment/expense info from known payment apps.
+     * 去重/合并/入库/提醒统一走 [BillIngestor]（与屏幕捕获共用）。
      */
     private suspend fun tryExtractBill(
         app: AppMessageCaptureApplication,
@@ -262,128 +258,21 @@ class MessageCaptureService : NotificationListenerService() {
 
         val amount = BillParsing.parseAmount(fullText) ?: return
 
-        // Guess category from content keywords
-        val category = if (isIncome) guessIncomeCategory(fullText, appName) else guessCategory(fullText, appName)
-
-        val bill = com.aifactory.appmessagecapture.data.BillEntity(
-            amount = amount,
-            appName = appName,
-            packageName = packageName,
-            title = title,
-            category = category,
-            isIncome = isIncome,
-            timestamp = if (sbn.postTime > 0) sbn.postTime else System.currentTimeMillis()
-        )
-
-        val dao = app.database.billDao()
-
         // Use notification postTime as time anchor (not current wall-clock time).
         // This avoids timing mismatches caused by service processing delays or
         // batched notification delivery on OEM ROMs.
         val notificationTime = if (sbn.postTime > 0) sbn.postTime else System.currentTimeMillis()
 
-        // ── 1. Same-app deduplication ──────────────────────────────────────
-
-        // 1a. Content-based dedup: same app + same amount + same title + same
-        //     direction = definite duplicate. Direction matters: a payment and a
-        //     same-amount refund often share the identical title ("微信支付").
-        //     Uses a 60-second window to catch delayed duplicate deliveries.
-        val contentSince = notificationTime - 60_000
-        val contentDuplicate = dao.findRecentByAmountPackageAndTitle(amount, packageName, title, contentSince)
-        if (contentDuplicate != null && contentDuplicate.isIncome == isIncome) return
-
-        // 1b. Time-proximity dedup: same app + same amount + same direction within
-        //     60 seconds AND titles share a common origin prefix. Two purchases with
-        //     clearly different titles are distinct transactions and must be kept.
-        val timeSince = notificationTime - 60_000
-        val sameAppDuplicate = dao.findRecentByAmountAndPackage(amount, packageName, timeSince)
-        if (sameAppDuplicate != null &&
-            sameAppDuplicate.isIncome == isIncome &&
-            BillParsing.isSameOriginTitle(title, sameAppDuplicate.title)
-        ) return
-
-        // ── 2. Cross-app deduplication / merge ─────────────────────────────
-        // If a different app already recorded a bill with the same amount within
-        // 60 seconds, they likely represent the same payment seen through different
-        // channels (e.g. merchant app + payment channel).  Keep the higher-weight app.
-        // Only merge when the direction matches — a payment and a refund of the same
-        // amount are genuinely different transactions.
-        val crossSince = notificationTime - 60_000
-        val existing = dao.findRecentByAmount(amount, crossSince)
-        if (existing != null && existing.packageName != packageName && existing.isIncome == isIncome) {
-            val existingWeight = SupportedPaymentApps.appWeight(existing.packageName)
-            val currentWeight = SupportedPaymentApps.appWeight(packageName)
-
-            if (currentWeight > existingWeight) {
-                // Current app has higher weight (e.g. Meituan > UnionPay channel)
-                // → replace existing bill's metadata with the merchant app's info
-                //   entirely; the lower-weight channel notification is discarded
-                //   (single-origin record, no merged icon display).
-                val updatedBill = existing.copy(
-                    appName = appName,
-                    packageName = packageName,
-                    title = title,
-                    category = category
-                )
-                dao.update(updatedBill)
-                BillNotificationHelper.showBillRecognizedNotification(
-                    context = app,
-                    appName = updatedBill.appName,
-                    amount = updatedBill.amount,
-                    category = updatedBill.category,
-                    timestamp = updatedBill.timestamp,
-                    isIncome = updatedBill.isIncome
-                )
-            }
-            // If existing weight >= current weight, do nothing (keep existing)
-        } else {
-            // No duplicate found — insert as new bill
-            dao.insert(bill)
-            BillNotificationHelper.showBillRecognizedNotification(
-                context = app,
-                appName = bill.appName,
-                amount = bill.amount,
-                category = bill.category,
-                timestamp = bill.timestamp,
-                isIncome = bill.isIncome
-            )
-        }
-    }
-
-    /**
-     * Guess income category from notification text.
-     */
-    private fun guessIncomeCategory(text: String, appName: String): String {
-        val lower = text.lowercase()
-        return when {
-            lower.contains("工资") || lower.contains("薪") -> IncomeCategories.SALARY
-            lower.contains("退款") || lower.contains("退货") -> IncomeCategories.REFUND
-            lower.contains("红包") || lower.contains("利是") -> IncomeCategories.RED_PACKET
-            lower.contains("收益") || lower.contains("利息") || lower.contains("理财") -> IncomeCategories.INVESTMENT
-            lower.contains("转账") || lower.contains("转入") -> IncomeCategories.OTHER
-            else -> IncomeCategories.OTHER
-        }
-    }
-
-    /**
-     * Guess expense category from notification text.
-     */
-    private fun guessCategory(text: String, appName: String): String {
-        val lower = text.lowercase()
-        return when {
-            lower.contains("外卖") || lower.contains("餐饮") || lower.contains("美食") ||
-                    lower.contains("餐厅") || lower.contains("快餐") || appName.contains("美团") -> ExpenseCategories.FOOD
-            lower.contains("打车") || lower.contains("滴滴") || lower.contains("出行") ||
-                    lower.contains("地铁") || lower.contains("公交") || lower.contains("骑行") -> ExpenseCategories.TRANSPORT
-            lower.contains("电影") || lower.contains("娱乐") || lower.contains("游戏") ||
-                    lower.contains("会员") -> ExpenseCategories.ENTERTAINMENT
-            lower.contains("超市") || lower.contains("购物") || lower.contains("商城") ||
-                    lower.contains("淘宝") || lower.contains("京东") || lower.contains("拼多多") -> ExpenseCategories.SHOPPING
-            lower.contains("水电") || lower.contains("话费") || lower.contains("宽带") ||
-                    lower.contains("燃气") || lower.contains("物业") -> ExpenseCategories.LIVING
-            lower.contains("医疗") || lower.contains("药店") || lower.contains("挂号") -> ExpenseCategories.MEDICAL
-            else -> ExpenseCategories.OTHER
-        }
+        BillIngestor.record(
+            context = app,
+            packageName = packageName,
+            appName = appName,
+            title = title,
+            fullText = fullText,
+            amount = amount,
+            isIncome = isIncome,
+            timestamp = notificationTime
+        )
     }
 
 }
