@@ -22,15 +22,15 @@ import java.util.Locale
  * 账单识别成功后的通知帮助类。
  *
  * 当后台服务成功识别并记录一笔账单时，推送一条系统通知。通知包含：
- * 记账成功金额、分类、扣款平台（或「待对账」）、时间、今日统计，以及三个操作：
+ * 记账成功金额、分类、扣款平台（或「待对账」）、时间、今日统计，以及两个操作：
  * - 去查看：打开 App 记账 Tab（打开后该通知自动清除）
- * - 改分类 / 扣款平台：打开 [BillQuickEditActivity] 弹窗直接选择，
- *   点选即保存，保存完成后该通知自动清除，无需进 App 逐条确认。
+ * - 完善账单：打开 [BillQuickEditActivity] 双栏弹窗，左侧选分类、右侧选
+ *   扣款平台，一次保存两项（平台经 AccountRepository 联动余额），
+ *   保存后通知清除，无需进 App 逐条确认。
  *
- * 通知为常驻（[NotificationCompat.Builder#setOngoing]）：不会被系统回收、
- * 不能下滑清除，直到用户完成任一操作（保存/去查看）才消失。
- * 注：屏幕顶部的悬浮横幅在几秒后收起是系统行为（无公开 API 可钉住），
- * 收起后通知仍保留在通知栏直到处理完成。
+ * 通知为常驻（setOngoing）：不会被系统回收、不能下滑清除，直到用户完成
+ * 任一操作（保存/去查看）才消失。注：屏幕顶部的悬浮横幅在几秒后收起是
+ * 系统行为（无公开 API 可钉住），收起后通知仍保留在通知栏直到处理完成。
  */
 object BillNotificationHelper {
 
@@ -45,10 +45,7 @@ object BillNotificationHelper {
     // intent extras
     const val EXTRA_BILL_ID = "bill_id"
     const val EXTRA_NOTIFICATION_ID = "notification_id"
-    const val EXTRA_MODE = "mode"
     const val EXTRA_CANCEL_NOTIFICATION_ID = "cancel_notification_id"
-    const val MODE_CATEGORY = "category"
-    const val MODE_PLATFORM = "platform"
 
     /**
      * 发送账单识别成功通知（入库后调用）。
@@ -125,29 +122,25 @@ object BillNotificationHelper {
             .setOngoing(true)
             .setContentIntent(contentPendingIntent)
             .addAction(0, "去查看", contentPendingIntent)
-            .addAction(0, "改分类", quickEditPendingIntent(context, bill.id, notificationId, MODE_CATEGORY))
-            .addAction(0, "扣款平台", quickEditPendingIntent(context, bill.id, notificationId, MODE_PLATFORM))
+            .addAction(0, "完善账单", quickEditPendingIntent(context, bill.id, notificationId))
             .build()
 
         notificationManager.notify(notificationId, notification)
     }
 
-    /** 「改分类/扣款平台」按钮 → 弹窗 Activity（带账单与通知 ID，保存后按原 ID 刷新通知） */
+    /** 「完善账单」按钮 → 双栏弹窗 Activity（带账单与通知 ID，保存后清除通知） */
     private fun quickEditPendingIntent(
         context: Context,
         billId: Long,
-        notificationId: Int,
-        mode: String
+        notificationId: Int
     ): PendingIntent {
         val intent = Intent(context, BillQuickEditActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra(EXTRA_BILL_ID, billId)
             putExtra(EXTRA_NOTIFICATION_ID, notificationId)
-            putExtra(EXTRA_MODE, mode)
         }
-        // requestCode 需按 (bill, mode) 区分，否则不同账单的按钮会互相覆盖 extras
-        val requestCode = ((billId and 0x1FFFFFFF).toInt() shl 2) or
-            if (mode == MODE_CATEGORY) 1 else 2
+        // requestCode 按账单区分，避免不同账单的按钮互相覆盖 extras
+        val requestCode = (billId and 0x3FFFFFFF).toInt() shl 1
         return PendingIntent.getActivity(
             context,
             requestCode,
