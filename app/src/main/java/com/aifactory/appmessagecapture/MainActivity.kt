@@ -1,5 +1,6 @@
 package com.aifactory.appmessagecapture
 
+import android.app.NotificationManager
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -50,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import com.aifactory.appmessagecapture.birthday.ui.BirthdayScreen
 import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
 import com.aifactory.appmessagecapture.birthday.widget.BirthdayWidget
+import com.aifactory.appmessagecapture.service.BillNotificationHelper
 import com.aifactory.appmessagecapture.service.MessageCaptureService
 import com.aifactory.appmessagecapture.ui.BillScreen
 import com.aifactory.appmessagecapture.ui.MainScreen
@@ -82,6 +84,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val navigateToTab = intent.getStringExtra(EXTRA_NAVIGATE_TO_TAB)
+        cancelBillNotification(intent)
 
         setContent {
             AppMessageCaptureTheme {
@@ -93,6 +96,18 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        cancelBillNotification(intent)
+    }
+
+    /** 通过「去查看」打开时，清除对应的常驻账单通知 */
+    private fun cancelBillNotification(intent: Intent) {
+        val notificationId = intent.getIntExtra(
+            BillNotificationHelper.EXTRA_CANCEL_NOTIFICATION_ID, -1
+        )
+        if (notificationId >= BillNotificationHelper.NOTIFICATION_ID_BASE) {
+            (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
+                .cancel(notificationId)
+        }
     }
 }
 

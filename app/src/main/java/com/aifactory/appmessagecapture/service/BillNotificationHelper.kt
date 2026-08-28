@@ -23,22 +23,30 @@ import java.util.Locale
  *
  * 当后台服务成功识别并记录一笔账单时，推送一条系统通知。通知包含：
  * 记账成功金额、分类、扣款平台（或「待对账」）、时间、今日统计，以及三个操作：
- * - 去查看：打开 App 记账 Tab
+ * - 去查看：打开 App 记账 Tab（打开后该通知自动清除）
  * - 改分类 / 扣款平台：打开 [BillQuickEditActivity] 弹窗直接选择，
- *   无需进 App 逐条确认。选择保存后通过 [repostBillNotification] 刷新本条通知。
+ *   点选即保存，保存完成后该通知自动清除，无需进 App 逐条确认。
+ *
+ * 通知为常驻（[NotificationCompat.Builder#setOngoing]）：不会被系统回收、
+ * 不能下滑清除，直到用户完成任一操作（保存/去查看）才消失。
+ * 注：屏幕顶部的悬浮横幅在几秒后收起是系统行为（无公开 API 可钉住），
+ * 收起后通知仍保留在通知栏直到处理完成。
  */
 object BillNotificationHelper {
 
     private const val CHANNEL_ID = "bill_recognized_channel"
     private const val CHANNEL_NAME = "账单识别提醒"
-    private const val NOTIFICATION_ID_BASE = 10_000
+
+    /** 账单通知 ID 下限（id 从它起滚动分配），外部用于校验/清除 */
+    const val NOTIFICATION_ID_BASE = 10_000
 
     private var notificationCounter = 0
 
-    // BillQuickEditActivity 的 intent extras
+    // intent extras
     const val EXTRA_BILL_ID = "bill_id"
     const val EXTRA_NOTIFICATION_ID = "notification_id"
     const val EXTRA_MODE = "mode"
+    const val EXTRA_CANCEL_NOTIFICATION_ID = "cancel_notification_id"
     const val MODE_CATEGORY = "category"
     const val MODE_PLATFORM = "platform"
 
@@ -56,21 +64,6 @@ object BillNotificationHelper {
                         notificationCounter = (notificationCounter + 1) % 100
                     }
                 }
-                post(context, bill, notificationId)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-
-    /**
-     * 快捷编辑（改分类/换平台）保存后，按原通知 ID 重发以刷新通知内容。
-     */
-    suspend fun repostBillNotification(context: Context, billId: Long, notificationId: Int) =
-        withContext(Dispatchers.IO) {
-            try {
-                if (notificationId < NOTIFICATION_ID_BASE) return@withContext
-                val bill = AppDatabase.getDatabase(context).billDao().getBillByIdOnce(billId)
-                    ?: return@withContext
                 post(context, bill, notificationId)
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -100,10 +93,11 @@ object BillNotificationHelper {
         val title = "您在${bill.appName}记账成功${amountStr}元"
         val subText = "${bill.category} · ${platformName ?: "待对账"} · $timeStr"
 
-        // 点击打开 MainActivity 并跳转到记账 Tab
+        // 点击打开 MainActivity 并跳转到记账 Tab，同时清除本条通知
         val launchIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra(MainActivity.EXTRA_NAVIGATE_TO_TAB, "bills")
+            putExtra(EXTRA_CANCEL_NOTIFICATION_ID, notificationId)
         }
         val contentPendingIntent = PendingIntent.getActivity(
             context,
@@ -126,7 +120,9 @@ object BillNotificationHelper {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_EVENT)
             .setColor(color)
-            .setAutoCancel(true)
+            // 常驻：不自动消失、不可下滑清除，直到用户完成操作
+            // （保存分类/平台或点「去查看」时由代码显式 cancel）
+            .setOngoing(true)
             .setContentIntent(contentPendingIntent)
             .addAction(0, "去查看", contentPendingIntent)
             .addAction(0, "改分类", quickEditPendingIntent(context, bill.id, notificationId, MODE_CATEGORY))
