@@ -78,6 +78,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -1105,21 +1106,26 @@ fun DayGroupCard(
 
             // Bills inside day card
             bills.forEachIndexed { index, bill ->
-                SwipeableItem(
-                    isSelectionMode = isSelectionMode,
-                    onDelete = { onDelete(bill) },
-                    itemKey = bill.id
-                ) {
-                    BillCard(
-                        bill = bill,
-                        isSelected = selectedIds.contains(bill.id),
+                // key 让卡片组合状态（图标缓存状态、滑动偏移）跟随账单本身：
+                // 新账单插入列表头部时若不 key，Compose 会按位置复用旧槽位，
+                // 下面的卡片会继承上一条账单的内部状态
+                key(bill.id) {
+                    SwipeableItem(
                         isSelectionMode = isSelectionMode,
-                        platformName = bill.platformAccountId?.let { platformNameById[it] },
-                        onClick = { onBillClick(bill) },
-                        onLongClick = { onBillLongClick(bill) },
-                        onCategoryClick = { onCategoryClick(bill) },
-                        onReconcile = { onReconcile(bill) }
-                    )
+                        onDelete = { onDelete(bill) },
+                        itemKey = bill.id
+                    ) {
+                        BillCard(
+                            bill = bill,
+                            isSelected = selectedIds.contains(bill.id),
+                            isSelectionMode = isSelectionMode,
+                            platformName = bill.platformAccountId?.let { platformNameById[it] },
+                            onClick = { onBillClick(bill) },
+                            onLongClick = { onBillLongClick(bill) },
+                            onCategoryClick = { onCategoryClick(bill) },
+                            onReconcile = { onReconcile(bill) }
+                        )
+                    }
                 }
                 if (index < bills.lastIndex) {
                     HorizontalDivider(

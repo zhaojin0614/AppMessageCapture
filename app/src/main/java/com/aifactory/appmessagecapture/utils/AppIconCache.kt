@@ -75,6 +75,10 @@ fun rememberAppIcon(packageName: String, sizeDp: Dp = 40.dp): State<ImageBitmap?
         key1 = packageName,
         key2 = sizePx
     ) {
+        // produceState 的 remember 状态不随 key 变化重置：列表槽位复用把一张卡片
+        // 换成另一条账单/消息时，value 里残留的是上一个条目的图标，必须先按当前
+        // 包名同步覆盖（命中即首帧正确；未命中先清空走占位），再异步加载。
+        value = AppIconCache.getSync(packageName, sizePx)
         if (value == null) {
             value = AppIconCache.load(context, packageName, sizePx)
         }
