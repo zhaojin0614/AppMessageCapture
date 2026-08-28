@@ -107,11 +107,7 @@ object BillIngestor {
                     dao.update(updatedBill)
                     BillNotificationHelper.showBillRecognizedNotification(
                         context = app,
-                        appName = updatedBill.appName,
-                        amount = updatedBill.amount,
-                        category = updatedBill.category,
-                        timestamp = updatedBill.timestamp,
-                        isIncome = updatedBill.isIncome
+                        billId = updatedBill.id
                     )
                     return@withLock Result.MERGED_OVER_LOWER_WEIGHT
                 }
@@ -120,14 +116,10 @@ object BillIngestor {
             }
 
             // 无重复 —— 插入新账单
-            dao.insert(bill)
+            val newId = dao.insert(bill)
             BillNotificationHelper.showBillRecognizedNotification(
                 context = app,
-                appName = bill.appName,
-                amount = bill.amount,
-                category = bill.category,
-                timestamp = bill.timestamp,
-                isIncome = bill.isIncome
+                billId = newId
             )
             Result.INSERTED
         }

@@ -46,6 +46,13 @@
             </intent-filter>
         </activity>
 
+        <!-- 账单快捷编辑弹窗：从「记账成功」通知的 改分类/扣款平台 按钮打开 -->
+        <activity
+            android:name=".ui.BillQuickEditActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:theme="@style/Theme.AppMessageCapture.QuickEdit" />
+
         <!-- Notification Listener Service -->
         <service
             android:name=".service.MessageCaptureService"
