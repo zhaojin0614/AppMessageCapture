@@ -152,33 +152,51 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         android.util.Log.d(TAG, "屏幕记账 $packageName ¥$amount ($appName) → $result")
     }
 
-    /** 收集当前活动窗口的文本节点（广度优先：不可见子树整枝剪掉 + 节点数上限） */
+    /**
+     * 收集监视应用所有窗口的文本节点（广度优先：不可见子树剪枝 + 节点数上限）。
+     *
+     * 必须遍历 [windows] 而非只遍历 rootInActiveWindow：真机实测京东把成功页
+     * 头部（「京东支付¥xx」金额行）渲染在独立弹窗窗口里，活动窗口里只有
+     * 标题和下方活动区，只取活动窗口会漏掉金额行。
+     */
     private fun collectWindowTexts(): List<String> {
-        val root = rootInActiveWindow ?: return emptyList()
-        // 活动窗口不属于监视对象（如输入法窗口抢焦点）时跳过遍历
-        if (root.packageName?.toString() !in SupportedPaymentApps.screenWatchPackages) {
-            return emptyList()
-        }
         val out = mutableListOf<String>()
-        val queue = ArrayDeque<android.view.accessibility.AccessibilityNodeInfo>()
-        queue.add(root)
+        val seen = HashSet<String>()
         var visited = 0
-        while (queue.isNotEmpty() && visited < MAX_NODES) {
-            val node = queue.removeFirst()
-            visited++
-            if (node.isVisibleToUser) {
-                node.text?.toString()?.takeIf { it.isNotBlank() }?.let { out.add(it) }
-                node.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let { out.add(it) }
-            }
-            for (i in 0 until node.childCount) {
-                node.getChild(i)?.let { child ->
-                    // 不可见子树直接剪枝：账单金额只出现在可见区域，
-                    // 且京东页面不可见子树（广告 WebView 等）规模巨大
-                    if (child.isVisibleToUser) {
-                        queue.add(child)
+
+        fun traverse(root: android.view.accessibility.AccessibilityNodeInfo?) {
+            root ?: return
+            if (root.packageName?.toString() !in SupportedPaymentApps.screenWatchPackages) return
+            val queue = ArrayDeque<android.view.accessibility.AccessibilityNodeInfo>()
+            queue.add(root)
+            while (queue.isNotEmpty() && visited < MAX_NODES) {
+                val node = queue.removeFirst()
+                visited++
+                if (node.isVisibleToUser) {
+                    node.text?.toString()?.takeIf { it.isNotBlank() }?.let {
+                        if (seen.add(it)) out.add(it)
+                    }
+                    node.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let {
+                        if (seen.add(it)) out.add(it)
+                    }
+                }
+                for (i in 0 until node.childCount) {
+                    node.getChild(i)?.let { child ->
+                        // 不可见子树直接剪枝：账单金额只出现在可见区域，
+                        // 且京东页面不可见子树（广告 WebView 等）规模巨大
+                        if (child.isVisibleToUser) {
+                            queue.add(child)
+                        }
                     }
                 }
             }
+        }
+
+        traverse(rootInActiveWindow)
+        try {
+            windows?.forEach { window -> traverse(window.root) }
+        } catch (_: Exception) {
+            // 部分 ROM 上 windows 访问可能异常，忽略（活动窗口已遍历）
         }
         return out
     }
