@@ -31,10 +31,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.Text
 import androidx.compose.material3.Surface
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -299,50 +301,6 @@ fun PillToggle(
     }
 }
 
-// ---------- GlassAlertDialog: transparent dialog with glass rim ----------
-
-/**
- * AlertDialog with a frosted glass container + highlight border: a
- * near-opaque surface keeps content readable (fully transparent dialogs
- * were unreadable), while the glass rim keeps the liquid-glass language.
- */
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-@Composable
-fun GlassAlertDialog(
-    onDismissRequest: () -> Unit,
-    confirmButton: @Composable () -> Unit,
-    modifier: Modifier = Modifier,
-    dismissButton: (@Composable () -> Unit)? = null,
-    icon: (@Composable () -> Unit)? = null,
-    title: (@Composable () -> Unit)? = null,
-    text: (@Composable () -> Unit)? = null,
-    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(28.dp),
-    iconContentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    titleContentColor: Color = MaterialTheme.colorScheme.onSurface,
-    textContentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    properties: androidx.compose.ui.window.DialogProperties = androidx.compose.ui.window.DialogProperties()
-) {
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismissRequest,
-        confirmButton = confirmButton,
-        modifier = modifier.border(glassBorder(), shape),
-        dismissButton = dismissButton,
-        icon = icon,
-        title = title,
-        text = text,
-        shape = shape,
-        containerColor = MaterialTheme.colorScheme.surface.copy(
-            alpha = if (isDarkTheme()) 0.90f else 0.93f
-        ),
-        iconContentColor = iconContentColor,
-        titleContentColor = titleContentColor,
-        textContentColor = textContentColor,
-        tonalElevation = 0.dp,
-        properties = properties
-    )
-}
-
-
 /**
  * 紧凑版玻璃弹窗：M3 AlertDialog 的按钮区自带上下约 24dp 固定留白且无法
  * 通过参数调小，这里改用玻璃容器 + 右对齐紧凑操作行统一弹窗观感。
@@ -370,7 +328,7 @@ fun GlassCompactDialog(
                 .fillMaxWidth()
                 .border(glassBorder(), RoundedCornerShape(24.dp))
         ) {
-            Column(modifier = Modifier.padding(vertical = 20.dp)) {
+            Column(modifier = Modifier.padding(top = 20.dp, bottom = 12.dp)) {
                 if (title != null) {
                     Text(
                         text = title,
@@ -383,20 +341,23 @@ fun GlassCompactDialog(
                 }
                 if (text != null) {
                     Box(modifier = Modifier.padding(horizontal = 20.dp)) { text() }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (dismissButton != null) {
-                        dismissButton()
-                        Spacer(modifier = Modifier.width(8.dp))
+                // 取消 48dp 最小点击目标对按钮行的抬高，弹窗按钮本身已有 40dp 高度
+                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (dismissButton != null) {
+                            dismissButton()
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        confirmButton()
                     }
-                    confirmButton()
                 }
             }
         }

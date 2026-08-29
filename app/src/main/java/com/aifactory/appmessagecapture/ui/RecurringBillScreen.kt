@@ -72,7 +72,7 @@ import com.aifactory.appmessagecapture.data.RecurringBillEntity
 import com.aifactory.appmessagecapture.data.RecurringFrequency
 import com.aifactory.appmessagecapture.ui.components.SoftButton
 import com.aifactory.appmessagecapture.ui.components.SoftFab
-import com.aifactory.appmessagecapture.ui.components.GlassAlertDialog
+import com.aifactory.appmessagecapture.ui.components.GlassCompactDialog
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.theme.CategoryBeauty
@@ -228,9 +228,9 @@ fun RecurringBillScreen(
 
     // Delete confirmation dialog
     billToDelete?.let { bill ->
-        GlassAlertDialog(
+        GlassCompactDialog(
             onDismissRequest = { billToDelete = null },
-            title = { Text("删除周期账单") },
+            title = "删除周期账单",
             text = { Text("确定要删除「${bill.title}」的周期账单吗？") },
             confirmButton = {
                 TextButton(onClick = {

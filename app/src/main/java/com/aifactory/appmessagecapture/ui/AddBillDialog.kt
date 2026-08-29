@@ -115,7 +115,6 @@ import com.aifactory.appmessagecapture.ui.components.SoftFab
 import com.aifactory.appmessagecapture.ui.components.SoftGradientCard
 import com.aifactory.appmessagecapture.ui.components.SwipeableItem
 import com.aifactory.appmessagecapture.ui.components.SwipeableItemCoordinator
-import com.aifactory.appmessagecapture.ui.components.GlassAlertDialog
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.components.glassHighlightBrush

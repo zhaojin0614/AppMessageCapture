@@ -122,7 +122,7 @@ import com.aifactory.appmessagecapture.data.NotificationEntity
 import com.aifactory.appmessagecapture.service.PaymentScreenAccessibilityService
 import com.aifactory.appmessagecapture.ui.components.SoftFab
 import com.aifactory.appmessagecapture.ui.components.SwipeableItem
-import com.aifactory.appmessagecapture.ui.components.GlassAlertDialog
+import com.aifactory.appmessagecapture.ui.components.GlassCompactDialog
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.components.gradientBrush
@@ -590,9 +590,9 @@ fun MainScreen(
     if (showClearDialog) {
         val visibleIds = notifications.map { it.id }
         val isFiltered = visibleIds.size < count
-        GlassAlertDialog(
+        GlassCompactDialog(
             onDismissRequest = { showClearDialog = false },
-            title = { Text(if (isFiltered) "确认删除筛选结果" else "确认清空") },
+            title = if (isFiltered) "确认删除筛选结果" else "确认清空",
             text = {
                 Text(
                     if (isFiltered)
@@ -625,9 +625,9 @@ fun MainScreen(
 
     // Single item delete confirmation
     if (notificationToDelete != null) {
-        GlassAlertDialog(
+        GlassCompactDialog(
             onDismissRequest = { notificationToDelete = null },
-            title = { Text("删除消息") },
+            title = "删除消息",
             text = { Text("确定要删除这条消息吗？") },
             confirmButton = {
                 TextButton(
@@ -649,9 +649,9 @@ fun MainScreen(
 
     // Multi-select delete confirmation
     if (showDeleteSelectedDialog) {
-        GlassAlertDialog(
+        GlassCompactDialog(
             onDismissRequest = { showDeleteSelectedDialog = false },
-            title = { Text("删除选中消息") },
+            title = "删除选中消息",
             text = { Text("确定要删除选中的 ${selectedIds.size} 条消息吗？此操作不可恢复。") },
             confirmButton = {
                 TextButton(
@@ -997,9 +997,9 @@ fun AppFilterDialog(
 ) {
     val isAllShown = filteredApps.isEmpty()
 
-    GlassAlertDialog(
+    GlassCompactDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.filter_apps)) },
+        title = stringResource(R.string.filter_apps),
         text = {
             Column {
                 Text(
@@ -1045,9 +1045,9 @@ fun BlockedAppsDialog(
 ) {
     val isNoneBlocked = blockedApps.isEmpty()
 
-    GlassAlertDialog(
+    GlassCompactDialog(
         onDismissRequest = onDismiss,
-        title = { Text("屏蔽管理") },
+        title = "屏蔽管理",
         text = {
             Column {
                 Text(
@@ -1223,9 +1223,9 @@ fun ExportDialog(
     onExportCsv: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    GlassAlertDialog(
+    GlassCompactDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.export)) },
+        title = stringResource(R.string.export),
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Card(

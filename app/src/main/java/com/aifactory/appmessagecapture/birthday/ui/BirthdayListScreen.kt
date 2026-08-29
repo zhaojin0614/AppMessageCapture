@@ -78,7 +78,7 @@ import com.aifactory.appmessagecapture.birthday.ui.components.EmptyBirthdayState
 import com.aifactory.appmessagecapture.birthday.utils.PermissionHelper
 import com.aifactory.appmessagecapture.ui.components.SoftFab
 import com.aifactory.appmessagecapture.ui.components.SwipeableItem
-import com.aifactory.appmessagecapture.ui.components.GlassAlertDialog
+import com.aifactory.appmessagecapture.ui.components.GlassCompactDialog
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.components.gradientBrush
@@ -441,9 +441,9 @@ fun BirthdayListScreen(
 
     // 单条删除确认对话框
     if (showDeleteDialog && deleteTargetId != null) {
-        GlassAlertDialog(
+        GlassCompactDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("删除生日记录") },
+            title = "删除生日记录",
             text = { Text("确定要删除这条生日记录吗？相关的闹钟提醒也会被一并取消。") },
             confirmButton = {
                 TextButton(
@@ -467,9 +467,9 @@ fun BirthdayListScreen(
 
     // 批量删除确认对话框
     if (showDeleteSelectedDialog) {
-        GlassAlertDialog(
+        GlassCompactDialog(
             onDismissRequest = { showDeleteSelectedDialog = false },
-            title = { Text("删除选中记录") },
+            title = "删除选中记录",
             text = { Text("确定要删除选中的 ${selectedIds.size} 条生日记录吗？相关的闹钟提醒也会被一并取消。此操作不可恢复。") },
             confirmButton = {
                 TextButton(
@@ -515,9 +515,9 @@ private fun BirthdaySettingsDialog(
     onOpenPermissionSettings: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    GlassAlertDialog(
+    GlassCompactDialog(
         onDismissRequest = onDismiss,
-        title = { Text("设置") },
+        title = "设置",
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Card(

@@ -58,7 +58,7 @@ import com.aifactory.appmessagecapture.ui.components.SoftButton
 import com.aifactory.appmessagecapture.ui.components.SoftCard
 import com.aifactory.appmessagecapture.ui.components.SoftFab
 import com.aifactory.appmessagecapture.ui.components.SoftGradientCard
-import com.aifactory.appmessagecapture.ui.components.GlassAlertDialog
+import com.aifactory.appmessagecapture.ui.components.GlassCompactDialog
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassHighlightBrush
 import com.aifactory.appmessagecapture.ui.components.isDarkTheme
@@ -234,12 +234,12 @@ fun PlatformAccountScreen(
     // 删除确认弹窗
     if (deletingAccount != null) {
         val account = deletingAccount!!
-        GlassAlertDialog(
+        GlassCompactDialog(
             onDismissRequest = {
                 deletingAccount = null
                 viewModel.consumeDeleteResult()
             },
-            title = { Text("删除平台") },
+            title = "删除平台",
             text = {
                 Text(
                     "确定要删除「${account.name}」吗？\n" +
@@ -279,12 +279,12 @@ fun PlatformAccountScreen(
         }
     }
     if (deleteResultMessage != null) {
-        GlassAlertDialog(
+        GlassCompactDialog(
             onDismissRequest = { deleteResultMessage = null },
             confirmButton = {
                 TextButton(onClick = { deleteResultMessage = null }) { Text("知道了") }
             },
-            title = { Text("提示") },
+            title = "提示",
             text = { Text(deleteResultMessage!!) }
         )
     }
