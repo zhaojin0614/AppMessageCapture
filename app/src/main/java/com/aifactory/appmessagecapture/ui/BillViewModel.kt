@@ -7,6 +7,7 @@ import com.aifactory.appmessagecapture.data.AccountRepository
 import com.aifactory.appmessagecapture.data.AppDatabase
 import com.aifactory.appmessagecapture.data.BillEntity
 import com.aifactory.appmessagecapture.data.PlatformAccountEntity
+import com.aifactory.appmessagecapture.service.BillNotificationHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -133,6 +134,8 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
             viewModelScope.launch(Dispatchers.IO) {
                 // 走 repository 逐个删除，保证已对账账单的余额回滚
                 ids.forEach { repository.deleteBillWithRollback(it) }
+                // 联动清除被删账单的常驻通知，避免通知栏残留死入口
+                BillNotificationHelper.cancelNotificationsForBills(getApplication(), ids)
             }
             _selectedIds.value = emptySet()
         }
@@ -178,12 +181,16 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteBill(id: Long) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteBillWithRollback(id)
+            // 联动清除该账单的常驻通知
+            BillNotificationHelper.cancelNotificationsForBills(getApplication(), listOf(id))
         }
     }
 
     fun deleteAll() {
         viewModelScope.launch(Dispatchers.IO) {
             billDao.deleteAll()
+            // 清空账单时移除全部账单通知
+            BillNotificationHelper.cancelNotificationsForBills(getApplication(), null)
         }
     }
 }

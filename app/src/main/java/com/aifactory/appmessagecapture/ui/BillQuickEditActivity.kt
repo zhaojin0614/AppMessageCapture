@@ -94,9 +94,23 @@ class BillQuickEditActivity : ComponentActivity() {
                 QuickEditDialog(
                     billId = billId,
                     onDismiss = { finish() },
+                    onBillMissing = { onBillMissing() },
                     onSave = { applyEdits(it.first, it.second, it.third, it.fourth) }
                 )
             }
+        }
+    }
+
+    /**
+     * 账单已不存在（App 内已删除/清空，但常驻通知还挂着）：
+     * 清除残留通知后退出弹窗，避免无限加载。
+     */
+    private fun onBillMissing() {
+        val appContext = applicationContext
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) { cancelBillNotification(appContext) }
+            Toast.makeText(appContext, "该账单已删除，通知已清除", Toast.LENGTH_SHORT).show()
+            finish()
         }
     }
 
@@ -146,6 +160,7 @@ class BillQuickEditActivity : ComponentActivity() {
 private fun QuickEditDialog(
     billId: Long,
     onDismiss: () -> Unit,
+    onBillMissing: () -> Unit,
     onSave: (Quadruple<String?, PlatformAccountEntity?, Boolean, Boolean>) -> Unit
 ) {
     val context = LocalContext.current
@@ -155,11 +170,16 @@ private fun QuickEditDialog(
     var saving by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
+        var missing = false
         withContext(Dispatchers.IO) {
             val db = AppDatabase.getDatabase(context)
-            bill = db.billDao().getBillByIdOnce(billId)
+            val loaded = db.billDao().getBillByIdOnce(billId)
             platforms = db.platformAccountDao().getAllOnce()
+            bill = loaded
+            missing = loaded == null
         }
+        // 账单已删除（通知残留）→ 清除通知并退出，不能停在加载态
+        if (missing) onBillMissing()
     }
 
     // 半透明遮罩：点击空白处关闭（保存中不允许）；内容区消费点击防止穿透

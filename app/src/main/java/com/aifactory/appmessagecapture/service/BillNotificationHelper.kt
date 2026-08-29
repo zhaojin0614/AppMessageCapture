@@ -105,7 +105,11 @@ object BillNotificationHelper {
 
         val color = if (bill.isIncome) 0xFF4CAF50.toInt() else 0xFFFF5252.toInt()
 
+        // bill_id 写入通知 extras：账单删除时按它匹配并联动清除对应通知
+        val extras = android.os.Bundle().apply { putLong(EXTRA_BILL_ID, bill.id) }
+
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setExtras(extras)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title)
             .setContentText(subText)
@@ -147,6 +151,25 @@ object BillNotificationHelper {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+    }
+
+    /**
+     * 账单被删除后联动清除其常驻通知。
+     * 按 [EXTRA_BILL_ID] 匹配当前活动的通知并逐条 cancel；
+     * 传 null 表示清除本应用全部账单通知（清空账单用）。
+     */
+    fun cancelNotificationsForBills(context: Context, billIds: Collection<Long>?) {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val targets = billIds?.toHashSet()
+        nm.activeNotifications
+            .filter { sbn ->
+                val extra = sbn.notification.extras.getLong(EXTRA_BILL_ID, -1L)
+                when (targets) {
+                    null -> extra >= 0            // 带 bill_id 标记的均为账单通知
+                    else -> extra in targets
+                }
+            }
+            .forEach { nm.cancel(it.id) }
     }
 
     private fun createChannelIfNeeded(notificationManager: NotificationManager) {
