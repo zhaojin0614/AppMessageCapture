@@ -126,7 +126,6 @@ class SupportedPaymentAppsTest {
             )
         )
     }
-}
 
     @Test
     fun `支持清单与捕获通道同步`() {
