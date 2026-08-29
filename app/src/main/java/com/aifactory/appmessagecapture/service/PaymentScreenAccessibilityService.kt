@@ -163,10 +163,12 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         val out = mutableListOf<String>()
         val seen = HashSet<String>()
         var visited = 0
+        var windowCount = 0
 
         fun traverse(root: android.view.accessibility.AccessibilityNodeInfo?) {
             root ?: return
             if (root.packageName?.toString() !in SupportedPaymentApps.screenWatchPackages) return
+            windowCount++
             val queue = ArrayDeque<android.view.accessibility.AccessibilityNodeInfo>()
             queue.add(root)
             while (queue.isNotEmpty() && visited < MAX_NODES) {
@@ -198,6 +200,7 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         } catch (_: Exception) {
             // 部分 ROM 上 windows 访问可能异常，忽略（活动窗口已遍历）
         }
+        android.util.Log.d(TAG, "遍历完成: 窗口数=$windowCount visited=$visited collected=${out.size}")
         return out
     }
 
