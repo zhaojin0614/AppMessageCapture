@@ -95,7 +95,6 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
                     "含京东支付=${nodeTexts.any { it.contains("京东支付") }} " +
                     "样例=${nodeTexts.take(10)}"
             )
-            diagnoseMissingAmount()
             return
         }
 
@@ -128,47 +127,6 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         android.util.Log.d(TAG, "屏幕记账 $packageName ¥$amount ($appName) → $result")
     }
 
-    /**
-     * 诊断：金额行提取失败时，不做可见性过滤重扫全部窗口，
-     * 报告关键文本（京东支付/支付成功）的存在性与可见状态，
-     * 用于区分「滑出屏幕」「不可见子树」「独立窗口未捕获」三种可能。
-     */
-    private fun diagnoseMissingAmount() {
-        try {
-            var total = 0
-            var invisible = 0
-            val hits = mutableListOf<String>()
-            val windowInfo = mutableListOf<String>()
-
-            fun scan(root: android.view.accessibility.AccessibilityNodeInfo?) {
-                root ?: return
-                windowInfo.add("pkg=${root.packageName} class=${root.className}")
-                val queue = ArrayDeque<android.view.accessibility.AccessibilityNodeInfo>()
-                queue.add(root)
-                while (queue.isNotEmpty() && total < 3000) {
-                    val n = queue.removeFirst()
-                    total++
-                    val t = n.text?.toString()?.takeIf { it.isNotBlank() }
-                    if (t != null && (t.contains("京东支付") || t.contains("支付成功"))) {
-                        hits += (if (n.isVisibleToUser) "[可见]" else "[不可见]") + t.take(40)
-                    }
-                    if (!n.isVisibleToUser) invisible++
-                    for (i in 0 until n.childCount) n.getChild(i)?.let { queue.add(it) }
-                }
-            }
-
-            scan(rootInActiveWindow)
-            try {
-                windows?.forEach { scan(it.root) }
-            } catch (_: Exception) {
-            }
-            android.util.Log.d(
-                TAG, "诊断: total=$total invisible=$invisible windows=$windowInfo 命中=$hits"
-            )
-        } catch (e: Exception) {
-            android.util.Log.d(TAG, "诊断异常: ${e.message}")
-        }
-    }
 
     /**
      * 收集监视应用所有窗口的文本节点（广度优先：不可见子树剪枝 + 节点数上限）。
