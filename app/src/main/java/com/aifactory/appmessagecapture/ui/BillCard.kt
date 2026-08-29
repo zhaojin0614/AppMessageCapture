@@ -85,7 +85,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -174,11 +173,7 @@ fun BillCard(
                     onLongClick()
                 }
             )
-            .background(
-                if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                else Color.Transparent,
-                RoundedCornerShape(8.dp)
-            )
+            // 选中态只由勾选框表达，不再加背景层（与消息/生日列表统一）
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

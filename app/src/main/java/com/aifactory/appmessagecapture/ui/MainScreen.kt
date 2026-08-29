@@ -18,7 +18,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -831,14 +830,10 @@ fun NotificationCard(
 
     val iconBitmap by rememberAppIcon(notification.packageName)
 
+    // 选中态只由勾选框表达，卡片外观与未选中一致（与生日列表统一）
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .then(
-                if (isSelected)
-                    Modifier.background(gradientBrush(MaterialTheme.colorScheme.primaryContainer, alpha = 0.45f))
-                else Modifier
-            )
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = {
@@ -847,13 +842,9 @@ fun NotificationCard(
                 }
             ),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Color.Transparent else glassFill()
-        ),
+        colors = CardDefaults.cardColors(containerColor = glassFill()),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = if (isSelected)
-            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
-        else glassBorder()
+        border = glassBorder()
     ) {
         Row(
             modifier = Modifier
