@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -33,7 +34,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -44,6 +44,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
@@ -167,6 +168,7 @@ import com.aifactory.appmessagecapture.ui.theme.GradientIncomeStart
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.util.Locale
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -195,8 +197,6 @@ fun BillScreen(
     var billToDelete by remember { mutableStateOf<BillEntity?>(null) }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var selectedType by remember { mutableStateOf<String?>(null) } // null/全部, 支出, 收入
-    var showCategoryPicker by remember { mutableStateOf(false) }
-    var categoryBillToEdit by remember { mutableStateOf<BillEntity?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var billToEdit by remember { mutableStateOf<BillEntity?>(null) }
@@ -560,8 +560,9 @@ fun BillScreen(
                                 },
                                 onCategoryClick = { bill ->
                                     if (!isSelectionMode) {
-                                        categoryBillToEdit = bill
-                                        showCategoryPicker = true
+                                        // 点分类标签 = 打开同一个综合编辑界面
+                                        billToEdit = bill
+                                        showEditDialog = true
                                     }
                                 },
                                 onReconcile = { bill ->
@@ -581,54 +582,6 @@ fun BillScreen(
         }
     }
 
-    // Category picker dialog
-    if (showCategoryPicker && categoryBillToEdit != null) {
-        val bill = categoryBillToEdit!!
-        val availableCategories = if (bill.isIncome) {
-            IncomeCategories.all
-        } else {
-            ExpenseCategories.all
-        }
-        GlassAlertDialog(
-            onDismissRequest = {
-                showCategoryPicker = false
-                categoryBillToEdit = null
-            },
-            title = { Text(if (bill.isIncome) "修改收入分类" else "修改支出分类") },
-            text = {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(4),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 320.dp),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    items(availableCategories) { cat ->
-                        CategoryGridItem(
-                            label = cat,
-                            isSelected = bill.category == cat,
-                            onClick = {
-                                viewModel.updateCategory(bill.id, cat)
-                                showCategoryPicker = false
-                                categoryBillToEdit = null
-                            }
-                        )
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = {
-                    showCategoryPicker = false
-                    categoryBillToEdit = null
-                }) {
-                    Text("取消")
-                }
-            }
-        )
-    }
-
     // Add bill dialog
     if (showAddDialog) {
         AddBillDialog(
@@ -641,23 +594,31 @@ fun BillScreen(
         )
     }
 
-    // Edit bill dialog
+    // Edit bill dialog：标题/金额/分类/平台一个界面改完（与通知「完善账单」弹窗同布局）
     if (showEditDialog && billToEdit != null) {
         val bill = billToEdit!!
-        var editTitle by remember { mutableStateOf(bill.title) }
-        var editAmount by remember {
+        var editTitle by remember(bill.id) { mutableStateOf(bill.title) }
+        var editAmount by remember(bill.id) {
             mutableStateOf(
                 if (bill.amount % 1.0 == 0.0) bill.amount.toLong().toString()
                 else bill.amount.toString()
             )
         }
-        var showEditPlatformPicker by remember { mutableStateOf(false) }
+        var editCategory by remember(bill.id) { mutableStateOf(bill.category) }
+        var editPlatformId by remember(bill.id) { mutableStateOf(bill.platformAccountId) }
+
+        val titleChanged = editTitle.isNotBlank() && editTitle.trim() != bill.title
+        val amountChanged = (editAmount.toDoubleOrNull() ?: bill.amount) != bill.amount
+        val categoryChanged = editCategory != bill.category
+        val platformChanged = editPlatformId != bill.platformAccountId
+        val hasChanges = titleChanged || amountChanged || categoryChanged || platformChanged
+
         GlassAlertDialog(
             onDismissRequest = {
                 showEditDialog = false
                 billToEdit = null
             },
-            title = { Text("编辑账单") },
+            title = { Text(if (bill.isIncome) "编辑收入账单" else "编辑支出账单") },
             text = {
                 Column {
                     TextField(
@@ -668,7 +629,7 @@ fun BillScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     TextField(
                         value = editAmount,
                          colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, disabledContainerColor = Color.Transparent),
@@ -686,57 +647,71 @@ fun BillScreen(
                             fontWeight = FontWeight.Bold
                         )
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    // 平台修改入口
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 双栏：左分类 / 右平台，独立滚动
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable { showEditPlatformPicker = true }
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .height(240.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.AccountBalanceWallet,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = if (bill.isIncome) "存入平台" else "扣款平台",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                        val currentPlatformName = bill.platformAccountId?.let { id ->
-                            platforms.firstOrNull { it.id == id }?.name
+                        BillEditColumn(title = "分类", modifier = Modifier.weight(1f)) {
+                            val availableCategories = if (bill.isIncome) IncomeCategories.all
+                            else ExpenseCategories.all
+                            availableCategories.forEach { cat ->
+                                BillEditChip(
+                                    label = cat,
+                                    sub = null,
+                                    dotColor = getCategoryColor(cat),
+                                    selected = cat == editCategory,
+                                    onClick = { editCategory = cat }
+                                )
+                            }
                         }
-                        Text(
-                            text = currentPlatformName ?: "待对账",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (bill.platformAccountId != null)
-                                MaterialTheme.colorScheme.onSurface
-                            else ExpenseRed
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .fillMaxHeight()
+                                .padding(vertical = 4.dp)
+                                .background(MaterialTheme.colorScheme.outlineVariant)
                         )
+                        BillEditColumn(
+                            title = if (bill.isIncome) "存入平台" else "扣款平台",
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            BillEditChip(
+                                label = "待对账",
+                                sub = null,
+                                dotColor = null,
+                                selected = editPlatformId == null,
+                                onClick = { editPlatformId = null }
+                            )
+                            platforms.forEach { account ->
+                                BillEditChip(
+                                    label = account.name,
+                                    sub = "余额 ¥${String.format(Locale.getDefault(), "%.2f", account.balance)}",
+                                    dotColor = null,
+                                    selected = account.id == editPlatformId,
+                                    onClick = { editPlatformId = account.id }
+                                )
+                            }
+                        }
                     }
                 }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        if (editTitle.isNotBlank()) {
-                            viewModel.updateTitle(bill.id, editTitle)
+                        if (titleChanged) viewModel.updateTitle(bill.id, editTitle.trim())
+                        if (amountChanged) {
+                            editAmount.toDoubleOrNull()?.let { viewModel.updateAmount(bill.id, it) }
                         }
-                        val newAmount = editAmount.toDoubleOrNull()
-                        if (newAmount != null && newAmount > 0 && newAmount != bill.amount) {
-                            viewModel.updateAmount(bill.id, newAmount)
-                        }
+                        if (categoryChanged) viewModel.updateCategory(bill.id, editCategory)
+                        if (platformChanged) viewModel.reconcileBill(bill.id, editPlatformId)
                         showEditDialog = false
                         billToEdit = null
-                    }
+                    },
+                    enabled = hasChanges
                 ) {
                     Text("保存")
                 }
@@ -750,21 +725,6 @@ fun BillScreen(
                 }
             }
         )
-
-        // 编辑弹窗内的平台选择
-        if (showEditPlatformPicker) {
-            PlatformPickerDialog(
-                platforms = platforms,
-                selectedId = bill.platformAccountId,
-                onSelect = { id ->
-                    viewModel.reconcileBill(bill.id, id)
-                    showEditPlatformPicker = false
-                    // 更新本地引用以便 UI 即时反映
-                    billToEdit = bill.copy(platformAccountId = id)
-                },
-                onDismiss = { showEditPlatformPicker = false }
-            )
-        }
     }
 
     // Single item delete confirmation
@@ -1058,59 +1018,6 @@ fun CategoryChip(
     }
 }
 
-/**
- * Vertical grid item for category selection dialogs (AddBill / ChangeCategory).
- * Icon on top with a colored circle background, label below.
- * Uses Modifier.weight(1f) so 4 items fit perfectly in a row.
- */
-@Composable
-fun CategoryGridItem(
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    val categoryColor = getCategoryColor(label)
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onClick() }
-            .padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(
-                    if (isSelected) categoryColor
-                    else categoryColor.copy(alpha = 0.12f)
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            val iconRes = getCategoryIconRes(label)
-            if (iconRes != 0) {
-                Icon(
-                    painter = painterResource(id = iconRes),
-                    contentDescription = null,
-                    modifier = Modifier.size(22.dp),
-                    tint = if (isSelected) Color.White else categoryColor
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (isSelected) MaterialTheme.colorScheme.onSurface
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
 @Composable
 fun DayGroupCard(
     date: LocalDate,
@@ -1349,6 +1256,149 @@ private fun SupportedAppRow(app: SupportedCaptureApp) {
                     MaterialTheme.colorScheme.onSecondaryContainer,
                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
             )
+        }
+    }
+}
+
+/**
+ * Vertical grid item for category selection dialogs (AddBill / ChangeCategory).
+ * Icon on top with a colored circle background, label below.
+ * Uses Modifier.weight(1f) so 4 items fit perfectly in a row.
+ */
+@Composable
+fun CategoryGridItem(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val categoryColor = getCategoryColor(label)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(
+                    if (isSelected) categoryColor
+                    else categoryColor.copy(alpha = 0.12f)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            val iconRes = getCategoryIconRes(label)
+            if (iconRes != 0) {
+                Icon(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp),
+                    tint = if (isSelected) Color.White else categoryColor
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (isSelected) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/** 编辑弹窗的双栏单列：栏标题 + 纵向滚动选项（分类/平台共用） */
+@Composable
+private fun BillEditColumn(
+    title: String,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Column(modifier = modifier.fillMaxHeight()) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxHeight()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp)
+        ) {
+            content()
+            Spacer(modifier = Modifier.height(6.dp))
+        }
+    }
+}
+
+/** 编辑弹窗的紧凑选项行：可选色点（分类）+ 名称 + 可选副文本（平台余额） */
+@Composable
+private fun BillEditChip(
+    label: String,
+    sub: String?,
+    dotColor: Color?,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val bg = if (selected) MaterialTheme.colorScheme.primaryContainer
+    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = bg,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (dotColor != null) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(dotColor, CircleShape)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (sub != null) {
+                    Text(
+                        text = sub,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
         }
     }
 }
