@@ -53,6 +53,11 @@
             android:exported="false"
             android:theme="@style/Theme.AppMessageCapture.QuickEdit" />
 
+        <!-- 通知「删除」按钮：直接删除该笔自动捕获的账单 -->
+        <receiver
+            android:name=".service.BillDeleteReceiver"
+            android:exported="false" />
+
         <!-- Notification Listener Service -->
         <service
             android:name=".service.MessageCaptureService"

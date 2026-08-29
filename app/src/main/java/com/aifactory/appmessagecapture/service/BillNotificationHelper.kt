@@ -22,11 +22,13 @@ import java.util.Locale
  * 账单识别成功后的通知帮助类。
  *
  * 当后台服务成功识别并记录一笔账单时，推送一条系统通知。通知包含：
- * 记账成功金额、分类、扣款平台（或「待对账」）、时间、今日统计，以及两个操作：
+ * 记账成功金额、分类、扣款平台（或「待对账」）、时间、今日统计，以及三个操作：
  * - 去查看：打开 App 记账 Tab（打开后该通知自动清除）
  * - 完善账单：打开 [BillQuickEditActivity] 双栏弹窗，左侧选分类、右侧选
  *   扣款平台，一次保存两项（平台经 AccountRepository 联动余额），
- *   保存后通知清除，无需进 App 逐条确认。
+ *   保存后通知清除，无需进 App 逐条确认
+ * - 删除：丢弃这笔账单（[BillDeleteReceiver] 事务删除并回滚已对账
+ *   平台余额），通知随之清除
  *
  * 通知为常驻（setOngoing）：不会被系统回收、不能下滑清除，直到用户完成
  * 任一操作（保存/去查看）才消失。注：屏幕顶部的悬浮横幅在几秒后收起是
@@ -127,6 +129,7 @@ object BillNotificationHelper {
             .setContentIntent(contentPendingIntent)
             .addAction(0, "去查看", contentPendingIntent)
             .addAction(0, "完善账单", quickEditPendingIntent(context, bill.id, notificationId))
+            .addAction(0, "删除", deletePendingIntent(context, bill.id, notificationId))
             .build()
 
         notificationManager.notify(notificationId, notification)
@@ -170,6 +173,26 @@ object BillNotificationHelper {
                 }
             }
             .forEach { nm.cancel(it.id) }
+    }
+
+    /** 「删除」按钮 → 广播直删该笔账单（事务回滚余额）并清除通知 */
+    private fun deletePendingIntent(
+        context: Context,
+        billId: Long,
+        notificationId: Int
+    ): PendingIntent {
+        val intent = Intent(context, BillDeleteReceiver::class.java).apply {
+            putExtra(EXTRA_BILL_ID, billId)
+            putExtra(EXTRA_NOTIFICATION_ID, notificationId)
+        }
+        // requestCode 与完善账单入口（shl 1，偶数）错开：奇数
+        val requestCode = ((billId and 0x3FFFFFFF).toInt() shl 1) or 1
+        return PendingIntent.getBroadcast(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     private fun createChannelIfNeeded(notificationManager: NotificationManager) {
