@@ -43,7 +43,6 @@ class PaymentScreenParsingTest {
     fun `京东支付成功页被识别且金额提取为30_38`() {
         val pageText = jdSuccessPageNodes.joinToString("\n")
         assertTrue(PaymentScreenParsing.isPaymentSuccessPage("com.jingdong.app.mall", pageText))
-        assertTrue(PaymentScreenParsing.isPaymentSuccessPage("com.jd.jrapp", pageText))
 
         val (line, amount) = PaymentScreenParsing.extractAmountLine(jdSuccessPageNodes)!!
         assertEquals("京东支付¥30.38，共优惠¥0.02", line)
@@ -110,12 +109,13 @@ class PaymentScreenParsingTest {
         // 京东 App 加入了屏幕监视名单，但其通知仍不应被通知通道捕获（营销推送噪音大）
         assertFalse(SupportedPaymentApps.isBillNotification("com.jingdong.app.mall", "京东", "任意内容"))
         assertTrue(SupportedPaymentApps.isScreenCaptureApp("com.jingdong.app.mall"))
-        assertTrue(SupportedPaymentApps.isScreenCaptureApp("com.jd.jrapp"))
+        // 未实测的应用不在监视名单（大众点评/京东金融/百度钱包已移除）
+        assertFalse(SupportedPaymentApps.isScreenCaptureApp("com.jd.jrapp"))
+        assertFalse(SupportedPaymentApps.isScreenCaptureApp("com.dianping.v1"))
+        assertFalse(SupportedPaymentApps.isScreenCaptureApp("com.baidu.wallet"))
         assertFalse(SupportedPaymentApps.isScreenCaptureApp("com.tencent.mm"))
-        // 屏幕捕获来源与京东金融同权重，跨 App 合并时互不覆盖
-        assertEquals(
-            SupportedPaymentApps.appWeight("com.jd.jrapp"),
-            SupportedPaymentApps.appWeight("com.jingdong.app.mall")
-        )
+        // 其通知与通知门槛同样被移除（未实测）
+        assertFalse(SupportedPaymentApps.isBillNotification("com.dianping.v1", "任意", "任意"))
+        assertFalse(SupportedPaymentApps.isBillNotification("com.baidu.wallet", "任意", "任意"))
     }
 }

@@ -14,10 +14,7 @@
 #   alipay    支付宝      com.eg.android.AlipayGphone
 #   meituan   美团        com.sankuai.meituan
 #   waimai    美团外卖    com.sankuai.meituan.takeoutnew
-#   dianping  大众点评    com.dianping.v1
-#   jd        京东金融    com.jd.jrapp
 #   jdapp     京东        com.jingdong.app.mall
-#   wallet    百度钱包    com.baidu.wallet
 #   unionpay  云闪付      com.unionpay
 #   abc       农业银行    com.android.bankabc
 #   dss       抖省省      com.ss.android.ugc.lifeservices
@@ -61,7 +58,7 @@ done
 
 if [[ ${#ARGS[@]} -ne 3 ]]; then
     echo "用法: $0 <应用别名|包名> <标题> <内容> [--screen]"
-    echo "别名: wechat alipay meituan waimai dianping jd jdapp wallet unionpay abc dss"
+    echo "别名: wechat alipay meituan waimai jdapp unionpay abc dss"
     exit 1
 fi
 
@@ -70,10 +67,7 @@ case "${ARGS[0]}" in
     alipay)   PKG="com.eg.android.AlipayGphone" ;;
     meituan)  PKG="com.sankuai.meituan" ;;
     waimai)   PKG="com.sankuai.meituan.takeoutnew" ;;
-    dianping) PKG="com.dianping.v1" ;;
-    jd)       PKG="com.jd.jrapp" ;;
     jdapp)    PKG="com.jingdong.app.mall" ;;
-    wallet)   PKG="com.baidu.wallet" ;;
     unionpay) PKG="com.unionpay" ;;
     abc)      PKG="com.android.bankabc" ;;
     dss)      PKG="com.ss.android.ugc.lifeservices" ;;

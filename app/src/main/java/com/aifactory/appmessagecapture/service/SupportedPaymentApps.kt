@@ -28,9 +28,6 @@ object SupportedPaymentApps {
                 content.contains("支出")
             "com.ss.android.ugc.lifeservices" ->   // 抖省省（抖音团购）
                 title.contains("支付成功")
-            "com.dianping.v1",                     // Dianping
-            "com.jd.jrapp",                        // JD Finance
-            "com.baidu.wallet" -> true             // Baidu Wallet
             else -> false
         }
     }
@@ -42,8 +39,7 @@ object SupportedPaymentApps {
      * res/xml/payment_screen_accessibility_config.xml 的 packageNames）。
      */
     val screenWatchPackages = setOf(
-        "com.jingdong.app.mall",   // 京东（支付成功页不发系统通知）
-        "com.jd.jrapp"             // 京东金融
+        "com.jingdong.app.mall"    // 京东（支付成功页不发系统通知）
     )
 
     fun isScreenCaptureApp(packageName: String): Boolean =
@@ -59,11 +55,8 @@ object SupportedPaymentApps {
         return when (packageName) {
             "com.sankuai.meituan",
             "com.sankuai.meituan.takeoutnew" -> 100 // Meituan
-            "com.dianping.v1" -> 90                  // Dianping
             "com.ss.android.ugc.lifeservices" -> 90  // 抖省省（团购商户）
-            "com.jingdong.app.mall" -> 80            // 京东（屏幕捕获，与京东金融同档）
-            "com.jd.jrapp" -> 80                     // JD Finance
-            "com.baidu.wallet" -> 70                 // Baidu Wallet
+            "com.jingdong.app.mall" -> 80            // 京东（屏幕捕获）
             "com.eg.android.AlipayGphone" -> 50      // Alipay
             "com.tencent.mm" -> 50                   // WeChat
             "com.unionpay" -> 50                     // UnionPay
