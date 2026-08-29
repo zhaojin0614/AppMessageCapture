@@ -13,6 +13,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -28,24 +29,45 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _weeksToLoad = MutableStateFlow(1)
 
-    val allBills: StateFlow<List<BillEntity>> = _weeksToLoad
-        .flatMapLatest { weeks ->
-            val since = System.currentTimeMillis() - weeks * 7L * 24 * 60 * 60 * 1000
-            billDao.getBillsSince(since)
+    // ── 记账页筛选状态（null = 不过滤该维度）────────────────────────────
+    private val _typeFilter = MutableStateFlow<Boolean?>(null)     // true=收入 false=支出
+    private val _categoryFilter = MutableStateFlow<String?>(null)
+
+    /** UI 调用：切换 全部/支出/收入 类型筛选 */
+    fun setTypeFilter(typeLabel: String?) {
+        _typeFilter.value = when (typeLabel) {
+            "收入" -> true
+            "支出" -> false
+            else -> null
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }
+
+    /** UI 调用：切换分类筛选（null/「全部」= 不过滤） */
+    fun setCategoryFilter(category: String?) {
+        _categoryFilter.value = category?.takeIf { it != "全部" }
+    }
 
     /**
-     * 当前加载窗口之前是否还有更早的账单。
-     * 列表按周分页加载（默认 1 周），收入等低频账单可能不在首个窗口内，
-     * UI 在过滤结果为空时依据它自动扩窗，否则空列表永远无法触发加载更多。
+     * 记账页账单列表。
+     *
+     * - 无任何筛选时：按周滚动分页（[_weeksToLoad]，默认最近 1 周，
+     *   滚动到底加载更多），避免全量列表常驻内存；
+     * - 有筛选时：直接按条件查库（[BillDao.getBillsFiltered]），不受
+     *   分页窗口限制——筛选是明确意图，若只在窗口内过滤，窗口里没有
+     *   目标类型账单时结果会恒为空（如最近一周无收入却筛选收入）。
      */
-    val hasEarlierBills: StateFlow<Boolean> = _weeksToLoad
-        .flatMapLatest { weeks ->
-            val threshold = System.currentTimeMillis() - weeks * 7L * 24 * 60 * 60 * 1000
-            billDao.hasBillsEarlierThan(threshold)
+    val bills: StateFlow<List<BillEntity>> = combine(
+        _typeFilter, _categoryFilter, _weeksToLoad
+    ) { type, category, weeks ->
+        Triple(type, category, weeks)
+    }.flatMapLatest { (type, category, weeks) ->
+        if (type == null && category == null) {
+            val since = System.currentTimeMillis() - weeks * 7L * 24 * 60 * 60 * 1000
+            billDao.getBillsSince(since)
+        } else {
+            billDao.getBillsFiltered(type, category)
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun loadMoreWeeks() {
         // 上限 520 周（约 10 年），防止异常数据导致窗口无限膨胀

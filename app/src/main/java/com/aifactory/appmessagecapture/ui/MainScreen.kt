@@ -60,7 +60,6 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -83,7 +82,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -105,7 +103,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -113,12 +110,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat.startActivity
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.R
 import com.aifactory.appmessagecapture.data.NotificationEntity
-import com.aifactory.appmessagecapture.service.PaymentScreenAccessibilityService
 import com.aifactory.appmessagecapture.ui.components.SoftFab
 import com.aifactory.appmessagecapture.ui.components.SwipeableItem
 import com.aifactory.appmessagecapture.ui.components.GlassAlertDialog
@@ -180,18 +174,6 @@ fun MainScreen(
     var searchQuery by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-
-    // 屏幕记账（无障碍）开关状态：从系统设置页返回时刷新角标
-    var a11yResumeKey by remember { mutableStateOf(0) }
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) a11yResumeKey++
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-    val screenBillLive = remember(a11yResumeKey) { PaymentScreenAccessibilityService.isLive }
 
     // Pull-down stats panel
     val pullOffset = remember { Animatable(0f) }
@@ -362,25 +344,6 @@ fun MainScreen(
                                 Icon(
                                     imageVector = Icons.Default.DoNotDisturbOn,
                                     contentDescription = "屏蔽管理",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        // 屏幕记账（无障碍）权限入口；未开启时角标提醒
-                        BadgedBox(
-                            badge = {
-                                if (!screenBillLive) {
-                                    Badge(containerColor = MaterialTheme.colorScheme.tertiary)
-                                }
-                            }
-                        ) {
-                            IconButton(onClick = {
-                                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                                startActivity(context, intent, null)
-                            }) {
-                                Icon(
-                                    imageVector = Icons.Default.Visibility,
-                                    contentDescription = stringResource(R.string.accessibility_settings),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }

@@ -82,7 +82,6 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -164,7 +163,7 @@ fun BillScreen(
     modifier: Modifier = Modifier,
     viewModel: BillViewModel = viewModel()
 ) {
-    val bills by viewModel.allBills.collectAsState()
+    val bills by viewModel.bills.collectAsState()
     val totalExpense by viewModel.totalExpense.collectAsState()
     val totalIncome by viewModel.totalIncome.collectAsState()
     val totalAccountBalance by viewModel.totalAccountBalance.collectAsState()
@@ -228,28 +227,13 @@ fun BillScreen(
     }
     val typeFilters = listOf("全部", "支出", "收入")
 
-    val filteredBills = remember(selectedCategory, selectedType, bills) {
-        bills.filter { bill ->
-            val categoryMatch = selectedCategory == null || selectedCategory == "全部" || bill.category == selectedCategory
-            val typeMatch = when (selectedType) {
-                "支出" -> !bill.isIncome
-                "收入" -> bill.isIncome
-                else -> true
-            }
-            categoryMatch && typeMatch
-        }
-    }
+    val filteredBills = bills
 
-    // 过滤结果为空时自动扩大历史窗口：列表默认只加载最近一周，收入等低频
-    // 账单可能在更早的周里；而「滚动到底才加载更多」在空列表下永远不会触发，
-    // 不扩窗的话收入/支出视图会恒为空。扩到库里再无更早账单为止。
-    val currentFilteredBills by rememberUpdatedState(filteredBills)
-    LaunchedEffect(Unit) {
-        viewModel.hasEarlierBills.collect { hasEarlier ->
-            if (hasEarlier && currentFilteredBills.isEmpty()) {
-                viewModel.loadMoreWeeks()
-            }
-        }
+    // 筛选条件下沉到 ViewModel 直接查库：类型/分类变化即重查，
+    // 不受「全部」视图滚动分页窗口限制（否则窗口内无目标类型时恒空）
+    LaunchedEffect(selectedType, selectedCategory) {
+        viewModel.setTypeFilter(selectedType)
+        viewModel.setCategoryFilter(selectedCategory)
     }
 
     // Pull-down stats panel

@@ -13,9 +13,23 @@ interface BillDao {
     @Query("SELECT * FROM bills WHERE timestamp >= :since ORDER BY timestamp DESC")
     fun getBillsSince(since: Long): Flow<List<BillEntity>>
 
-    /** 当前加载窗口之前是否还有更早的账单（空结果时自动扩窗的终止条件） */
+    /** 当前加载窗口之前是否还有更早的账单（全部视图滚动分页的边界判断） */
     @Query("SELECT EXISTS(SELECT 1 FROM bills WHERE timestamp < :threshold)")
     fun hasBillsEarlierThan(threshold: Long): Flow<Boolean>
+
+    /**
+     * 按类型/分类直接查库（记账页筛选用）。
+     * 不受「全部」视图的滚动分页窗口限制：筛选是明确意图，全库匹配，
+     * 避免窗口内没有目标类型账单时筛选结果恒空。
+     * 传 null 表示该维度不过滤。
+     */
+    @Query(
+        """SELECT * FROM bills
+           WHERE (:type IS NULL OR isIncome = :type)
+             AND (:category IS NULL OR category = :category)
+           ORDER BY timestamp DESC"""
+    )
+    fun getBillsFiltered(type: Boolean?, category: String?): Flow<List<BillEntity>>
 
     @Query("SELECT * FROM bills WHERE timestamp >= :since ORDER BY timestamp DESC")
     fun getBillsSinceOnce(since: Long): List<BillEntity>
