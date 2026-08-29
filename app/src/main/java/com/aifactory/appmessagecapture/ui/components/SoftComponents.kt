@@ -25,11 +25,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -46,6 +49,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.aifactory.appmessagecapture.ui.theme.GradientBrandEnd
 import com.aifactory.appmessagecapture.ui.theme.GradientBrandStart
 import com.aifactory.appmessagecapture.ui.theme.MistBlue
@@ -336,6 +340,67 @@ fun GlassAlertDialog(
         tonalElevation = 0.dp,
         properties = properties
     )
+}
+
+
+/**
+ * 紧凑版玻璃弹窗：M3 AlertDialog 的按钮区自带上下约 24dp 固定留白且无法
+ * 通过参数调小，这里改用玻璃容器 + 右对齐紧凑操作行统一弹窗观感。
+ * [text] 承载任意内容（表单/列表均可），[title] 为空时不占标题区。
+ */
+@Composable
+fun GlassCompactDialog(
+    onDismissRequest: () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    dismissButton: (@Composable () -> Unit)? = null,
+    title: String? = null,
+    text: (@Composable () -> Unit)? = null,
+    properties: androidx.compose.ui.window.DialogProperties =
+        androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismissRequest, properties = properties) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface.copy(
+                alpha = if (isDarkTheme()) 0.90f else 0.93f
+            ),
+            modifier = modifier
+                .padding(horizontal = 24.dp)
+                .fillMaxWidth()
+                .border(glassBorder(), RoundedCornerShape(24.dp))
+        ) {
+            Column(modifier = Modifier.padding(vertical = 20.dp)) {
+                if (title != null) {
+                    Text(
+                        text = title,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(horizontal = 20.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+                if (text != null) {
+                    Box(modifier = Modifier.padding(horizontal = 20.dp)) { text() }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (dismissButton != null) {
+                        dismissButton()
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    confirmButton()
+                }
+            }
+        }
+    }
 }
 
 // ---------- SoftFab: floating circular action button ----------

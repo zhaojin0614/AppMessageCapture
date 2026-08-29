@@ -116,8 +116,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat.startActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -130,7 +128,7 @@ import com.aifactory.appmessagecapture.ui.components.SoftFab
 import com.aifactory.appmessagecapture.ui.components.SoftGradientCard
 import com.aifactory.appmessagecapture.ui.components.SwipeableItem
 import com.aifactory.appmessagecapture.ui.components.SwipeableItemCoordinator
-import com.aifactory.appmessagecapture.ui.components.GlassAlertDialog
+import com.aifactory.appmessagecapture.ui.components.GlassCompactDialog
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.components.glassHighlightBrush
@@ -614,156 +612,128 @@ fun BillScreen(
         val platformChanged = editPlatformId != bill.platformAccountId
         val hasChanges = titleChanged || amountChanged || categoryChanged || platformChanged
 
-        // 紧凑自定义弹窗：M3 AlertDialog 按钮区自带上下大留白，这里改用
-        // 玻璃容器 + 右对齐紧凑操作行（与通知「完善账单」弹窗观感一致）
-        Dialog(
+        GlassCompactDialog(
             onDismissRequest = {
                 showEditDialog = false
                 billToEdit = null
             },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Surface(
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surface.copy(
-                    alpha = if (isDarkTheme()) 0.90f else 0.93f
-                ),
-                modifier = Modifier
-                    .padding(horizontal = 24.dp)
-                    .fillMaxWidth()
-                    .border(glassBorder(), RoundedCornerShape(24.dp))
-            ) {
-                Column(modifier = Modifier.padding(vertical = 20.dp)) {
-                    Text(
-                        text = if (bill.isIncome) "编辑收入账单" else "编辑支出账单",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(horizontal = 20.dp)
+            title = if (bill.isIncome) "编辑收入账单" else "编辑支出账单",
+            text = {
+                Column {
+                    TextField(
+                        value = editTitle,
+                         colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, disabledContainerColor = Color.Transparent),
+                        onValueChange = { editTitle = it },
+                        label = { Text("标题") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                        TextField(
-                            value = editTitle,
-                             colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, disabledContainerColor = Color.Transparent),
-                            onValueChange = { editTitle = it },
-                            label = { Text("标题") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextField(
+                        value = editAmount,
+                         colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, disabledContainerColor = Color.Transparent),
+                        onValueChange = { newValue ->
+                            // 仅允许数字与小数点
+                            if (newValue.all { it.isDigit() || it == '.' }) {
+                                editAmount = newValue
+                            }
+                        },
+                        label = { Text("金额") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        prefix = { Text("¥") },
+                        textStyle = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        TextField(
-                            value = editAmount,
-                             colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, disabledContainerColor = Color.Transparent),
-                            onValueChange = { newValue ->
-                                // 仅允许数字与小数点
-                                if (newValue.all { it.isDigit() || it == '.' }) {
-                                    editAmount = newValue
-                                }
-                            },
-                            label = { Text("金额") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            prefix = { Text("¥") },
-                            textStyle = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                        // 双栏：左分类 / 右平台，独立滚动
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(240.dp)
-                        ) {
-                            BillEditColumn(title = "分类", modifier = Modifier.weight(1f)) {
-                                val availableCategories = if (bill.isIncome) IncomeCategories.all
-                                else ExpenseCategories.all
-                                availableCategories.forEach { cat ->
-                                    BillEditChip(
-                                        label = cat,
-                                        sub = null,
-                                        dotColor = getCategoryColor(cat),
-                                        selected = cat == editCategory,
-                                        onClick = { editCategory = cat }
-                                    )
-                                }
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .width(1.dp)
-                                    .fillMaxHeight()
-                                    .padding(vertical = 4.dp)
-                                    .background(MaterialTheme.colorScheme.outlineVariant)
-                            )
-                            BillEditColumn(
-                                title = if (bill.isIncome) "存入平台" else "扣款平台",
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                BillEditChip(
-                                    label = "待对账",
-                                    sub = null,
-                                    dotColor = null,
-                                    selected = editPlatformId == null,
-                                    onClick = { editPlatformId = null }
-                                )
-                                platforms.forEach { account ->
-                                    BillEditChip(
-                                        label = account.name,
-                                        sub = "余额 ¥${String.format(Locale.getDefault(), "%.2f", account.balance)}",
-                                        dotColor = null,
-                                        selected = account.id == editPlatformId,
-                                        onClick = { editPlatformId = account.id }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    // 底部操作行：紧凑边距，右对齐
+                    // 双栏：左分类 / 右平台，独立滚动
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
+                            .height(240.dp)
                     ) {
-                        TextButton(onClick = {
-                            showEditDialog = false
-                            billToEdit = null
-                        }) {
-                            Text("取消")
+                        BillEditColumn(title = "分类", modifier = Modifier.weight(1f)) {
+                            val availableCategories = if (bill.isIncome) IncomeCategories.all
+                            else ExpenseCategories.all
+                            availableCategories.forEach { cat ->
+                                BillEditChip(
+                                    label = cat,
+                                    sub = null,
+                                    dotColor = getCategoryColor(cat),
+                                    selected = cat == editCategory,
+                                    onClick = { editCategory = cat }
+                                )
+                            }
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        TextButton(
-                            onClick = {
-                                if (titleChanged) viewModel.updateTitle(bill.id, editTitle.trim())
-                                if (amountChanged) {
-                                    editAmount.toDoubleOrNull()?.let { viewModel.updateAmount(bill.id, it) }
-                                }
-                                if (categoryChanged) viewModel.updateCategory(bill.id, editCategory)
-                                if (platformChanged) viewModel.reconcileBill(bill.id, editPlatformId)
-                                showEditDialog = false
-                                billToEdit = null
-                            },
-                            enabled = hasChanges
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .fillMaxHeight()
+                                .padding(vertical = 4.dp)
+                                .background(MaterialTheme.colorScheme.outlineVariant)
+                        )
+                        BillEditColumn(
+                            title = if (bill.isIncome) "存入平台" else "扣款平台",
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Text("保存")
+                            BillEditChip(
+                                label = "待对账",
+                                sub = null,
+                                dotColor = null,
+                                selected = editPlatformId == null,
+                                onClick = { editPlatformId = null }
+                            )
+                            platforms.forEach { account ->
+                                BillEditChip(
+                                    label = account.name,
+                                    sub = "余额 ¥${String.format(Locale.getDefault(), "%.2f", account.balance)}",
+                                    dotColor = null,
+                                    selected = account.id == editPlatformId,
+                                    onClick = { editPlatformId = account.id }
+                                )
+                            }
                         }
                     }
                 }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (titleChanged) viewModel.updateTitle(bill.id, editTitle.trim())
+                        if (amountChanged) {
+                            editAmount.toDoubleOrNull()?.let { viewModel.updateAmount(bill.id, it) }
+                        }
+                        if (categoryChanged) viewModel.updateCategory(bill.id, editCategory)
+                        if (platformChanged) viewModel.reconcileBill(bill.id, editPlatformId)
+                        showEditDialog = false
+                        billToEdit = null
+                    },
+                    enabled = hasChanges
+                ) {
+                    Text("保存")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showEditDialog = false
+                    billToEdit = null
+                }) {
+                    Text("取消")
+                }
             }
-        }
+        )
     }
 
     // Single item delete confirmation
     if (showDeleteDialog && billToDelete != null) {
-        GlassAlertDialog(
+        GlassCompactDialog(
             onDismissRequest = {
                 showDeleteDialog = false
                 billToDelete = null
             },
-            title = { Text("删除账单") },
+            title = "删除账单",
             text = { Text("确定要删除这条账单记录吗？") },
             confirmButton = {
                 TextButton(
@@ -790,9 +760,9 @@ fun BillScreen(
 
     // Multi-select delete confirmation
     if (showDeleteSelectedDialog) {
-        GlassAlertDialog(
+        GlassCompactDialog(
             onDismissRequest = { showDeleteSelectedDialog = false },
-            title = { Text("删除选中账单") },
+            title = "删除选中账单",
             text = { Text("确定要删除选中的 ${selectedIds.size} 条账单记录吗？此操作不可恢复。") },
             confirmButton = {
                 TextButton(
@@ -1190,9 +1160,9 @@ private fun formatDayHeader(date: LocalDate): String {
  */
 @Composable
 fun SupportedAppsDialog(onDismiss: () -> Unit) {
-    GlassAlertDialog(
+    GlassCompactDialog(
         onDismissRequest = onDismiss,
-        title = { Text("支持自动记账的App") },
+        title = "支持自动记账的App",
         text = {
             Column {
                 Text(

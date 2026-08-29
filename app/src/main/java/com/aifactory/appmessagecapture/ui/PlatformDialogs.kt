@@ -115,7 +115,7 @@ import com.aifactory.appmessagecapture.ui.components.SoftFab
 import com.aifactory.appmessagecapture.ui.components.SoftGradientCard
 import com.aifactory.appmessagecapture.ui.components.SwipeableItem
 import com.aifactory.appmessagecapture.ui.components.SwipeableItemCoordinator
-import com.aifactory.appmessagecapture.ui.components.GlassAlertDialog
+import com.aifactory.appmessagecapture.ui.components.GlassCompactDialog
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.components.glassHighlightBrush
@@ -167,9 +167,9 @@ fun PlatformPickerDialog(
     onSelect: (Long?) -> Unit,
     onDismiss: () -> Unit
 ) {
-    GlassAlertDialog(
+    GlassCompactDialog(
         onDismissRequest = onDismiss,
-        title = { Text("选择平台") },
+        title = "选择平台",
         text = {
             if (platforms.isEmpty()) {
                 Text(
@@ -203,8 +203,7 @@ fun PlatformPickerDialog(
                 }
             }
         },
-        confirmButton = {},
-        dismissButton = {
+        confirmButton = {
             TextButton(onClick = onDismiss) { Text("取消") }
         }
     )
@@ -276,9 +275,9 @@ fun ReconcilePlatformDialog(
 ) {
     val typeLabel = if (bill.isIncome) "存入平台" else "扣款平台"
     val amountPrefix = if (bill.isIncome) "+" else "-"
-    GlassAlertDialog(
+    GlassCompactDialog(
         onDismissRequest = onDismiss,
-        title = { Text("对账 - ${bill.title}") },
+        title = "对账 - ${bill.title}",
         text = {
             Column {
                 Text(
@@ -319,8 +318,7 @@ fun ReconcilePlatformDialog(
                 }
             }
         },
-        confirmButton = {},
-        dismissButton = {
+        confirmButton = {
             TextButton(onClick = onDismiss) { Text("关闭") }
         }
     )
