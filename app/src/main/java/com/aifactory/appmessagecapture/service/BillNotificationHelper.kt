@@ -6,14 +6,12 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import com.aifactory.appmessagecapture.MainActivity
 import com.aifactory.appmessagecapture.R
 import com.aifactory.appmessagecapture.data.AppDatabase
 import com.aifactory.appmessagecapture.data.BillEntity
 import com.aifactory.appmessagecapture.ui.BillQuickEditActivity
-import com.aifactory.appmessagecapture.ui.BillQuickEditOverlayReceiver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -134,35 +132,25 @@ object BillNotificationHelper {
         notificationManager.notify(notificationId, notification)
     }
 
-    /**
-     * 「完善账单」按钮入口，按悬浮窗权限二选一：
-     * - 已授予「显示悬浮窗」→ 广播拉起 [BillQuickEditOverlay] 悬浮窗，
-     *   在任意界面之上直接选择（不跳转 App）；
-     * - 未授予 → 打开 [BillQuickEditActivity] 透明弹窗（回退路径；
-     *   Android 12+ 禁止通知广播内启动 Activity，不能在接收器里回退）。
-     */
+    /** 「完善账单」按钮 → 双栏弹窗 Activity（带账单与通知 ID，保存后清除通知） */
     private fun quickEditPendingIntent(
         context: Context,
         billId: Long,
         notificationId: Int
     ): PendingIntent {
+        val intent = Intent(context, BillQuickEditActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(EXTRA_BILL_ID, billId)
+            putExtra(EXTRA_NOTIFICATION_ID, notificationId)
+        }
         // requestCode 按账单区分，避免不同账单的按钮互相覆盖 extras
         val requestCode = (billId and 0x3FFFFFFF).toInt() shl 1
-        val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        return if (Settings.canDrawOverlays(context)) {
-            val intent = Intent(context, BillQuickEditOverlayReceiver::class.java).apply {
-                putExtra(EXTRA_BILL_ID, billId)
-                putExtra(EXTRA_NOTIFICATION_ID, notificationId)
-            }
-            PendingIntent.getBroadcast(context, requestCode, intent, piFlags)
-        } else {
-            val intent = Intent(context, BillQuickEditActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra(EXTRA_BILL_ID, billId)
-                putExtra(EXTRA_NOTIFICATION_ID, notificationId)
-            }
-            PendingIntent.getActivity(context, requestCode, intent, piFlags)
-        }
+        return PendingIntent.getActivity(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     /**

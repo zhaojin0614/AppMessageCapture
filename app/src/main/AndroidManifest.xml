@@ -46,17 +46,12 @@
             </intent-filter>
         </activity>
 
-        <!-- 账单快捷编辑弹窗：从「记账成功」通知的 完善账单 按钮打开 -->
+        <!-- 账单快捷编辑弹窗：从「记账成功」通知的 改分类/扣款平台 按钮打开 -->
         <activity
             android:name=".ui.BillQuickEditActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:theme="@style/Theme.AppMessageCapture.QuickEdit" />
-
-        <!-- 快捷编辑悬浮窗入口（已授予悬浮窗权限时的通知按钮通道） -->
-        <receiver
-            android:name=".ui.BillQuickEditOverlayReceiver"
-            android:exported="false" />
 
         <!-- Notification Listener Service -->
         <service
