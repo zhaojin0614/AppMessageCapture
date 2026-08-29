@@ -1,6 +1,7 @@
 package com.aifactory.appmessagecapture.service
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -124,5 +125,47 @@ class SupportedPaymentAppsTest {
                 packageName, "您有一张优惠券待使用", content
             )
         )
+    }
+}
+
+    @Test
+    fun `支持清单与捕获通道同步`() {
+        // 屏幕通道：监视名单里的每个包都必须登记在支持清单中
+        SupportedPaymentApps.screenWatchPackages.forEach { pkg ->
+            assertTrue(
+                "screenWatchPackages 中的 $pkg 未登记到支持清单",
+                SupportedPaymentApps.supportedCaptureApps.any {
+                    it.packageName == pkg && it.channel == SupportedPaymentApps.CHANNEL_SCREEN
+                }
+            )
+        }
+        // 反向：清单里的屏幕通道应用必须真的在监视名单里
+        SupportedPaymentApps.supportedCaptureApps
+            .filter { it.channel == SupportedPaymentApps.CHANNEL_SCREEN }
+            .forEach {
+                assertTrue(
+                    "支持清单中的 ${it.packageName} 不在监视名单",
+                    SupportedPaymentApps.isScreenCaptureApp(it.packageName)
+                )
+            }
+        // 通知通道：清单里的应用必须能通过通知门槛（用各自典型通知探测）
+        val probes = mapOf(
+            "com.tencent.mm" to Pair("微信支付", ""),
+            "com.eg.android.AlipayGphone" to Pair("交易提醒", "支出"),
+            "com.sankuai.meituan" to Pair("付款成功", ""),
+            "com.unionpay" to Pair("支付助手：付款成功", "消费"),
+            "com.android.bankabc" to Pair("中国农业银行", "支出"),
+            "com.ss.android.ugc.lifeservices" to Pair("支付成功", "")
+        )
+        SupportedPaymentApps.supportedCaptureApps
+            .filter { it.channel == SupportedPaymentApps.CHANNEL_NOTIFY }
+            .forEach {
+                val probe = probes[it.packageName]
+                assertNotNull("缺少 ${it.packageName} 的通知探测样例", probe)
+                assertTrue(
+                    "支持清单中的 ${it.packageName} 无法通过通知门槛",
+                    SupportedPaymentApps.isBillNotification(it.packageName, probe!!.first, probe.second)
+                )
+            }
     }
 }

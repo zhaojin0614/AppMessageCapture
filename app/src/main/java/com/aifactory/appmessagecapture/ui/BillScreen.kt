@@ -44,6 +44,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
@@ -156,6 +157,8 @@ import com.aifactory.appmessagecapture.ui.theme.CategoryTransport
 import com.aifactory.appmessagecapture.ui.theme.CategoryUncategorized
 import com.aifactory.appmessagecapture.R
 import com.aifactory.appmessagecapture.service.PaymentScreenAccessibilityService
+import com.aifactory.appmessagecapture.service.SupportedCaptureApp
+import com.aifactory.appmessagecapture.service.SupportedPaymentApps
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.GradientExpenseEnd
 import com.aifactory.appmessagecapture.ui.theme.GradientExpenseStart
@@ -200,6 +203,7 @@ fun BillScreen(
     var showReport by remember { mutableStateOf(false) }
     var showRecurringBills by remember { mutableStateOf(false) }
     var showPlatformAccounts by remember { mutableStateOf(false) }
+    var showSupportedApps by remember { mutableStateOf(false) }
     // 待对账账单的平台分配弹窗
     var reconcileBill by remember { mutableStateOf<BillEntity?>(null) }
 
@@ -237,6 +241,10 @@ fun BillScreen(
             modifier = modifier
         )
         return
+    }
+
+    if (showSupportedApps) {
+        SupportedAppsDialog(onDismiss = { showSupportedApps = false })
     }
 
     val expenseCategories = listOf("全部") + ExpenseCategories.all
@@ -374,6 +382,13 @@ fun BillScreen(
                                 )
                             }
                         } else {
+                            IconButton(onClick = { showSupportedApps = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.FactCheck,
+                                    contentDescription = "支持自动记账的App",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                             IconButton(onClick = { showPlatformAccounts = true }) {
                                 Icon(
                                     imageVector = Icons.Default.AccountBalanceWallet,
@@ -1229,5 +1244,111 @@ private fun formatDayHeader(date: LocalDate): String {
         now -> "$dayStr 今天"
         now.minusDays(1) -> "$dayStr 昨天"
         else -> "$dayStr $dayOfWeek"
+    }
+}
+
+/**
+ * 「支持自动记账的App」清单弹窗：展示当前两条捕获通道支持的应用。
+ * 数据源为 [SupportedPaymentApps.supportedCaptureApps]（与捕获门槛/
+ * 监视名单的同步性由单测保证）。
+ */
+@Composable
+fun SupportedAppsDialog(onDismiss: () -> Unit) {
+    GlassAlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("支持自动记账的App") },
+        text = {
+            Column {
+                Text(
+                    text = "以下应用产生支付信息时将自动记录账单，无需手动添加",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 10.dp)
+                )
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 360.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    SupportedPaymentApps.supportedCaptureApps.forEach { app ->
+                        SupportedAppRow(app)
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                HorizontalDivider()
+                Text(
+                    text = "通知捕获＝监听该App的支付通知；屏幕捕获＝无障碍读取" +
+                        "支付成功页（需在顶栏开启屏幕记账权限）",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("知道了") }
+        }
+    )
+}
+
+@Composable
+private fun SupportedAppRow(app: SupportedCaptureApp) {
+    val iconBitmap by rememberAppIcon(app.packageName, 28.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 应用图标（未安装/取不到时回退首字占位）
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .background(
+                    MaterialTheme.colorScheme.primaryContainer,
+                    RoundedCornerShape(7.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            val icon = iconBitmap
+            if (icon != null) {
+                Image(
+                    bitmap = icon,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Text(
+                    text = app.appName.take(1),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(
+            text = app.appName,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        Surface(
+            shape = RoundedCornerShape(6.dp),
+            color = if (app.channel == SupportedPaymentApps.CHANNEL_SCREEN)
+                MaterialTheme.colorScheme.tertiaryContainer
+            else
+                MaterialTheme.colorScheme.secondaryContainer
+        ) {
+            Text(
+                text = app.channel,
+                style = MaterialTheme.typography.labelSmall,
+                color = if (app.channel == SupportedPaymentApps.CHANNEL_SCREEN)
+                    MaterialTheme.colorScheme.onTertiaryContainer
+                else
+                    MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+        }
     }
 }

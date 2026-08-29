@@ -45,6 +45,21 @@ object SupportedPaymentApps {
     fun isScreenCaptureApp(packageName: String): Boolean =
         packageName in screenWatchPackages
 
+    /** 捕获通道标签（支持清单展示用） */
+    const val CHANNEL_NOTIFY = "通知捕获"
+    const val CHANNEL_SCREEN = "屏幕捕获"
+
+    /** 支持自动记账的应用清单（记账页展示用；同步性由单测保证） */
+    val supportedCaptureApps = listOf(
+        SupportedCaptureApp("com.tencent.mm", "微信", CHANNEL_NOTIFY),
+        SupportedCaptureApp("com.eg.android.AlipayGphone", "支付宝", CHANNEL_NOTIFY),
+        SupportedCaptureApp("com.sankuai.meituan", "美团 / 美团外卖", CHANNEL_NOTIFY),
+        SupportedCaptureApp("com.unionpay", "云闪付", CHANNEL_NOTIFY),
+        SupportedCaptureApp("com.android.bankabc", "农业银行", CHANNEL_NOTIFY),
+        SupportedCaptureApp("com.ss.android.ugc.lifeservices", "抖省省", CHANNEL_NOTIFY),
+        SupportedCaptureApp("com.jingdong.app.mall", "京东", CHANNEL_SCREEN)
+    )
+
     /**
      * App weight for cross-app merge priority.
      * Higher weight = primary app when merging bills.
@@ -65,3 +80,17 @@ object SupportedPaymentApps {
         }
     }
 }
+
+/**
+ * 支持自动记账的应用清单（记账页「支持自动记账的App」展示用）。
+ *
+ * 与门槛逻辑（[isBillNotification]）和屏幕监视名单（[screenWatchPackages]）
+ * 是两套数据，同步性由单测 `SupportedPaymentAppsTest.支持清单与捕获通道同步`
+ * 保证——改门槛/监视名单时记得同步本清单，反之亦然。
+ */
+data class SupportedCaptureApp(
+    val packageName: String,
+    val appName: String,
+    /** [SupportedPaymentApps.CHANNEL_NOTIFY] 或 [SupportedPaymentApps.CHANNEL_SCREEN] */
+    val channel: String
+)
