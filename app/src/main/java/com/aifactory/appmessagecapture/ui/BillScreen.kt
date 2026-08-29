@@ -2,6 +2,8 @@
 
 package com.aifactory.appmessagecapture.ui
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -49,7 +51,10 @@ import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -74,6 +79,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.SelectableDates
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -99,14 +105,19 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.core.content.ContextCompat.startActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aifactory.appmessagecapture.data.BillEntity
 import com.aifactory.appmessagecapture.ui.components.PillToggle
@@ -144,6 +155,7 @@ import com.aifactory.appmessagecapture.ui.theme.CategorySocial
 import com.aifactory.appmessagecapture.ui.theme.CategoryTransport
 import com.aifactory.appmessagecapture.ui.theme.CategoryUncategorized
 import com.aifactory.appmessagecapture.R
+import com.aifactory.appmessagecapture.service.PaymentScreenAccessibilityService
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.GradientExpenseEnd
 import com.aifactory.appmessagecapture.ui.theme.GradientExpenseStart
@@ -191,6 +203,19 @@ fun BillScreen(
     // 待对账账单的平台分配弹窗
     var reconcileBill by remember { mutableStateOf<BillEntity?>(null) }
 
+    val context = LocalContext.current
+    // 屏幕记账（无障碍）开关状态：从系统设置页返回时刷新角标
+    var a11yResumeKey by remember { mutableStateOf(0) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) a11yResumeKey++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val screenBillLive = remember(a11yResumeKey) { PaymentScreenAccessibilityService.isLive }
+
     if (showReport) {
         com.aifactory.appmessagecapture.ui.report.ReportScreen(
               onBack = { showReport = false }
@@ -227,10 +252,8 @@ fun BillScreen(
     }
     val typeFilters = listOf("全部", "支出", "收入")
 
-    val filteredBills = bills
-
-    // 筛选条件下沉到 ViewModel 直接查库：类型/分类变化即重查，
-    // 不受「全部」视图滚动分页窗口限制（否则窗口内无目标类型时恒空）
+    // 筛选条件下沉到 ViewModel 直接查库（类型/分类变化即重查）：
+    // 「全部」走时间窗口分页，筛选走条数分页，均为滚动加载更多
     LaunchedEffect(selectedType, selectedCategory) {
         viewModel.setTypeFilter(selectedType)
         viewModel.setCategoryFilter(selectedCategory)
@@ -254,7 +277,7 @@ fun BillScreen(
 
     LaunchedEffect(shouldLoadMore) {
         if (shouldLoadMore) {
-            viewModel.loadMoreWeeks()
+            viewModel.loadMore()
         }
     }
 
@@ -324,7 +347,7 @@ fun BillScreen(
                     actions = {
                         if (isSelectionMode) {
                             TextButton(onClick = {
-                                val visibleIds = filteredBills.map { it.id }
+                                val visibleIds = bills.map { it.id }
                                 if (selectedIds.containsAll(visibleIds)) {
                                     viewModel.exitSelectionMode()
                                 } else {
@@ -332,7 +355,7 @@ fun BillScreen(
                                 }
                             }) {
                                 Text(
-                                    text = if (selectedIds.containsAll(filteredBills.map { it.id })) "取消全选" else "全选",
+                                    text = if (selectedIds.containsAll(bills.map { it.id })) "取消全选" else "全选",
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
@@ -371,6 +394,25 @@ fun BillScreen(
                                     contentDescription = "报表",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                            }
+                            // 屏幕记账（无障碍）权限入口；未开启时角标提醒
+                            BadgedBox(
+                                badge = {
+                                    if (!screenBillLive) {
+                                        Badge(containerColor = MaterialTheme.colorScheme.tertiary)
+                                    }
+                                }
+                            ) {
+                                IconButton(onClick = {
+                                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                                    startActivity(context, intent, null)
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Visibility,
+                                        contentDescription = stringResource(R.string.accessibility_settings),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }
@@ -462,11 +504,11 @@ fun BillScreen(
                 Spacer(modifier = Modifier.height(8.dp))
     
                 // Bill List
-                if (filteredBills.isEmpty()) {
+                if (bills.isEmpty()) {
                     EmptyBillState()
                 } else {
-                    val groupedBills = remember(filteredBills) {
-                        filteredBills.groupBy {
+                    val groupedBills = remember(bills) {
+                        bills.groupBy {
                             Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
                         }.toList().sortedByDescending { it.first }
                     }
