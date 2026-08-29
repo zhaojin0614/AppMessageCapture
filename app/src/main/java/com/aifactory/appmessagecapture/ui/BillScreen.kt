@@ -432,6 +432,9 @@ fun BillScreen(
                             2 -> "收入"
                             else -> null
                         }
+                        // 类型切换后分类列表整组变化，旧的分类选择必然失配
+                        // （如残留支出分类时切到收入 → 列表恒空），重置为全部
+                        selectedCategory = null
                     },
                     modifier = Modifier
                         .fillMaxWidth()
