@@ -6,9 +6,11 @@
     新增监视应用时两处要同步更新。
 
     事件类型：
-    - typeWindowStateChanged：Activity/窗口切换
-    - typeWindowContentChanged：窗口内容变化——支付成功页多为 Activity 内
-      页面切换（Fragment/WebView），不产生窗口切换事件，必须靠内容变化触发
+    - typeWindowStateChanged：Activity/窗口切换（当前唯一订阅源）；
+      曾试验订阅 typeWindowContentChanged 以覆盖 Activity 内页面切换，
+      实测京东成功页的 Activity 切换本身会发窗口切换事件，已移除以省电
+    - 若重新需要，eventTypes 加回 typeWindowContentChanged，并在
+      PaymentScreenAccessibilityService 里恢复内容变化节流逻辑
 
     accessibilityFlags：
     - flagRetrieveInteractiveWindows：getWindows() 返回全部窗口（金额行在
@@ -18,7 +20,7 @@
       自带此标志所以测试时能看到，服务端却看不到）
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
     android:canRetrieveWindowContent="true"
