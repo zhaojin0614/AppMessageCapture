@@ -4,9 +4,14 @@
     packageNames 把事件投递收紧到监视名单（与 SupportedPaymentApps.screenWatchPackages
     保持一致）：其他应用的窗口内容不会投递到服务，也省电。
     新增监视应用时两处要同步更新。
+
+    事件类型：
+    - typeWindowStateChanged：Activity/窗口切换
+    - typeWindowContentChanged：窗口内容变化——支付成功页多为 Activity 内
+      页面切换（Fragment/WebView），不产生窗口切换事件，必须靠内容变化触发
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagDefault"
     android:canRetrieveWindowContent="true"

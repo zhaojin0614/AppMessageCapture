@@ -45,6 +45,9 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         /** 无障碍树遍历上限，防止异常巨大的窗口拖垮 IO 线程 */
         private const val MAX_NODES = 400
 
+        /** 内容变化事件触发频繁（滚动/动画），同包遍历最小间隔 */
+        private const val TRAVERSE_INTERVAL_MS = 1_000L
+
         @Volatile
         var isLive: Boolean = false
             private set
@@ -56,6 +59,9 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         @Volatile
         internal var instance: PaymentScreenAccessibilityService? = null
             private set
+
+        /** 每包上次树遍历时刻（内容变化事件节流用） */
+        private val lastTraversalAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
     }
 
     override fun onServiceConnected() {
@@ -66,10 +72,29 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
-        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val packageName = event.packageName?.toString() ?: return
         if (packageName == this.packageName) return
         if (!SupportedPaymentApps.isScreenCaptureApp(packageName)) return
+
+        when (event.eventType) {
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                // 窗口/Activity 切换：必定遍历
+            }
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
+                // 成功页多为 Activity 内页面切换（Fragment/WebView），不发窗口
+                // 切换事件，靠内容变化触发；该事件高频，按包节流遍历
+                val now = System.currentTimeMillis()
+                val allowed = synchronized(lastTraversalAt) {
+                    val last = lastTraversalAt[packageName] ?: 0L
+                    if (now - last >= TRAVERSE_INTERVAL_MS) {
+                        lastTraversalAt[packageName] = now
+                        true
+                    } else false
+                }
+                if (!allowed) return
+            }
+            else -> return
+        }
 
         // 树遍历是逐节点 binder IPC，放到 IO 线程；事件本身只携带窗口元数据
         serviceScope.launch {
