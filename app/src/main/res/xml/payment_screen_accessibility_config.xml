@@ -9,11 +9,18 @@
     - typeWindowStateChanged：Activity/窗口切换
     - typeWindowContentChanged：窗口内容变化——支付成功页多为 Activity 内
       页面切换（Fragment/WebView），不产生窗口切换事件，必须靠内容变化触发
+
+    accessibilityFlags：
+    - flagRetrieveInteractiveWindows：getWindows() 返回全部窗口（金额行在
+      独立弹窗窗口里）
+    - flagIncludeNotImportantViews：包含 importantForAccessibility=no 的
+      节点——京东把金额头部标记为不重要，默认会被系统过滤掉（uiautomator
+      自带此标志所以测试时能看到，服务端却看不到）
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows"
+    android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
     android:canRetrieveWindowContent="true"
     android:description="@string/accessibility_service_description"
     android:notificationTimeout="200"
