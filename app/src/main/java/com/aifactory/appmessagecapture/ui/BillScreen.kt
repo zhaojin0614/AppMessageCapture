@@ -82,6 +82,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -236,6 +237,18 @@ fun BillScreen(
                 else -> true
             }
             categoryMatch && typeMatch
+        }
+    }
+
+    // 过滤结果为空时自动扩大历史窗口：列表默认只加载最近一周，收入等低频
+    // 账单可能在更早的周里；而「滚动到底才加载更多」在空列表下永远不会触发，
+    // 不扩窗的话收入/支出视图会恒为空。扩到库里再无更早账单为止。
+    val currentFilteredBills by rememberUpdatedState(filteredBills)
+    LaunchedEffect(Unit) {
+        viewModel.hasEarlierBills.collect { hasEarlier ->
+            if (hasEarlier && currentFilteredBills.isEmpty()) {
+                viewModel.loadMoreWeeks()
+            }
         }
     }
 

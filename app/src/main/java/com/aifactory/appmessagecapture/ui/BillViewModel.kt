@@ -35,8 +35,21 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /**
+     * 当前加载窗口之前是否还有更早的账单。
+     * 列表按周分页加载（默认 1 周），收入等低频账单可能不在首个窗口内，
+     * UI 在过滤结果为空时依据它自动扩窗，否则空列表永远无法触发加载更多。
+     */
+    val hasEarlierBills: StateFlow<Boolean> = _weeksToLoad
+        .flatMapLatest { weeks ->
+            val threshold = System.currentTimeMillis() - weeks * 7L * 24 * 60 * 60 * 1000
+            billDao.hasBillsEarlierThan(threshold)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     fun loadMoreWeeks() {
-        _weeksToLoad.value += 1
+        // 上限 520 周（约 10 年），防止异常数据导致窗口无限膨胀
+        if (_weeksToLoad.value < 520) _weeksToLoad.value += 1
     }
 
     val totalExpense: StateFlow<Double> = billDao.getTotalExpense()

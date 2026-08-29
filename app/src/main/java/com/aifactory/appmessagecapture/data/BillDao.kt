@@ -13,6 +13,10 @@ interface BillDao {
     @Query("SELECT * FROM bills WHERE timestamp >= :since ORDER BY timestamp DESC")
     fun getBillsSince(since: Long): Flow<List<BillEntity>>
 
+    /** 当前加载窗口之前是否还有更早的账单（空结果时自动扩窗的终止条件） */
+    @Query("SELECT EXISTS(SELECT 1 FROM bills WHERE timestamp < :threshold)")
+    fun hasBillsEarlierThan(threshold: Long): Flow<Boolean>
+
     @Query("SELECT * FROM bills WHERE timestamp >= :since ORDER BY timestamp DESC")
     fun getBillsSinceOnce(since: Long): List<BillEntity>
 
