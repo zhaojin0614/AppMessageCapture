@@ -42,9 +42,9 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         /** 同一支付成功页可能触发多次窗口事件（Activity + Dialog），30 秒内同包同金额只记一次 */
         private const val DEBOUNCE_MS = 30_000L
 
-        /** 无障碍树遍历上限。真实树含大量不可见节点（广告 WebView 子树），
-         *  uiautomator 只显示可见部分，实际规模远大于可见节点数 */
-        private const val MAX_NODES = 1500
+        /** 无障碍树遍历兜底上限。实测京东成功页全树仅 236 节点，500 留一倍余量；
+         *  正常情况下「找到即停」在此之前触发，不会触顶 */
+        private const val MAX_NODES = 500
 
         @Volatile
         var isLive: Boolean = false
@@ -141,6 +141,18 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         var visited = 0
         var windowCount = 0
 
+        // 「找到即停」：成功页门槛词与支付金额行都拿到后，剩余子树无需再遍历
+        // （金额行实测在页面顶部，通常几十个节点内命中）
+        var seenSuccess = false
+        var amountFound = false
+
+        fun accept(text: String) {
+            if (!seen.add(text)) return
+            out.add(text)
+            if (PaymentScreenParsing.isSuccessText(text)) seenSuccess = true
+            if (BillParsing.parseAmountAfterPaymentVerb(text) != null) amountFound = true
+        }
+
         fun traverse(root: android.view.accessibility.AccessibilityNodeInfo?) {
             root ?: return
             if (root.packageName?.toString() !in SupportedPaymentApps.screenWatchPackages) return
@@ -151,17 +163,14 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
                 val node = queue.removeFirst()
                 visited++
                 if (node.isVisibleToUser) {
-                    node.text?.toString()?.takeIf { it.isNotBlank() }?.let {
-                        if (seen.add(it)) out.add(it)
-                    }
-                    node.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let {
-                        if (seen.add(it)) out.add(it)
-                    }
+                    node.text?.toString()?.takeIf { it.isNotBlank() }?.let { accept(it) }
+                    node.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let { accept(it) }
+                    if (seenSuccess && amountFound) return
                 }
                 for (i in 0 until node.childCount) {
                     node.getChild(i)?.let { child ->
                         // 不可见子树直接剪枝：账单金额只出现在可见区域，
-                        // 且京东页面不可见子树（广告 WebView 等）规模巨大
+                        // 且京东页面不可见子树（广告 WebView 等）规模不小
                         if (child.isVisibleToUser) {
                             queue.add(child)
                         }
@@ -171,12 +180,17 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         }
 
         traverse(rootInActiveWindow)
-        try {
-            windows?.forEach { window -> traverse(window.root) }
-        } catch (_: Exception) {
-            // 部分 ROM 上 windows 访问可能异常，忽略（活动窗口已遍历）
+        if (!(seenSuccess && amountFound)) {
+            try {
+                windows?.forEach { window ->
+                    traverse(window.root)
+                    if (seenSuccess && amountFound) return@forEach
+                }
+            } catch (_: Exception) {
+                // 部分 ROM 上 windows 访问可能异常，忽略（活动窗口已遍历）
+            }
         }
-        android.util.Log.d(TAG, "遍历完成: 窗口数=$windowCount visited=$visited collected=${out.size}")
+        android.util.Log.d(TAG, "遍历完成: 窗口数=$windowCount visited=$visited collected=${out.size} 找到即停=${seenSuccess && amountFound}")
         return out
     }
 

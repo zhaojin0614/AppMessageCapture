@@ -13,9 +13,13 @@ object PaymentScreenParsing {
     /** 支付成功页的页面级标志文本（京东：标题「支付成功」） */
     private const val SUCCESS_TITLE_KEYWORDS = "支付成功|付款成功"
 
+    /** 单条文本是否命中成功页门槛词（采集期早退 + 页面级判断共用） */
+    fun isSuccessText(text: String): Boolean =
+        SUCCESS_TITLE_KEYWORDS.split("|").any { text.contains(it) }
+
     fun isPaymentSuccessPage(packageName: String, pageText: String): Boolean {
         if (!SupportedPaymentApps.isScreenCaptureApp(packageName)) return false
-        return SUCCESS_TITLE_KEYWORDS.split("|").any { pageText.contains(it) }
+        return isSuccessText(pageText)
     }
 
     /**
