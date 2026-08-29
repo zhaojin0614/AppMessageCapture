@@ -293,41 +293,6 @@ fun AddBillDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Category grid using LazyVerticalGrid for perfect 4-column layout
-                Text(
-                    text = "选择分类",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // 分类网格：外层已是 verticalScroll，改用普通分行布局避免
-                // 嵌套同向滚动的手势冲突（条目固定且少，无需 lazy）
-                categories.chunked(4).forEach { rowCategories ->
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        rowCategories.forEach { cat ->
-                            Box(
-                                modifier = Modifier.weight(1f),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CategoryGridItem(
-                                    label = cat,
-                                    isSelected = selectedCategory == cat,
-                                    onClick = { selectedCategory = cat }
-                                )
-                            }
-                        }
-                        // 末行不足4个时补齐占位保持等宽
-                        repeat(4 - rowCategories.size) {
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
                 // 平台选择行（支出=扣款平台，收入=存入平台），不选则为待对账
                 Row(
                     modifier = Modifier
@@ -362,6 +327,41 @@ fun AddBillDialog(
                             MaterialTheme.colorScheme.onSurface
                         else ExpenseRed
                     )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Category grid using LazyVerticalGrid for perfect 4-column layout
+                Text(
+                    text = "选择分类",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // 分类网格：外层已是 verticalScroll，改用普通分行布局避免
+                // 嵌套同向滚动的手势冲突（条目固定且少，无需 lazy）
+                categories.chunked(4).forEach { rowCategories ->
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        rowCategories.forEach { cat ->
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CategoryGridItem(
+                                    label = cat,
+                                    isSelected = selectedCategory == cat,
+                                    onClick = { selectedCategory = cat }
+                                )
+                            }
+                        }
+                        // 末行不足4个时补齐占位保持等宽
+                        repeat(4 - rowCategories.size) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
