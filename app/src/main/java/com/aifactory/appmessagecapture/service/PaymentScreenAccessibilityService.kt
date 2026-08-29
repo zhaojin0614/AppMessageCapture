@@ -42,8 +42,9 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         /** 同一支付成功页可能触发多次窗口事件（Activity + Dialog），30 秒内同包同金额只记一次 */
         private const val DEBOUNCE_MS = 30_000L
 
-        /** 无障碍树遍历上限，防止异常巨大的窗口拖垮 IO 线程 */
-        private const val MAX_NODES = 400
+        /** 无障碍树遍历上限。真实树含大量不可见节点（广告 WebView 子树），
+         *  uiautomator 只显示可见部分，实际规模远大于可见节点数 */
+        private const val MAX_NODES = 1500
 
         /** 内容变化事件触发频繁（滚动/动画），同包遍历最小间隔 */
         private const val TRAVERSE_INTERVAL_MS = 1_000L
@@ -113,7 +114,12 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         if (!PaymentScreenParsing.isPaymentSuccessPage(packageName, pageText)) return
 
         val (amountLine, amount) = PaymentScreenParsing.extractAmountLine(nodeTexts) ?: run {
-            android.util.Log.d(TAG, "成功页但未找到支付金额行: $packageName")
+            android.util.Log.d(
+                TAG,
+                "成功页但未找到支付金额行: $packageName nodes=${nodeTexts.size} " +
+                    "含京东支付=${nodeTexts.any { it.contains("京东支付") }} " +
+                    "样例=${nodeTexts.take(10)}"
+            )
             return
         }
 
@@ -146,7 +152,7 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         android.util.Log.d(TAG, "屏幕记账 $packageName ¥$amount ($appName) → $result")
     }
 
-    /** 收集当前活动窗口的全部文本节点（广度优先，带节点数上限） */
+    /** 收集当前活动窗口的文本节点（广度优先：不可见子树整枝剪掉 + 节点数上限） */
     private fun collectWindowTexts(): List<String> {
         val root = rootInActiveWindow ?: return emptyList()
         // 活动窗口不属于监视对象（如输入法窗口抢焦点）时跳过遍历
@@ -160,10 +166,18 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         while (queue.isNotEmpty() && visited < MAX_NODES) {
             val node = queue.removeFirst()
             visited++
-            node.text?.toString()?.takeIf { it.isNotBlank() }?.let { out.add(it) }
-            node.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let { out.add(it) }
+            if (node.isVisibleToUser) {
+                node.text?.toString()?.takeIf { it.isNotBlank() }?.let { out.add(it) }
+                node.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let { out.add(it) }
+            }
             for (i in 0 until node.childCount) {
-                node.getChild(i)?.let { queue.add(it) }
+                node.getChild(i)?.let { child ->
+                    // 不可见子树直接剪枝：账单金额只出现在可见区域，
+                    // 且京东页面不可见子树（广告 WebView 等）规模巨大
+                    if (child.isVisibleToUser) {
+                        queue.add(child)
+                    }
+                }
             }
         }
         return out
