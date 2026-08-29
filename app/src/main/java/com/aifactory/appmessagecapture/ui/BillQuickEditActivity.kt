@@ -68,9 +68,7 @@ import java.util.Locale
  * 解决单字段弹窗「一笔账只能改一项」的问题。
  *
  * 交互：点选项只切换选中态；「保存」才写库并清除常驻账单通知；
- * 只改其中一项时另一项保持原值不写库。「取消」/点空白处直接关闭；
- * 左下角「删除」两段式确认（首点变「确认删除？」再点执行），用于
- * 丢弃不需要的自动捕获账单，删除走事务回滚已对账平台余额。
+ * 只改其中一项时另一项保持原值不写库。「取消」/点空白处直接关闭。
  *
  * 保存走与 App 内一致的写入路径：
  * - 分类：billDao.updateCategory（分类不影响平台余额）
@@ -97,28 +95,9 @@ class BillQuickEditActivity : ComponentActivity() {
                     billId = billId,
                     onDismiss = { finish() },
                     onBillMissing = { onBillMissing() },
-                    onSave = { applyEdits(it.first, it.second, it.third, it.fourth) },
-                    onDelete = { applyDelete() }
+                    onSave = { applyEdits(it.first, it.second, it.third, it.fourth) }
                 )
             }
-        }
-    }
-
-    /**
-     * 删除这笔自动捕获的账单：走 [AccountRepository.deleteBillWithRollback]
-     * 事务回滚已对账平台的余额，并清除常驻通知。
-     */
-    private fun applyDelete() {
-        val appContext = applicationContext
-        lifecycleScope.launch {
-            withContext(Dispatchers.IO) {
-                val db = AppDatabase.getDatabase(appContext)
-                AccountRepository(db, db.billDao(), db.platformAccountDao())
-                    .deleteBillWithRollback(billId)
-                cancelBillNotification(appContext)
-            }
-            Toast.makeText(appContext, "已删除该账单", Toast.LENGTH_SHORT).show()
-            finish()
         }
     }
 
@@ -182,8 +161,7 @@ private fun QuickEditDialog(
     billId: Long,
     onDismiss: () -> Unit,
     onBillMissing: () -> Unit,
-    onSave: (Quadruple<String?, PlatformAccountEntity?, Boolean, Boolean>) -> Unit,
-    onDelete: () -> Unit
+    onSave: (Quadruple<String?, PlatformAccountEntity?, Boolean, Boolean>) -> Unit
 ) {
     val context = LocalContext.current
     var bill by remember { mutableStateOf<BillEntity?>(null) }
@@ -239,7 +217,6 @@ private fun QuickEditDialog(
                     saving = saving,
                     onStartSave = { saving = true },
                     onSave = onSave,
-                    onDelete = onDelete,
                     onCancel = onDismiss
                 )
             }
@@ -262,13 +239,10 @@ private fun TwoColumnEditor(
     saving: Boolean,
     onStartSave: () -> Unit,
     onSave: (Quadruple<String?, PlatformAccountEntity?, Boolean, Boolean>) -> Unit,
-    onDelete: () -> Unit,
     onCancel: () -> Unit
 ) {
     var selectedCategory by remember(bill.id) { mutableStateOf(bill.category) }
     var selectedPlatformId by remember(bill.id) { mutableStateOf(bill.platformAccountId) }
-    // 删除两段式确认：首点变「确认删除？」，再点才真正删除，防误触
-    var confirmingDelete by remember(bill.id) { mutableStateOf(false) }
 
     val categoryOptions = if (bill.isIncome) IncomeCategories.all else ExpenseCategories.all
     val categoryChanged = selectedCategory != bill.category
@@ -335,69 +309,47 @@ private fun TwoColumnEditor(
             }
         }
 
-        // 底部操作行：左「删除」（两段确认），右 取消 + 保存（无任何变更时置灰）
+        // 底部操作行：取消 + 保存（无任何变更时置灰）
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(
+            TextButton(onClick = onCancel, enabled = !saving) {
+                Text("取消")
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
                 onClick = {
-                    if (confirmingDelete) onDelete() else confirmingDelete = true
+                    onStartSave()
+                    onSave(
+                        Quadruple(
+                            selectedCategory,
+                            platforms.firstOrNull { it.id == selectedPlatformId },
+                            categoryChanged,
+                            platformChanged
+                        )
+                    )
                 },
-                enabled = !saving,
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error
+                enabled = !saving && (categoryChanged || platformChanged),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             ) {
-                Text(if (confirmingDelete) "确认删除？" else "删除")
-            }
-            Row(
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(
-                    onClick = {
-                        confirmingDelete = false
-                        onCancel()
-                    },
-                    enabled = !saving
-                ) {
-                    Text("取消")
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(
-                    onClick = {
-                        onStartSave()
-                        onSave(
-                            Quadruple(
-                                selectedCategory,
-                                platforms.firstOrNull { it.id == selectedPlatformId },
-                                categoryChanged,
-                                platformChanged
-                            )
-                        )
-                    },
-                    enabled = !saving && (categoryChanged || platformChanged),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                if (saving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
-                ) {
-                    if (saving) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("保存中…")
-                    } else {
-                        Text("保存")
-                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("保存中…")
+                } else {
+                    Text("保存")
                 }
             }
         }
