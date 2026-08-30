@@ -1,7 +1,7 @@
 <resources>
-    <string name="app_name">应用消息捕获</string>
+    <string name="app_name">捕账</string>
     <string name="service_name">应用消息捕获服务</string>
-    <string name="app_title">应用消息捕获</string>
+    <string name="app_title">捕账</string>
     <string name="empty_message">暂无捕获的消息</string>
     <string name="enable_service_hint">请前往系统设置开启通知访问权限，以启用消息捕获功能</string>
     <string name="goto_settings">前往设置</string>

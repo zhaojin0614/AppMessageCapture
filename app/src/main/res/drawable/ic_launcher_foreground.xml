@@ -5,24 +5,30 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- White rounded message card -->
+    <!-- 聊天气泡尾巴（左下，指向收到的消息） -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M28,26 h52 a10,10 0 0,1 10,10 v40 a10,10 0 0,1 -10,10 h-52 a10,10 0 0,1 -10,-10 v-40 a10,10 0 0,1 10,-10 z" />
+        android:pathData="M40,68 L34,79 L50,68 Z" />
 
-    <!-- First orange text line -->
+    <!-- 白色聊天气泡主体 -->
     <path
-        android:fillColor="#F5A623"
-        android:pathData="M38,40 h32 v4 h-32 z" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,32 h24 a12,12 0 0 1 12,12 v14 a12,12 0 0 1 -12,12 h-24 a12,12 0 0 1 -12,-12 v-14 a12,12 0 0 1 12,-12 z" />
 
-    <!-- Second orange text line -->
+    <!-- 品牌薄荷绿「¥」：从消息中捕获账单 -->
     <path
-        android:fillColor="#F5A623"
-        android:pathData="M38,50 h22 v4 h-22 z" />
+        android:pathData="M45,41 L54,51.5 L63,41 M54,51.5 L54,64 M47.5,55 L60.5,55 M47.5,60.5 L60.5,60.5"
+        android:strokeColor="#0FA18D"
+        android:strokeWidth="4.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
 
-    <!-- Purple unread dot badge -->
+    <!-- 沙金通知徽标：白圈衬边，压在气泡右上角 -->
     <path
-        android:fillColor="#7C5CFC"
-        android:pathData="M78,70 a8,8 0 1,1 0,16 a8,8 0 1,1 0,-16 z" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M72.5,28 a9.5,9.5 0 1 1 0,19 a9.5,9.5 0 1 1 0,-19 z" />
+    <path
+        android:fillColor="#B98A5E"
+        android:pathData="M72.5,30 a7.5,7.5 0 1 1 0,15 a7.5,7.5 0 1 1 0,-15 z" />
 
 </vector>
