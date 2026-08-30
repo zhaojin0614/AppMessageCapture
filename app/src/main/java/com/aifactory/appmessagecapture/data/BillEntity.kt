@@ -11,7 +11,9 @@ import androidx.room.PrimaryKey
         Index(value = ["timestamp"]),
         // 去重查询：同 App 同金额时间窗
         Index(value = ["packageName", "timestamp"]),
-        Index(value = ["amount", "timestamp"])
+        Index(value = ["amount", "timestamp"]),
+        // 商户记忆键查询（同商户最近一笔账单）
+        Index(value = ["merchantKey"])
     ]
 )
 data class BillEntity(

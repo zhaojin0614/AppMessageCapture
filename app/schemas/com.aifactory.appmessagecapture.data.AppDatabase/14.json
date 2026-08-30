@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 14,
-    "identityHash": "850ed06b244953c98e7d74c6b04d213e",
+    "identityHash": "d30eba2e4b08979041f8d35884121ac1",
     "entities": [
       {
         "tableName": "notifications",
@@ -176,6 +176,15 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_bills_amount_timestamp` ON `${TABLE_NAME}` (`amount`, `timestamp`)"
+          },
+          {
+            "name": "index_bills_merchantKey",
+            "unique": false,
+            "columnNames": [
+              "merchantKey"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_bills_merchantKey` ON `${TABLE_NAME}` (`merchantKey`)"
           }
         ],
         "foreignKeys": []
@@ -445,7 +454,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '850ed06b244953c98e7d74c6b04d213e')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd30eba2e4b08979041f8d35884121ac1')"
     ]
   }
 }
