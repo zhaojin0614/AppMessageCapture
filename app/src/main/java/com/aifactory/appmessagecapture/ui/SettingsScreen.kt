@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.SettingsBackupRestore
 import androidx.compose.material.icons.filled.TableChart
@@ -102,6 +103,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     var showRecurringBills by remember { mutableStateOf(false) }
     var showBackupDialog by remember { mutableStateOf(false) }
     var showRestoreConfirm by remember { mutableStateOf(false) }
+    var showBudgetDialog by remember { mutableStateOf(false) }
     var importOverwrite by remember { mutableStateOf(false) }
 
     // 从系统设置页/子页面返回时刷新权限状态与计数
@@ -136,6 +138,8 @@ fun SettingsScreen(onBack: () -> Unit) {
         platformCount = db.platformAccountDao().getAllOnce().size
     }
     val activeRecurring by db.recurringBillDao().getActiveCount().collectAsState(initial = 0)
+    val budgets by viewModel.budgets.collectAsState()
+    val totalBudget = budgets.firstOrNull { it.category == "" }?.amount
 
     // 备份导出/导入的 SAF 启动器
     val backupBusy by viewModel.backupBusy.collectAsState()
@@ -226,6 +230,12 @@ fun SettingsScreen(onBack: () -> Unit) {
                     value = "启用 $activeRecurring 条",
                     onClick = { showRecurringBills = true }
                 )
+                SettingsNavigateRow(
+                    icon = Icons.Default.Savings,
+                    title = "预算管理",
+                    value = totalBudget?.let { "¥%.0f/月".format(it) } ?: "未设置",
+                    onClick = { showBudgetDialog = true }
+                )
             }
 
             SettingsGroup("数据") {
@@ -250,6 +260,10 @@ fun SettingsScreen(onBack: () -> Unit) {
 
     if (showSupportedApps) {
         SupportedAppsDialog(onDismiss = { showSupportedApps = false })
+    }
+
+    if (showBudgetDialog) {
+        BudgetDialog(viewModel = viewModel, onDismiss = { showBudgetDialog = false })
     }
 
     if (showBackupDialog) {

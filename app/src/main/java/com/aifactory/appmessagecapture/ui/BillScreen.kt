@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.SettingsBackupRestore
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.UploadFile
@@ -63,6 +64,7 @@ import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -179,6 +181,7 @@ fun BillScreen(
     val totalAccountBalance by viewModel.totalAccountBalance.collectAsState()
     val platforms by viewModel.platforms.collectAsState()
     val monthExpense by viewModel.monthExpense.collectAsState()
+    val budgets by viewModel.budgets.collectAsState()
     val monthIncome by viewModel.monthIncome.collectAsState()
     val expenseCount by viewModel.expenseCount.collectAsState()
     val incomeCount by viewModel.incomeCount.collectAsState()
@@ -205,6 +208,8 @@ fun BillScreen(
     // 账单搜索
     var showSearch by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
+    // 预算弹窗
+    var showBudgetDialog by remember { mutableStateOf(false) }
     // 屏幕记账（无障碍）开关状态：从系统设置页返回时刷新角标
     var a11yResumeKey by remember { mutableStateOf(0) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -482,6 +487,54 @@ fun BillScreen(
     
                 Spacer(modifier = Modifier.height(8.dp))
     
+                val totalBudget = budgets.firstOrNull { it.category == "" }?.amount ?: 0.0
+                if (totalBudget > 0) {
+                    val over = monthExpense > totalBudget
+                    val ratio = (monthExpense / totalBudget).toFloat().coerceIn(0f, 1f)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                            .clickable { showBudgetDialog = true }
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Savings,
+                                contentDescription = null,
+                                tint = if (over) ExpenseRed else MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (over) "本月已超预算 ¥%.2f".format(monthExpense - totalBudget)
+                                else "本月已支出 ¥%.2f / 预算 ¥%.2f".format(monthExpense, totalBudget),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = if (over) ExpenseRed else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = "%d%%".format((ratio * 100).toInt()),
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(5.dp))
+                        LinearProgressIndicator(
+                            progress = { ratio },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(5.dp)
+                                .clip(CircleShape),
+                            color = if (over) ExpenseRed else MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
                 if (showSearch) {
                     TextField(
                         value = searchText,
@@ -596,6 +649,10 @@ fun BillScreen(
                 }
             }
         }
+    }
+
+    if (showBudgetDialog) {
+        BudgetDialog(viewModel = viewModel, onDismiss = { showBudgetDialog = false })
     }
 
     // Add bill dialog

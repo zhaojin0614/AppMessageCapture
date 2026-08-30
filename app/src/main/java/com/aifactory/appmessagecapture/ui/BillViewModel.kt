@@ -7,9 +7,11 @@ import androidx.lifecycle.viewModelScope
 import com.aifactory.appmessagecapture.data.AccountRepository
 import com.aifactory.appmessagecapture.data.AppDatabase
 import com.aifactory.appmessagecapture.data.BillBackupManager
+import com.aifactory.appmessagecapture.data.BudgetEntity
 import com.aifactory.appmessagecapture.data.BillEntity
 import com.aifactory.appmessagecapture.data.PlatformAccountEntity
 import com.aifactory.appmessagecapture.service.BillNotificationHelper
+import com.aifactory.appmessagecapture.service.BudgetNotifier
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +29,7 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
     private val db = AppDatabase.getDatabase(application)
     private val billDao = db.billDao()
     private val platformDao = db.platformAccountDao()
+    private val budgetDao = db.budgetDao()
     private val repository = AccountRepository(db, billDao, platformDao)
 
     // ── 备份与恢复 ──────────────────────────────────────────────────────
@@ -205,6 +208,30 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
             .toInstant()
             .toEpochMilli()
 
+    // ── 预算 ─────────────────────────────────────────────────────────────
+    val budgets: StateFlow<List<BudgetEntity>> = budgetDao.getAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** 本月各分类支出（分类预算进度用） */
+    val monthCategorySpend: StateFlow<Map<String, Double>> = reactiveStartOfMonth
+        .flatMapLatest { start -> billDao.getMonthCategoryExpense(start) }
+        .map { list -> list.associate { it.category to it.total } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    /** 保存预算：amount=null/<=0 表示取消该预算项 */
+    fun saveBudgets(entries: Map<String, Double?>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            entries.forEach { (category, amount) ->
+                if (amount != null && amount > 0) {
+                    budgetDao.upsert(BudgetEntity(category = category, amount = amount))
+                } else {
+                    budgetDao.deleteByCategory(category)
+                }
+            }
+        }
+    }
+
+
     /** 本月支出合计（记账界面大卡片展示） */
     val monthExpense: StateFlow<Double> = reactiveStartOfMonth
         .flatMapLatest { start ->
@@ -265,6 +292,7 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
     fun addBill(bill: BillEntity) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.addBillWithPlatform(bill)
+            BudgetNotifier.checkAndNotify(getApplication())
         }
     }
 

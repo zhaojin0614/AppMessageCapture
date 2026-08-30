@@ -133,6 +133,7 @@ object BillIngestor {
                 context = app,
                 billId = newId
             )
+            BudgetNotifier.checkAndNotify(context)
             Result.INSERTED
         }
 
