@@ -6,11 +6,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.appwidget.SizeMode
 import androidx.glance.action.actionStartActivity
+import androidx.glance.LocalSize
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.cornerRadius
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.itemsIndexed
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
@@ -38,12 +42,18 @@ import kotlinx.coroutines.CancellationException
  * 桌面组件 Widget（单例）。
  *
  * 使用 `object` 确保 Glance 框架始终操作同一个实例，避免 session 管理混乱。
- * `provideGlance` 中不阻塞、不 delay，尽快完成数据加载并调用 `provideContent`。
+ *
+ * 尺寸策略：`SizeMode.LocalSize`——组件被拖拽缩放后按实际尺寸重新生成内容，
+ * 紧凑档（高度 < 150dp，如 4x2/2x2）显示单行卡片，标准档显示双行卡片，
+ * 列表用 LazyColumn 承载（行绘制严格裁切在组件边界内，缩小后不会再溢出）。
  */
 object BirthdayWidget : GlanceAppWidget() {
 
-    const val MAX_DISPLAY_COUNT = 5
+    /** 数据上限：列表是 Lazy 的，实际可见条数由组件高度决定 */
+    const val MAX_DISPLAY_COUNT = 20
     const val TAG = "BirthdayWidget"
+
+    override val sizeMode: SizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         BirthdayLog.d("[$TAG] provideGlance start. glanceId=$id")
@@ -108,6 +118,8 @@ private sealed class WidgetData {
 
 @Composable
 private fun BirthdayWidgetRoot(result: WidgetData) {
+    val compact = LocalSize.current.height < 150.dp
+
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -117,7 +129,7 @@ private fun BirthdayWidgetRoot(result: WidgetData) {
             .padding(5.dp)
     ) {
         when (result) {
-            is WidgetData.Success -> BirthdayWidgetContent(result.items)
+            is WidgetData.Success -> BirthdayWidgetContent(result.items, compact)
             is WidgetData.Error -> WidgetErrorContent(result.message)
         }
     }
@@ -142,14 +154,15 @@ private fun WidgetErrorContent(message: String) {
 
 @Composable
 private fun BirthdayWidgetContent(
-    items: List<Pair<BirthdayEntity, DateCalculator.BirthdayInfo>>
+    items: List<Pair<BirthdayEntity, DateCalculator.BirthdayInfo>>,
+    compact: Boolean
 ) {
     Column(modifier = GlanceModifier.fillMaxSize()) {
-        // 标题行：橙色圆角图标 + "生日管家"
+        // 标题行："生日管家"
         Row(
             modifier = GlanceModifier
                 .fillMaxWidth()
-                .padding(start = 4.dp),
+                .padding(start = 4.dp, bottom = 3.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -157,7 +170,7 @@ private fun BirthdayWidgetContent(
                 style = TextStyle(
                     color = ColorProvider(R.color.widget_primary),
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
+                    fontSize = if (compact) 12.sp else 14.sp
                 )
             )
         }
@@ -165,9 +178,20 @@ private fun BirthdayWidgetContent(
         if (items.isEmpty()) {
             EmptyCard()
         } else {
-            items.forEachIndexed { index, (entity, info) ->
-                val isLast = index == items.lastIndex
-                BirthdayCard(entity = entity, info = info, isLast = isLast)
+            // Lazy 承载列表：行高超出组件高度时被严格裁切，不再溢出绘制
+            LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
+                itemsIndexed(items) { _, (entity, info) ->
+                    if (compact) {
+                        BirthdayCompactRow(entity = entity, info = info)
+                    } else {
+                        BirthdayCard(entity = entity, info = info)
+                    }
+                }
+                if (!compact) {
+                    item {
+                        FooterRow()
+                    }
+                }
             }
         }
     }
@@ -211,11 +235,82 @@ private fun EmptyCard() {
     }
 }
 
+/** 紧凑单行卡片：小尺寸（如 4x2）下可见条数更多 */
+@Composable
+private fun BirthdayCompactRow(
+    entity: BirthdayEntity,
+    info: DateCalculator.BirthdayInfo
+) {
+    val isToday = info.daysLeft == 0
+    val isSoon = info.daysLeft in 1..7
+    val dayText = if (isToday) "今天" else "${info.daysLeft}天"
+
+    val badgeBgColor = when {
+        isToday -> R.color.widget_primary
+        isSoon -> R.color.widget_primary_light
+        else -> R.color.widget_secondary_light
+    }
+    val badgeTextColor = when {
+        isToday -> R.color.widget_text_white
+        isSoon -> R.color.widget_primary_dark
+        else -> R.color.widget_secondary
+    }
+
+    val dateLabel = info.nextSolarDateString() +
+            (if (entity.isLunar) " 农历" else "") +
+            (if (info.ageTurning != null) " 满${info.ageTurning}岁" else "")
+
+    Row(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .padding(bottom = 2.dp)
+            .background(ColorProvider(R.color.widget_card))
+            .cornerRadius(8.dp)
+            .padding(horizontal = 6.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = GlanceModifier
+                .width(28.dp)
+                .height(28.dp)
+                .background(ColorProvider(badgeBgColor))
+                .cornerRadius(7.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = dayText,
+                style = TextStyle(
+                    color = ColorProvider(badgeTextColor),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp
+                )
+            )
+        }
+        Spacer(modifier = GlanceModifier.width(7.dp))
+        Text(
+            text = entity.name,
+            style = TextStyle(
+                color = ColorProvider(R.color.widget_text_primary),
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp
+            ),
+            modifier = GlanceModifier.defaultWeight()
+        )
+        Text(
+            text = dateLabel,
+            style = TextStyle(
+                color = ColorProvider(R.color.widget_text_secondary),
+                fontSize = 9.sp
+            )
+        )
+    }
+}
+
+/** 标准双行卡片：中等及以上尺寸使用 */
 @Composable
 private fun BirthdayCard(
     entity: BirthdayEntity,
-    info: DateCalculator.BirthdayInfo,
-    isLast: Boolean
+    info: DateCalculator.BirthdayInfo
 ) {
     val isToday = info.daysLeft == 0
     val isSoon = info.daysLeft in 1..7
@@ -239,6 +334,7 @@ private fun BirthdayCard(
     Row(
         modifier = GlanceModifier
             .fillMaxWidth()
+            .padding(bottom = 3.dp)
             .background(ColorProvider(R.color.widget_card))
             .cornerRadius(10.dp)
             .padding(5.dp),
@@ -283,5 +379,24 @@ private fun BirthdayCard(
                 )
             )
         }
+    }
+}
+
+/** 标准档末尾的入口提示 */
+@Composable
+private fun FooterRow() {
+    Row(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .padding(top = 2.dp, bottom = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "打开App查看全部 ›",
+            style = TextStyle(
+                color = ColorProvider(R.color.widget_text_secondary),
+                fontSize = 11.sp
+            )
+        )
     }
 }
