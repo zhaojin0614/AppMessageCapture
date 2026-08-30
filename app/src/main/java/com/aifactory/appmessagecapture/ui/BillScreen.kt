@@ -43,6 +43,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SettingsBackupRestore
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.UploadFile
@@ -201,6 +202,9 @@ fun BillScreen(
 
     // 设置页
     var showSettings by remember { mutableStateOf(false) }
+    // 账单搜索
+    var showSearch by remember { mutableStateOf(false) }
+    var searchText by remember { mutableStateOf("") }
     // 屏幕记账（无障碍）开关状态：从系统设置页返回时刷新角标
     var a11yResumeKey by remember { mutableStateOf(0) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -368,6 +372,20 @@ fun BillScreen(
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                            IconButton(onClick = {
+                                showSearch = !showSearch
+                                if (!showSearch) {
+                                    searchText = ""
+                                    viewModel.setSearchQuery("")
+                                }
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = "搜索账单",
+                                    tint = if (showSearch) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                             IconButton(onClick = { showSettings = true }) {
                                 Icon(
                                     imageVector = Icons.Default.Settings,
@@ -464,6 +482,58 @@ fun BillScreen(
     
                 Spacer(modifier = Modifier.height(8.dp))
     
+                if (showSearch) {
+                    TextField(
+                        value = searchText,
+                        onValueChange = {
+                            searchText = it
+                            viewModel.setSearchQuery(it)
+                        },
+                        placeholder = {
+                            Text(
+                                text = "搜索标题 / 商户 / 分类 / 金额",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        trailingIcon = {
+                            if (searchText.isNotEmpty()) {
+                                IconButton(
+                                    onClick = {
+                                        searchText = ""
+                                        viewModel.setSearchQuery("")
+                                    },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "清除搜索",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
                 // Bill List
                 if (bills.isEmpty()) {
                     EmptyBillState()

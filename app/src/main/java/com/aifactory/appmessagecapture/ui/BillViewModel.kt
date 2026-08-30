@@ -89,6 +89,7 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
     private val _typeFilter = MutableStateFlow<Boolean?>(null)     // true=收入 false=支出
     private val _categoryFilter = MutableStateFlow<String?>(null)
     private val _filterLimit = MutableStateFlow(FILTER_PAGE_SIZE)
+    private val _searchQuery = MutableStateFlow("")
 
     /** UI 调用：切换 全部/支出/收入 类型筛选（重置筛选分页） */
     fun setTypeFilter(typeLabel: String?) {
@@ -106,6 +107,12 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
         _filterLimit.value = FILTER_PAGE_SIZE
     }
 
+    /** UI 调用：设置账单搜索关键词（空 = 关闭搜索） */
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+        _filterLimit.value = FILTER_PAGE_SIZE
+    }
+
     /**
      * 记账页账单列表，两种分页策略：
      *
@@ -120,23 +127,28 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
         val type: Boolean?,
         val category: String?,
         val weeks: Int,
-        val filterLimit: Int
+        val filterLimit: Int,
+        val query: String
     )
 
     val bills: StateFlow<List<BillEntity>> = combine(
-        _typeFilter, _categoryFilter, _weeksToLoad, _filterLimit, ::BillQuery
+        _typeFilter, _categoryFilter, _weeksToLoad, _filterLimit, _searchQuery, ::BillQuery
     ).flatMapLatest { q ->
-        if (q.type == null && q.category == null) {
-            val since = System.currentTimeMillis() - q.weeks * 7L * 24 * 60 * 60 * 1000
-            billDao.getBillsSince(since)
-        } else {
-            billDao.getBillsFiltered(q.type, q.category, q.filterLimit)
+        when {
+            // 搜索优先：关键词命中标题/商户/分类/金额文本
+            q.query.isNotBlank() ->
+                billDao.searchBills(q.query.trim(), q.type, q.category, q.filterLimit)
+            q.type == null && q.category == null -> {
+                val since = System.currentTimeMillis() - q.weeks * 7L * 24 * 60 * 60 * 1000
+                billDao.getBillsSince(since)
+            }
+            else -> billDao.getBillsFiltered(q.type, q.category, q.filterLimit)
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /** 滚动到底部加载更多：无筛选时扩周窗口，有筛选时增大条数分页 */
     fun loadMore() {
-        if (_typeFilter.value != null || _categoryFilter.value != null) {
+        if (_typeFilter.value != null || _categoryFilter.value != null || _searchQuery.value.isNotBlank()) {
             _filterLimit.value += FILTER_PAGE_SIZE
         } else {
             loadMoreWeeks()
