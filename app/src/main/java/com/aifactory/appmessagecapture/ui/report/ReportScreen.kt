@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.*
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,7 +44,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.sin
@@ -118,8 +121,22 @@ fun ReportScreen(
         return
     }
 
+    var showCustomRangePicker by remember { mutableStateOf(false) }
+
     BackHandler(enabled = true) {
         onBack()
+    }
+
+    if (showCustomRangePicker) {
+        CustomRangePickerDialog(
+            initialStart = viewModel.customRange.value?.start,
+            initialEnd = viewModel.customRange.value?.end,
+            onDismiss = { showCustomRangePicker = false },
+            onConfirm = { start, end ->
+                viewModel.setCustomRange(start, end)
+                showCustomRangePicker = false
+            }
+        )
     }
 
     CompositionLocalProvider(LocalReportColors provides rememberReportColors()) {
@@ -157,6 +174,25 @@ fun ReportScreen(
                     onSelect = { viewModel.setPeriodType(it) },
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                 )
+                if (periodType == ReportViewModel.PeriodType.CUSTOM) {
+                    Text(
+                        text = "当前时间段：${uiState.periodLabel}（点击下方按钮选择）",
+                        fontSize = 12.sp,
+                        color = LocalReportColors.current.textGray,
+                        modifier = Modifier.padding(horizontal = 20.dp)
+                    )
+                    Text(
+                        text = "选择时间段",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .padding(horizontal = 20.dp, vertical = 6.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { showCustomRangePicker = true }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
     
                 // Date nav + income/expense toggle
                 Row(
@@ -175,7 +211,8 @@ fun ReportScreen(
                         onPrev = { viewModel.prevPeriod() },
                         onNext = { viewModel.nextPeriod() },
                         onSelectMonth = { y, m -> viewModel.setMonth(y, m) },
-                        onSelectYear = { y -> viewModel.setYear(y) }
+                        onSelectYear = { y -> viewModel.setYear(y) },
+                        onSelectCustomRange = { showCustomRangePicker = true }
                     )
                     IncomeExpenseToggle(
                         showIncome,
@@ -209,12 +246,15 @@ fun ReportScreen(
     
                 Spacer(modifier = Modifier.height(6.dp))
     
-                // Bar chart
-                TrendBarChartSection(
-                    showIncome = showIncome,
-                    data = uiState.barData,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
+                // Bar chart（自定义时间段无上一周期对比，隐藏）
+                if (uiState.barData.isNotEmpty()) {
+                    TrendBarChartSection(
+                        showIncome = showIncome,
+                        data = uiState.barData,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
     
                 Spacer(modifier = Modifier.height(6.dp))
     
@@ -225,6 +265,18 @@ fun ReportScreen(
                     onItemClick = { category -> selectedCategory = category },
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
+
+                // Platform breakdown
+                if (uiState.platformData.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    CategorySection(
+                        showIncome = showIncome,
+                        data = uiState.platformData,
+                        title = if (showIncome) "存入平台构成" else "平台构成",
+                        onItemClick = {},
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
     
                 Spacer(modifier = Modifier.height(80.dp))
             }
@@ -242,7 +294,8 @@ private fun PeriodTypeTabs(
     val tabs = listOf(
         ReportViewModel.PeriodType.WEEK to "周报",
         ReportViewModel.PeriodType.MONTH to "月报",
-        ReportViewModel.PeriodType.YEAR to "年报"
+        ReportViewModel.PeriodType.YEAR to "年报",
+        ReportViewModel.PeriodType.CUSTOM to "自定义"
     )
     Row(
         modifier = modifier
@@ -288,9 +341,22 @@ private fun DateNavigation(
     onPrev: () -> Unit,
     onNext: () -> Unit,
     onSelectMonth: (Int, Int) -> Unit,
-    onSelectYear: (Int) -> Unit
+    onSelectYear: (Int) -> Unit,
+    onSelectCustomRange: () -> Unit = {}
 ) {
     when (periodType) {
+        ReportViewModel.PeriodType.CUSTOM -> {
+            Text(
+                text = "$label（点击选择）",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onSelectCustomRange() }
+                    .padding(horizontal = 6.dp, vertical = 4.dp)
+            )
+        }
         ReportViewModel.PeriodType.WEEK -> {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onPrev, modifier = Modifier.size(32.dp)) {
@@ -463,6 +529,8 @@ private fun SummaryCards(
             Triple("本月${typeLabel}（元）", "日均${typeLabel}（元）", "比上月${typeLabel}（元）")
         ReportViewModel.PeriodType.YEAR ->
             Triple("本年${typeLabel}（元）", "月均${typeLabel}（元）", "比上年${typeLabel}（元）")
+        ReportViewModel.PeriodType.CUSTOM ->
+            Triple("时段${typeLabel}（元）", "日均${typeLabel}（元）", "比上一时段（元）")
     }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -566,6 +634,7 @@ private fun TrendLineChartSection(
         ReportViewModel.PeriodType.WEEK -> "本周趋势"
         ReportViewModel.PeriodType.MONTH -> "本月趋势"
         ReportViewModel.PeriodType.YEAR -> "本年趋势"
+        ReportViewModel.PeriodType.CUSTOM -> "时间段趋势"
     }
     val typeLabel = if (showIncome) "收入" else "支出"
 
@@ -1012,7 +1081,8 @@ private fun CategorySection(
     showIncome: Boolean,
     data: List<ReportViewModel.CategoryStat>,
     onItemClick: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    title: String? = null
 ) {
     SoftCard(
         modifier = modifier.fillMaxWidth(),
@@ -1020,7 +1090,7 @@ private fun CategorySection(
         color = LocalReportColors.current.cardBg,
         contentPadding = 16.dp
     ) {
-        SectionTitle(if (showIncome) "收入分类构成" else "支出分类构成")
+        SectionTitle(title ?: if (showIncome) "收入分类构成" else "支出分类构成")
 
         if (data.isNotEmpty()) {
             DonutChartWithLabels(
@@ -1034,6 +1104,7 @@ private fun CategorySection(
                 CategoryListItem(
                     rank = index + 1,
                     stat = stat,
+                    showIncome = showIncome,
                     onClick = { onItemClick(stat.category) }
                 )
                 if (index < data.lastIndex) {
@@ -1135,6 +1206,7 @@ private fun DonutChartWithLabels(
 private fun CategoryListItem(
     rank: Int,
     stat: ReportViewModel.CategoryStat,
+    showIncome: Boolean = false,
     onClick: () -> Unit = {}
 ) {
     val color = getCategoryColor(stat.category)
@@ -1197,6 +1269,16 @@ private fun CategoryListItem(
                     maxLines = 1
                 )
             }
+            stat.prevAmount?.let { prev ->
+                if (prev > 0 && stat.amount != prev) {
+                    val deltaPct = (stat.amount - prev) / prev * 100
+                    Text(
+                        text = "较上期 %+.1f%%".format(deltaPct),
+                        fontSize = 9.sp,
+                        color = if ((deltaPct > 0) == showIncome) IncomeGreen else ExpenseRed
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(4.dp))
             Box(
                 modifier = Modifier
@@ -1237,5 +1319,59 @@ private fun CategoryListItem(
             tint = LocalReportColors.current.textGray,
             modifier = Modifier.size(16.dp)
         )
+    }
+}
+
+/**
+ * 自定义时间段选择弹窗：Material3 DateRangePicker，最长 366 天。
+ */
+@Composable
+private fun CustomRangePickerDialog(
+    initialStart: LocalDate?,
+    initialEnd: LocalDate?,
+    onDismiss: () -> Unit,
+    onConfirm: (LocalDate, LocalDate) -> Unit
+) {
+    val zone = ZoneId.systemDefault()
+    val state = rememberDateRangePickerState(
+        initialSelectedStartDateMillis = initialStart
+            ?.atStartOfDay(zone)?.toInstant()?.toEpochMilli(),
+        initialSelectedEndDateMillis = initialEnd
+            ?.atStartOfDay(zone)?.toInstant()?.toEpochMilli()
+    )
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = LocalReportColors.current.cardBg
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                DateRangePicker(
+                    state = state,
+                    showModeToggle = false,
+                    title = null,
+                    headline = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 430.dp)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) { Text("取消") }
+                    TextButton(
+                        enabled = state.selectedStartDateMillis != null && state.selectedEndDateMillis != null,
+                        onClick = {
+                            val start = Instant.ofEpochMilli(state.selectedStartDateMillis!!)
+                                .atZone(zone).toLocalDate()
+                            val end = Instant.ofEpochMilli(state.selectedEndDateMillis!!)
+                                .atZone(zone).toLocalDate()
+                            onConfirm(start, end)
+                        }
+                    ) { Text("确定") }
+                }
+            }
+        }
     }
 }
