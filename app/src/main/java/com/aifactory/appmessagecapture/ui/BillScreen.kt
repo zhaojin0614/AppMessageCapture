@@ -3,15 +3,11 @@
 package com.aifactory.appmessagecapture.ui
 
 import android.content.Intent
-import android.widget.Toast
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -44,26 +40,20 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SettingsBackupRestore
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -106,8 +96,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -142,7 +130,6 @@ import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.components.glassHighlightBrush
 import com.aifactory.appmessagecapture.ui.components.gradientBrush
 import com.aifactory.appmessagecapture.ui.components.isDarkTheme
-import com.aifactory.appmessagecapture.utils.rememberAppIcon
 import com.aifactory.appmessagecapture.ui.theme.CategoryBeauty
 import com.aifactory.appmessagecapture.ui.theme.CategoryEducation
 import com.aifactory.appmessagecapture.ui.theme.CategoryEntertainment
@@ -165,8 +152,6 @@ import com.aifactory.appmessagecapture.ui.theme.CategoryTransport
 import com.aifactory.appmessagecapture.ui.theme.CategoryUncategorized
 import com.aifactory.appmessagecapture.R
 import com.aifactory.appmessagecapture.service.PaymentScreenAccessibilityService
-import com.aifactory.appmessagecapture.service.SupportedCaptureApp
-import com.aifactory.appmessagecapture.service.SupportedPaymentApps
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.GradientExpenseEnd
 import com.aifactory.appmessagecapture.ui.theme.GradientExpenseStart
@@ -208,35 +193,14 @@ fun BillScreen(
     var showEditDialog by remember { mutableStateOf(false) }
     var billToEdit by remember { mutableStateOf<BillEntity?>(null) }
     var showReport by remember { mutableStateOf(false) }
-    var showRecurringBills by remember { mutableStateOf(false) }
-    var showPlatformAccounts by remember { mutableStateOf(false) }
-    var showSupportedApps by remember { mutableStateOf(false) }
     // 待对账账单的平台分配弹窗
     var reconcileBill by remember { mutableStateOf<BillEntity?>(null) }
 
-    // 备份与恢复弹窗
-    var showBackupDialog by remember { mutableStateOf(false) }
-    var showRestoreConfirm by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
 
-    // 备份导出/导入的 SAF 启动器
-    val backupBusy by viewModel.backupBusy.collectAsState()
-    val exportBackupLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument(XLSX_MIME)
-    ) { uri -> uri?.let { viewModel.exportBackup(it) } }
-    var importOverwrite by remember { mutableStateOf(false) }
-    val importBackupLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri -> uri?.let { viewModel.importBackup(it, importOverwrite) } }
-    LaunchedEffect(Unit) {
-        viewModel.backupMessage.collect { message ->
-            message?.let {
-                Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-                viewModel.consumeBackupMessage()
-            }
-        }
-    }
+    // 设置页
+    var showSettings by remember { mutableStateOf(false) }
     // 屏幕记账（无障碍）开关状态：从系统设置页返回时刷新角标
     var a11yResumeKey by remember { mutableStateOf(0) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -256,25 +220,11 @@ fun BillScreen(
         return
     }
 
-    if (showRecurringBills) {
-        RecurringBillScreen(
-            onBack = { showRecurringBills = false },
-            modifier = modifier
-        )
+    if (showSettings) {
+        SettingsScreen(onBack = { showSettings = false })
         return
     }
 
-    if (showPlatformAccounts) {
-        PlatformAccountScreen(
-            onBack = { showPlatformAccounts = false },
-            modifier = modifier
-        )
-        return
-    }
-
-    if (showSupportedApps) {
-        SupportedAppsDialog(onDismiss = { showSupportedApps = false })
-    }
 
     val expenseCategories = listOf("全部") + ExpenseCategories.all
     val incomeCategories = listOf("全部") + IncomeCategories.all
@@ -411,34 +361,6 @@ fun BillScreen(
                                 )
                             }
                         } else {
-                            IconButton(onClick = { showSupportedApps = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.FactCheck,
-                                    contentDescription = "支持自动记账的App",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            IconButton(onClick = { showPlatformAccounts = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.AccountBalanceWallet,
-                                    contentDescription = "账户管理",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            IconButton(onClick = { showBackupDialog = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.Backup,
-                                    contentDescription = "备份与恢复",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            IconButton(onClick = { showRecurringBills = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.Repeat,
-                                    contentDescription = "周期账单",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
                             IconButton(onClick = { showReport = true }) {
                                 Icon(
                                     imageVector = Icons.Default.BarChart,
@@ -446,24 +368,12 @@ fun BillScreen(
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            // 屏幕记账（无障碍）权限入口；未开启时角标提醒
-                            BadgedBox(
-                                badge = {
-                                    if (!screenBillLive) {
-                                        Badge(containerColor = MaterialTheme.colorScheme.tertiary)
-                                    }
-                                }
-                            ) {
-                                IconButton(onClick = {
-                                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                                    startActivity(context, intent, null)
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Visibility,
-                                        contentDescription = stringResource(R.string.accessibility_settings),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+                            IconButton(onClick = { showSettings = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = "设置",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
@@ -616,79 +526,6 @@ fun BillScreen(
                 }
             }
         }
-    }
-
-    // 备份与恢复弹窗
-    if (showBackupDialog) {
-        GlassCompactDialog(
-            onDismissRequest = { showBackupDialog = false },
-            title = "备份与恢复",
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    BackupActionRow(
-                        icon = Icons.Default.TableChart,
-                        title = "导出表格（Excel）",
-                        subtitle = "支出/收入分表 + 平台账户余额",
-                        enabled = !backupBusy,
-                        onClick = {
-                            showBackupDialog = false
-                            val date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                            exportBackupLauncher.launch("捕账_备份_\$date.xlsx")
-                        }
-                    )
-                    BackupActionRow(
-                        icon = Icons.Default.UploadFile,
-                        title = "导入数据（合并）",
-                        subtitle = "与现有账单去重，不改动现有平台余额",
-                        enabled = !backupBusy,
-                        onClick = {
-                            showBackupDialog = false
-                            importOverwrite = false
-                            importBackupLauncher.launch(arrayOf(XLSX_MIME, "application/octet-stream"))
-                        }
-                    )
-                    BackupActionRow(
-                        icon = Icons.Default.SettingsBackupRestore,
-                        title = "恢复备份（覆盖）",
-                        subtitle = "清空当前账单与平台账户后按文件重建",
-                        enabled = !backupBusy,
-                        onClick = {
-                            showBackupDialog = false
-                            showRestoreConfirm = true
-                        }
-                    )
-                    Text(
-                        text = "平台余额以导出文件中的快照为准；导入不重复计算余额",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showBackupDialog = false }) { Text("关闭") }
-            }
-        )
-    }
-
-    // 恢复覆盖：二次确认
-    if (showRestoreConfirm) {
-        GlassCompactDialog(
-            onDismissRequest = { showRestoreConfirm = false },
-            title = "恢复备份",
-            text = { Text("将清空当前所有账单与平台账户，并按所选文件重建，此操作不可撤销。确定继续吗？") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showRestoreConfirm = false
-                        importOverwrite = true
-                        importBackupLauncher.launch(arrayOf(XLSX_MIME, "application/octet-stream"))
-                    }
-                ) { Text("确定恢复", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRestoreConfirm = false }) { Text("取消") }
-            }
-        )
     }
 
     // Add bill dialog
@@ -1263,111 +1100,6 @@ private fun formatDayHeader(date: LocalDate): String {
     }
 }
 
-/**
- * 「支持自动记账的App」清单弹窗：展示当前两条捕获通道支持的应用。
- * 数据源为 [SupportedPaymentApps.supportedCaptureApps]（与捕获门槛/
- * 监视名单的同步性由单测保证）。
- */
-@Composable
-fun SupportedAppsDialog(onDismiss: () -> Unit) {
-    GlassCompactDialog(
-        onDismissRequest = onDismiss,
-        title = "支持自动记账的App",
-        text = {
-            Column {
-                Text(
-                    text = "以下应用产生支付信息时将自动记录账单，无需手动添加",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 10.dp)
-                )
-                Column(
-                    modifier = Modifier
-                        .heightIn(max = 360.dp)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    SupportedPaymentApps.supportedCaptureApps.forEach { app ->
-                        SupportedAppRow(app)
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                HorizontalDivider()
-                Text(
-                    text = "通知捕获＝监听该App的支付通知；屏幕捕获＝无障碍读取" +
-                        "支付成功页（需在顶栏开启屏幕记账权限）",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("知道了") }
-        }
-    )
-}
-
-@Composable
-private fun SupportedAppRow(app: SupportedCaptureApp) {
-    val iconBitmap by rememberAppIcon(app.packageName, 28.dp)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // 应用图标（未安装/取不到时回退首字占位）
-        Box(
-            modifier = Modifier
-                .size(28.dp)
-                .background(
-                    MaterialTheme.colorScheme.primaryContainer,
-                    RoundedCornerShape(7.dp)
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            val icon = iconBitmap
-            if (icon != null) {
-                Image(
-                    bitmap = icon,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Text(
-                    text = app.appName.take(1),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-        }
-        Spacer(modifier = Modifier.width(10.dp))
-        Text(
-            text = app.appName,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f)
-        )
-        Surface(
-            shape = RoundedCornerShape(6.dp),
-            color = if (app.channel == SupportedPaymentApps.CHANNEL_SCREEN)
-                MaterialTheme.colorScheme.tertiaryContainer
-            else
-                MaterialTheme.colorScheme.secondaryContainer
-        ) {
-            Text(
-                text = app.channel,
-                style = MaterialTheme.typography.labelSmall,
-                color = if (app.channel == SupportedPaymentApps.CHANNEL_SCREEN)
-                    MaterialTheme.colorScheme.onTertiaryContainer
-                else
-                    MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-            )
-        }
-    }
-}
 
 /**
  * Vertical grid item for category selection dialogs (AddBill / ChangeCategory).
@@ -1508,50 +1240,6 @@ private fun BillEditChip(
                     modifier = Modifier.size(14.dp)
                 )
             }
-        }
-    }
-}
-
-/** xlsx 的标准 MIME（导出命名 / 导入过滤共用） */
-private const val XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-
-/** 备份弹窗的操作行：图标 + 标题 + 说明 */
-@Composable
-private fun BackupActionRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    enabled: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(22.dp)
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
