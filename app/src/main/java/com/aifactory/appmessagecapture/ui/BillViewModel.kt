@@ -1,10 +1,12 @@
 package com.aifactory.appmessagecapture.ui
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.aifactory.appmessagecapture.data.AccountRepository
 import com.aifactory.appmessagecapture.data.AppDatabase
+import com.aifactory.appmessagecapture.data.BillBackupManager
 import com.aifactory.appmessagecapture.data.BillEntity
 import com.aifactory.appmessagecapture.data.PlatformAccountEntity
 import com.aifactory.appmessagecapture.service.BillNotificationHelper
@@ -26,6 +28,55 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
     private val billDao = db.billDao()
     private val platformDao = db.platformAccountDao()
     private val repository = AccountRepository(db, billDao, platformDao)
+
+    // ── 备份与恢复 ──────────────────────────────────────────────────────
+    private val _backupBusy = MutableStateFlow(false)
+    val backupBusy: StateFlow<Boolean> = _backupBusy
+    private val _backupMessage = MutableStateFlow<String?>(null)
+    val backupMessage: StateFlow<String?> = _backupMessage
+
+    /** 导出全部账单 + 平台账户为 xlsx 工作簿（用户经 SAF 选择位置） */
+    fun exportBackup(uri: Uri) {
+        if (_backupBusy.value) return
+        viewModelScope.launch {
+            _backupBusy.value = true
+            try {
+                val bills = billDao.getAllBillsOnce()
+                val platforms = platformDao.getAllOnce()
+                BillBackupManager.exportToUri(getApplication(), uri, bills, platforms)
+                    .onSuccess { _backupMessage.value = "已导出 $it 条账单" }
+                    .onFailure { _backupMessage.value = "导出失败：${it.message}" }
+            } finally {
+                _backupBusy.value = false
+            }
+        }
+    }
+
+    /**
+     * 从 xlsx 工作簿导入。overwrite=false 合并（指纹去重，不动现有平台余额）；
+     * true 恢复覆盖（清空账单与平台后按快照重建）。
+     */
+    fun importBackup(uri: Uri, overwrite: Boolean) {
+        if (_backupBusy.value) return
+        viewModelScope.launch {
+            _backupBusy.value = true
+            try {
+                BillBackupManager.importFromUri(getApplication(), uri, repository, overwrite)
+                    .onSuccess {
+                        _backupMessage.value = (if (overwrite) "恢复完成：" else "导入完成：") + it.summary()
+                    }
+                    .onFailure {
+                        _backupMessage.value = (if (overwrite) "恢复失败：" else "导入失败：") + (it.message ?: "未知错误")
+                    }
+            } finally {
+                _backupBusy.value = false
+            }
+        }
+    }
+
+    fun consumeBackupMessage() {
+        _backupMessage.value = null
+    }
 
     private val _weeksToLoad = MutableStateFlow(1)
 

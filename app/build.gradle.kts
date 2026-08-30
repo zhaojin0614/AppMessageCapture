@@ -122,6 +122,8 @@ dependencies {
 
     // Testing
     testImplementation(libs.junit)
+    // 本地单测中提供 XmlPullParser 实现（生产环境用系统自带）
+    testImplementation(libs.kxml2)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

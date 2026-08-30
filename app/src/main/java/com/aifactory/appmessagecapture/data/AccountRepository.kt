@@ -143,6 +143,86 @@ class AccountRepository(
     // ── 内部工具 ──────────────────────────────────────────────────────────
 
     /**
+     * 备份导入写入（合并 / 恢复两种模式），全程单事务。
+     *
+     * 余额规则：平台余额只来自备份文件里的「平台账户」表（新建账户用其初始值，
+     * 已存在账户一律不动）——账单插入不触发余额调整，因为备份里的余额快照
+     * 已经包含了这些账单的影响，若再调整会造成重复计算。
+     *
+     * @param platforms 备份文件解析出的平台（name/balance/sortOrder）
+     * @param bills 备份文件解析出的账单（platformName=null 表示待对账）
+     * @param overwrite true=恢复模式（清空现有账单与平台后全量重建）
+     */
+    suspend fun importBackup(
+        platforms: List<BillBackupManager.ParsedPlatform>,
+        bills: List<BillBackupManager.ParsedBill>,
+        overwrite: Boolean
+    ): BillBackupManager.BackupWriteResult = db.withTransaction {
+        if (overwrite) {
+            billDao.deleteAll()
+            platformDao.deleteAllPlatforms()
+        }
+
+        // 平台：按名称匹配，已存在→复用（不改余额/排序），不存在→按备份值新建
+        val idByName = HashMap<String, Long?>()
+        platformDao.getAllOnce().forEach { idByName[it.name] = it.id }
+        var platformsCreated = 0
+        suspend fun ensurePlatform(name: String, balance: Double, sortOrder: Int) {
+            if (name.isBlank() || idByName.containsKey(name)) return
+            val now = System.currentTimeMillis()
+            val id = platformDao.insert(
+                PlatformAccountEntity(name = name, balance = balance, sortOrder = sortOrder, createdAt = now, updatedAt = now)
+            )
+            idByName[name] = id
+            platformsCreated++
+        }
+        platforms.forEach { ensurePlatform(it.name, it.balance, it.sortOrder) }
+
+        // 账单：指纹去重（时间+金额+标题+来源应用+方向），平台按名称回填 ID
+        val fingerprints = if (overwrite) HashSet() else billDao.getAllBillsOnce()
+            .mapTo(HashSet()) { "${it.timestamp}|${it.amount}|${it.title}|${it.appName}|${it.isIncome}" }
+        var inserted = 0
+        var skipped = 0
+        var failed = 0
+        bills.forEach { bill ->
+            val fingerprint = "${bill.timestamp}|${bill.amount}|${bill.title}|${bill.appName}|${bill.isIncome}"
+            if (fingerprint in fingerprints) {
+                skipped++
+                return@forEach
+            }
+            try {
+                bill.platformName?.let { ensurePlatform(it, 0.0, Int.MAX_VALUE) }
+                val newId = billDao.insert(
+                    BillEntity(
+                        amount = bill.amount,
+                        appName = bill.appName,
+                        packageName = bill.packageName,
+                        secondaryAppName = bill.secondaryAppName,
+                        secondaryPackageName = bill.secondaryPackageName,
+                        title = bill.title,
+                        category = bill.category,
+                        isIncome = bill.isIncome,
+                        timestamp = bill.timestamp,
+                        platformAccountId = bill.platformName?.let { idByName[it] }
+                    )
+                )
+                fingerprints.add(fingerprint)
+                BirthdayLog.i("[AccountRepo] importBill id=$newId amount=${bill.amount} income=${bill.isIncome}")
+                inserted++
+            } catch (e: Exception) {
+                BirthdayLog.logException("[AccountRepo] importBill", e)
+                failed++
+            }
+        }
+        BillBackupManager.BackupWriteResult(
+            total = bills.size, inserted = inserted, skipped = skipped,
+            failed = failed, platformsCreated = platformsCreated
+        )
+    }
+
+    // ── 内部工具 ──────────────────────────────────────────────────────────
+
+    /**
      * 根据账单收支方向调整平台余额。
      * @param isIncome true=收入(余额+amount)，false=支出(余额-amount)
      */

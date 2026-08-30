@@ -35,6 +35,10 @@ interface BillDao {
     @Query("SELECT * FROM bills WHERE id = :id")
     suspend fun getBillByIdOnce(id: Long): BillEntity?
 
+    /** 全量账单（备份导入时做指纹去重用） */
+    @Query("SELECT * FROM bills")
+    suspend fun getAllBillsOnce(): List<BillEntity>
+
     @Query("SELECT SUM(amount) FROM bills WHERE isIncome = 0")
     fun getTotalExpense(): Flow<Double?>
 

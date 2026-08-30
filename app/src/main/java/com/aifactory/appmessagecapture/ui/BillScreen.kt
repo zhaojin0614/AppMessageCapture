@@ -3,8 +3,11 @@
 package com.aifactory.appmessagecapture.ui
 
 import android.content.Intent
+import android.widget.Toast
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -44,6 +47,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.SettingsBackupRestore
+import androidx.compose.material.icons.filled.TableChart
+import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Close
@@ -99,6 +106,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -206,7 +214,29 @@ fun BillScreen(
     // 待对账账单的平台分配弹窗
     var reconcileBill by remember { mutableStateOf<BillEntity?>(null) }
 
+    // 备份与恢复弹窗
+    var showBackupDialog by remember { mutableStateOf(false) }
+    var showRestoreConfirm by remember { mutableStateOf(false) }
+
     val context = LocalContext.current
+
+    // 备份导出/导入的 SAF 启动器
+    val backupBusy by viewModel.backupBusy.collectAsState()
+    val exportBackupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(XLSX_MIME)
+    ) { uri -> uri?.let { viewModel.exportBackup(it) } }
+    var importOverwrite by remember { mutableStateOf(false) }
+    val importBackupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { viewModel.importBackup(it, importOverwrite) } }
+    LaunchedEffect(Unit) {
+        viewModel.backupMessage.collect { message ->
+            message?.let {
+                Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+                viewModel.consumeBackupMessage()
+            }
+        }
+    }
     // 屏幕记账（无障碍）开关状态：从系统设置页返回时刷新角标
     var a11yResumeKey by remember { mutableStateOf(0) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -395,6 +425,13 @@ fun BillScreen(
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                            IconButton(onClick = { showBackupDialog = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.Backup,
+                                    contentDescription = "备份与恢复",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                             IconButton(onClick = { showRecurringBills = true }) {
                                 Icon(
                                     imageVector = Icons.Default.Repeat,
@@ -579,6 +616,79 @@ fun BillScreen(
                 }
             }
         }
+    }
+
+    // 备份与恢复弹窗
+    if (showBackupDialog) {
+        GlassCompactDialog(
+            onDismissRequest = { showBackupDialog = false },
+            title = "备份与恢复",
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    BackupActionRow(
+                        icon = Icons.Default.TableChart,
+                        title = "导出表格（Excel）",
+                        subtitle = "支出/收入分表 + 平台账户余额",
+                        enabled = !backupBusy,
+                        onClick = {
+                            showBackupDialog = false
+                            val date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                            exportBackupLauncher.launch("捕账_备份_\$date.xlsx")
+                        }
+                    )
+                    BackupActionRow(
+                        icon = Icons.Default.UploadFile,
+                        title = "导入数据（合并）",
+                        subtitle = "与现有账单去重，不改动现有平台余额",
+                        enabled = !backupBusy,
+                        onClick = {
+                            showBackupDialog = false
+                            importOverwrite = false
+                            importBackupLauncher.launch(arrayOf(XLSX_MIME, "application/octet-stream"))
+                        }
+                    )
+                    BackupActionRow(
+                        icon = Icons.Default.SettingsBackupRestore,
+                        title = "恢复备份（覆盖）",
+                        subtitle = "清空当前账单与平台账户后按文件重建",
+                        enabled = !backupBusy,
+                        onClick = {
+                            showBackupDialog = false
+                            showRestoreConfirm = true
+                        }
+                    )
+                    Text(
+                        text = "平台余额以导出文件中的快照为准；导入不重复计算余额",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showBackupDialog = false }) { Text("关闭") }
+            }
+        )
+    }
+
+    // 恢复覆盖：二次确认
+    if (showRestoreConfirm) {
+        GlassCompactDialog(
+            onDismissRequest = { showRestoreConfirm = false },
+            title = "恢复备份",
+            text = { Text("将清空当前所有账单与平台账户，并按所选文件重建，此操作不可撤销。确定继续吗？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showRestoreConfirm = false
+                        importOverwrite = true
+                        importBackupLauncher.launch(arrayOf(XLSX_MIME, "application/octet-stream"))
+                    }
+                ) { Text("确定恢复", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRestoreConfirm = false }) { Text("取消") }
+            }
+        )
     }
 
     // Add bill dialog
@@ -1398,6 +1508,50 @@ private fun BillEditChip(
                     modifier = Modifier.size(14.dp)
                 )
             }
+        }
+    }
+}
+
+/** xlsx 的标准 MIME（导出命名 / 导入过滤共用） */
+private const val XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+/** 备份弹窗的操作行：图标 + 标题 + 说明 */
+@Composable
+private fun BackupActionRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

@@ -42,6 +42,10 @@ interface PlatformAccountDao {
     @Query("DELETE FROM platform_accounts WHERE id = :id")
     suspend fun deleteById(id: Long)
 
+    /** 清空全部平台账户（仅备份恢复模式使用） */
+    @Query("DELETE FROM platform_accounts")
+    suspend fun deleteAllPlatforms()
+
     /**
      * 原子地增减平台余额。支出传负 delta，收入传正 delta。
      * 仅更新余额与更新时间，避免覆盖其他字段的并发修改。

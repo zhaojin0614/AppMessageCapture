@@ -15,6 +15,7 @@ timber = "5.0.1"
 lunar = "1.7.7"
 coroutines = "1.8.1"
 junit = "4.13.2"
+kxml2 = "2.3.0"
 androidxTestJunit = "1.1.5"
 espressoCore = "3.5.1"
 
@@ -44,6 +45,7 @@ timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "tim
 lunar = { group = "cn.6tail", name = "lunar", version.ref = "lunar" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+kxml2 = { group = "net.sf.kxml", name = "kxml2", version.ref = "kxml2" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestJunit" }
 androidx-test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 
