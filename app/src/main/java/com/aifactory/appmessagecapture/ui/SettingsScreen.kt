@@ -3,6 +3,7 @@ package com.aifactory.appmessagecapture.ui
 import android.content.Intent
 import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -161,6 +162,10 @@ fun SettingsScreen(onBack: () -> Unit) {
         RecurringBillScreen(onBack = { showRecurringBills = false })
         return
     }
+
+    // 拦截系统返回手势/按键回到记账界面，而不是退出应用
+    //（子页面各自注册了 BackHandler，优先处理其自身返回）
+    BackHandler(enabled = true) { onBack() }
 
     Scaffold(
         containerColor = Color.Transparent,
