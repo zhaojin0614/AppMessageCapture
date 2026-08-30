@@ -1,5 +1,7 @@
 <resources>
     <string name="app_name">捕账</string>
+    <string name="shortcut_add_widget_short">添加小组件</string>
+    <string name="shortcut_add_widget_long">添加生日小组件到桌面</string>
     <string name="service_name">捕账（通知捕获）</string>
     <string name="app_title">捕账</string>
     <string name="empty_message">暂无捕获的消息</string>

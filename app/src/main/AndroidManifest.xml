@@ -45,6 +45,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+            <!-- 桌面长按图标弹出的快捷方式（添加小组件等） -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
 
         <!-- 账单快捷编辑弹窗：从「记账成功」通知的 改分类/扣款平台 按钮打开 -->
         <activity
@@ -89,6 +93,20 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:theme="@android:style/Theme.NoDisplay" />
+
+        <!-- 长按图标「添加小组件」快捷方式的跳板：发起固定组件请求后立即退出 -->
+        <activity
+            android:name=".birthday.widget.AddBirthdayWidgetActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="com.aifactory.appmessagecapture.action.ADD_BIRTHDAY_WIDGET" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <!-- BirthdayKeeper: full screen alarm activity -->
         <activity
