@@ -18,8 +18,8 @@ import android.widget.Toast
  * 触发方式（终端需 UTF-8，Git Bash 默认满足）：
  * ```
  * adb shell am broadcast \
- *   -a com.aifactory.appmessagecapture.SIMULATE_NOTIFICATION \
- *   -n com.aifactory.appmessagecapture/.service.SimulateNotificationReceiver \
+ *   -a com.zhaojin.billcatch.SIMULATE_NOTIFICATION \
+ *   -n com.zhaojin.billcatch/com.aifactory.appmessagecapture.service.SimulateNotificationReceiver \
  *   --es pkg com.unionpay \
  *   --es title "支付助手：付款成功" \
  *   --es content "您尾号为5580的银行卡消费18.80元"

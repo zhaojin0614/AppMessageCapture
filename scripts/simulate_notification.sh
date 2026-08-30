@@ -47,8 +47,8 @@ set -euo pipefail
 # Resolve project root (script may be called from any directory)
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-ACTION="com.aifactory.appmessagecapture.SIMULATE_NOTIFICATION"
-RECEIVER="com.aifactory.appmessagecapture/.service.SimulateNotificationReceiver"
+ACTION="com.zhaojin.billcatch.SIMULATE_NOTIFICATION"
+RECEIVER="com.zhaojin.billcatch/com.aifactory.appmessagecapture.service.SimulateNotificationReceiver"
 
 SCREEN_MODE=0
 ARGS=()
@@ -110,7 +110,7 @@ echo "→ 内容: ${ARGS[2]}"
 
 # MIUI/HyperOS 的 Greezer 会把发给缓存进程的广播转入延迟队列导致注入失效，
 # 先把 App 拉到前台保证接收器立即执行（测试时也方便直接看到账单）。
-"$ADB" shell am start -n com.aifactory.appmessagecapture/.MainActivity >/dev/null 2>&1 || true
+"$ADB" shell am start -n com.zhaojin.billcatch/com.aifactory.appmessagecapture.MainActivity >/dev/null 2>&1 || true
 sleep 1
 
 # Quote an argument for the device-side shell: adb shell concatenates args and
