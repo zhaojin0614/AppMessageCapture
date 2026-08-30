@@ -4,6 +4,7 @@ import android.content.Context
 import com.aifactory.appmessagecapture.AppMessageCaptureApplication
 import com.aifactory.appmessagecapture.data.BillEntity
 import com.aifactory.appmessagecapture.ui.ExpenseCategories
+import com.aifactory.appmessagecapture.utils.MerchantKey
 import com.aifactory.appmessagecapture.ui.IncomeCategories
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -52,8 +53,16 @@ object BillIngestor {
         timestamp: Long
     ): Result = mutex.withLock {
             val app = context.applicationContext as AppMessageCaptureApplication
-            val category = if (isIncome) guessIncomeCategory(fullText, appName)
-            else guessCategory(fullText, appName)
+            val dao = app.database.billDao()
+
+            // ── 0. 商户记忆 ─────────────────────────────────────────────
+            // 同商户键最近一笔同方向账单的分类/平台优先于关键词猜测——
+            // 用户纠正过一次，之后同商户的消费就自动归类对账。
+            val merchantKey = MerchantKey.of(appName, title)
+            val memory = dao.findMerchantMemory(merchantKey, isIncome)
+            val category = memory?.category
+                ?: (if (isIncome) guessIncomeCategory(fullText, appName)
+                    else guessCategory(fullText, appName))
 
             val bill = BillEntity(
                 amount = amount,
@@ -62,9 +71,10 @@ object BillIngestor {
                 title = title,
                 category = category,
                 isIncome = isIncome,
-                timestamp = timestamp
+                timestamp = timestamp,
+                platformAccountId = memory?.platformId,
+                merchantKey = merchantKey
             )
-            val dao = app.database.billDao()
 
             // ── 1. 同 App 去重 ─────────────────────────────────────────────
 
@@ -102,7 +112,9 @@ object BillIngestor {
                         appName = appName,
                         packageName = packageName,
                         title = title,
-                        category = category
+                        category = category,
+                        platformAccountId = memory?.platformId ?: existing.platformAccountId,
+                        merchantKey = merchantKey
                     )
                     dao.update(updatedBill)
                     BillNotificationHelper.showBillRecognizedNotification(

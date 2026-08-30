@@ -258,13 +258,15 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateCategory(id: Long, category: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            billDao.updateCategory(id, category)
+            // 记忆化写库：回填商户键，让这次纠正对之后同商户的捕获生效
+            repository.updateCategoryRemembered(id, category)
         }
     }
 
     fun updateTitle(id: Long, title: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            billDao.updateTitle(id, title)
+            // 标题参与商户键，改动后同步重算
+            repository.updateTitleRekeyed(id, title)
         }
     }
 

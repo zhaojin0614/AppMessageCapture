@@ -2,6 +2,7 @@ package com.aifactory.appmessagecapture.data
 
 import androidx.room.withTransaction
 import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
+import com.aifactory.appmessagecapture.utils.MerchantKey
 
 /**
  * 账单与平台账户联动的事务仓库。
@@ -27,7 +28,11 @@ class AccountRepository(
      */
     suspend fun addBillWithPlatform(bill: BillEntity) {
         db.withTransaction {
-            val newId = billDao.insert(bill)
+            // 手动记账同样补齐商户键，使其参与商户记忆
+            val normalized = if (bill.merchantKey.isNullOrBlank())
+                bill.copy(merchantKey = MerchantKey.of(bill.appName, bill.title))
+            else bill
+            val newId = billDao.insert(normalized)
             bill.platformAccountId?.let { platformId ->
                 adjustPlatformForBill(platformId, bill.amount, bill.isIncome)
             }
@@ -76,7 +81,14 @@ class AccountRepository(
             platformId?.let {
                 adjustPlatformForBill(it, bill.amount, bill.isIncome)
             }
-            // 3. 更新账单
+            // 3. 更新账单（无商户键的旧账单回填，使纠正成为后续记忆）
+            if (bill.merchantKey.isNullOrBlank()) {
+                billDao.update(
+                    bill.copy(
+                        merchantKey = MerchantKey.of(bill.appName, bill.title)
+                    )
+                )
+            }
             billDao.updatePlatform(billId, platformId)
             BirthdayLog.i("[AccountRepo] reconcileBill id=$billId oldPlatform=$oldPlatformId newPlatform=$platformId")
         }
@@ -98,6 +110,36 @@ class AccountRepository(
             }
             billDao.updateAmount(billId, newAmount)
             BirthdayLog.i("[AccountRepo] updateBillAmount id=$billId old=${bill.amount} new=$newAmount")
+        }
+    }
+
+    /**
+     * 用户纠正分类：写库并回填商户键（无键的旧账单按当前标题补键），
+     * 使这次纠正对之后同商户的捕获生效。
+     */
+    suspend fun updateCategoryRemembered(billId: Long, category: String) {
+        db.withTransaction {
+            val bill = billDao.getBillByIdOnce(billId) ?: return@withTransaction
+            if (bill.merchantKey.isNullOrBlank()) {
+                billDao.update(
+                    bill.copy(
+                        category = category,
+                        merchantKey = MerchantKey.of(bill.appName, bill.title)
+                    )
+                )
+            } else {
+                billDao.updateCategory(billId, category)
+            }
+        }
+    }
+
+    /**
+     * 用户改标题：标题参与商户键，需同步重算（旧键的记忆仍在历史账单上）。
+     */
+    suspend fun updateTitleRekeyed(billId: Long, title: String) {
+        db.withTransaction {
+            val bill = billDao.getBillByIdOnce(billId) ?: return@withTransaction
+            billDao.update(bill.copy(title = title, merchantKey = MerchantKey.of(bill.appName, title)))
         }
     }
 
@@ -203,7 +245,8 @@ class AccountRepository(
                         category = bill.category,
                         isIncome = bill.isIncome,
                         timestamp = bill.timestamp,
-                        platformAccountId = bill.platformName?.let { idByName[it] }
+                        platformAccountId = bill.platformName?.let { idByName[it] },
+                        merchantKey = MerchantKey.of(bill.appName, bill.title)
                     )
                 )
                 fingerprints.add(fingerprint)

@@ -32,5 +32,10 @@ data class BillEntity(
      * - null：未对账（待对账），金额未从任何平台扣除，需用户后续分配。
      * 旧账单迁移后默认为 null。
      */
-    val platformAccountId: Long? = null
+    val platformAccountId: Long? = null,
+    /**
+     * 商户记忆键：来源 App + 标题规范化（去数字/金额符号）。
+     * 同键最近一笔账单的分类/平台会被新账单自动套用（商户记忆）。
+     */
+    val merchantKey: String? = null
 )

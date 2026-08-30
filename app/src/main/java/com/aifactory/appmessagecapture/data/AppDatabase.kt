@@ -16,8 +16,8 @@ import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
  * Room database for locally storing captured notifications and birthday records.
  */
 @Database(
-    entities = [NotificationEntity::class, BillEntity::class, BirthdayEntity::class, RecurringBillEntity::class, PlatformAccountEntity::class],
-    version = 13,
+    entities = [NotificationEntity::class, BillEntity::class, BirthdayEntity::class, RecurringBillEntity::class, PlatformAccountEntity::class, BudgetEntity::class],
+    version = 14,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -28,6 +28,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun birthdayDao(): BirthdayDao
     abstract fun recurringBillDao(): RecurringBillDao
     abstract fun platformAccountDao(): PlatformAccountDao
+    abstract fun budgetDao(): BudgetDao
 
     companion object {
         @Volatile
@@ -294,6 +295,30 @@ abstract class AppDatabase : RoomDatabase() {
          * - recurring_bills: due-bill lookup (isActive + nextDueDate)
          * - birthdays: name lookup used by backup import
          */
+        /**
+         * Migrate from v13 to v14:
+         * 1. Add `bills.merchantKey`（商户记忆键，标题规范化指纹）+ 查询索引
+         * 2. Create `budgets` table（月度总预算/分类预算，分类唯一索引）
+         */
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                BirthdayLog.i("[DB Migration] Executing MIGRATION_13_14: bills.merchantKey + budgets table")
+                db.execSQL("ALTER TABLE bills ADD COLUMN merchantKey TEXT")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_bills_merchantKey ON bills(merchantKey)")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS budgets (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        category TEXT NOT NULL,
+                        amount REAL NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_budgets_category ON budgets(category)")
+                BirthdayLog.i("[DB Migration] MIGRATION_13_14 completed")
+            }
+        }
+
         private val MIGRATION_12_13 = object : Migration(12, 13) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 BirthdayLog.i("[DB Migration] Executing MIGRATION_12_13: adding indexes")
@@ -314,7 +339,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "notification_database"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
                     .build()
                 INSTANCE = instance
                 BirthdayLog.i("AppDatabase initialized. Version=13")

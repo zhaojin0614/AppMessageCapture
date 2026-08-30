@@ -39,6 +39,52 @@ interface BillDao {
     @Query("SELECT * FROM bills")
     suspend fun getAllBillsOnce(): List<BillEntity>
 
+    /**
+     * 商户记忆：同商户键最近一笔同方向账单的分类与平台。
+     * 平台已被删除的记忆不返回（LEFT JOIN 过滤）。
+     */
+    @Query(
+        """
+        SELECT b.category AS category, b.platformAccountId AS platformId
+        FROM bills b
+        LEFT JOIN platform_accounts p ON p.id = b.platformAccountId
+        WHERE b.merchantKey = :merchantKey AND b.isIncome = :isIncome
+          AND (b.platformAccountId IS NULL OR p.id IS NOT NULL)
+        ORDER BY b.timestamp DESC
+        LIMIT 1
+        """
+    )
+    suspend fun findMerchantMemory(merchantKey: String, isIncome: Boolean): MerchantMemory?
+
+    /** 关键词搜索：标题/来源应用/分类模糊匹配 + 金额文本匹配，带类型/分类过滤与条数分页 */
+    @Query(
+        """
+        SELECT * FROM bills
+        WHERE (
+            title LIKE '%' || :query || '%'
+            OR appName LIKE '%' || :query || '%'
+            OR category LIKE '%' || :query || '%'
+            OR CAST(amount AS TEXT) LIKE '%' || :query || '%'
+        )
+        AND (:type IS NULL OR isIncome = :type)
+        AND (:category IS NULL OR category = :category)
+        ORDER BY timestamp DESC
+        LIMIT :limit
+        """
+    )
+    fun searchBills(query: String, type: Boolean?, category: String?, limit: Int): Flow<List<BillEntity>>
+
+    /** 自某时点（月初）起的分类支出汇总（预算进度用） */
+    @Query(
+        """
+        SELECT category AS category, SUM(amount) AS total
+        FROM bills
+        WHERE isIncome = 0 AND timestamp >= :monthStart
+        GROUP BY category
+        """
+    )
+    fun getMonthCategoryExpense(monthStart: Long): Flow<List<CategorySum>>
+
     @Query("SELECT SUM(amount) FROM bills WHERE isIncome = 0")
     fun getTotalExpense(): Flow<Double?>
 
@@ -150,4 +196,16 @@ data class TodayStats(
     val expense: Double?,
     val income: Double?,
     val count: Int?
+)
+
+/** 商户记忆查询结果：最近一笔同商户账单的分类与平台 */
+data class MerchantMemory(
+    val category: String,
+    val platformId: Long?
+)
+
+/** 分类月度支出汇总（预算进度用） */
+data class CategorySum(
+    val category: String,
+    val total: Double
 )
