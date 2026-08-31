@@ -201,8 +201,6 @@ fun BillScreen(
     var showEditDialog by remember { mutableStateOf(false) }
     var billToEdit by remember { mutableStateOf<BillEntity?>(null) }
     var showReport by remember { mutableStateOf(false) }
-    // 待对账账单的平台分配弹窗
-    var reconcileBill by remember { mutableStateOf<BillEntity?>(null) }
 
 
     val context = LocalContext.current
@@ -732,7 +730,10 @@ fun BillScreen(
                                 },
                                 onReconcile = { bill ->
                                     if (!isSelectionMode) {
-                                        reconcileBill = bill
+                                        // 点「待对账」徽章 = 打开同一个综合编辑界面（分类/平台双栏），
+                                        // 与点账单主体、点分类标签一致；不再走旧的单平台弹窗
+                                        billToEdit = bill
+                                        showEditDialog = true
                                     }
                                 },
                                 onDelete = { bill ->
@@ -949,20 +950,6 @@ fun BillScreen(
                     Text("取消")
                 }
             }
-        )
-    }
-
-    // 对账弹窗：为账单分配扣款平台
-    if (reconcileBill != null) {
-        val bill = reconcileBill!!
-        ReconcilePlatformDialog(
-            bill = bill,
-            platforms = platforms,
-            onAssign = { platformId ->
-                viewModel.reconcileBill(bill.id, platformId)
-                reconcileBill = null
-            },
-            onDismiss = { reconcileBill = null }
         )
     }
 }

@@ -107,7 +107,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.aifactory.appmessagecapture.data.BillEntity
 import com.aifactory.appmessagecapture.ui.components.PillToggle
 import com.aifactory.appmessagecapture.ui.components.SoftButton
 import com.aifactory.appmessagecapture.ui.components.SoftCard
@@ -277,66 +276,4 @@ private fun PlatformPickerItem(
             )
         }
     }
-}
-
-/**
- * 对账对话框：为待对账（或已对账）账单分配/更换扣款平台。
- * 支出从所选平台扣款，收入存入所选平台；选"取消对账"回滚到待对账。
- */
-@Composable
-fun ReconcilePlatformDialog(
-    bill: BillEntity,
-    platforms: List<com.aifactory.appmessagecapture.data.PlatformAccountEntity>,
-    onAssign: (Long?) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val typeLabel = if (bill.isIncome) "存入平台" else "扣款平台"
-    val amountPrefix = if (bill.isIncome) "+" else "-"
-    GlassCompactDialog(
-        onDismissRequest = onDismiss,
-        title = "对账 - ${bill.title}",
-        text = {
-            Column {
-                Text(
-                    text = "$amountPrefix¥${String.format("%.2f", bill.amount)} · 选择$typeLabel",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                if (platforms.isEmpty()) {
-                    Text(
-                        text = "暂无平台账户，请先在「账户管理」中添加平台。",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        item {
-                            PlatformPickerItem(
-                                name = "取消对账（待对账）",
-                                balance = null,
-                                isSelected = bill.platformAccountId == null,
-                                isUnreconciled = true,
-                                onClick = { onAssign(null) }
-                            )
-                        }
-                        items(platforms, key = { it.id }) { platform ->
-                            PlatformPickerItem(
-                                name = platform.name,
-                                balance = platform.balance,
-                                isSelected = bill.platformAccountId == platform.id,
-                                isUnreconciled = false,
-                                onClick = { onAssign(platform.id) }
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("关闭") }
-        }
-    )
 }
