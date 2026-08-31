@@ -9,7 +9,13 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.zhaojin.billcatch"
+        // -PlegacyPackage=true 时以旧包名构建「桥接包」：装到还留着旧版
+        // （com.aifactory.appmessagecapture）的设备上会原地升级，数据保留，
+        // 且补上导入/导出功能，供无电脑场景下把旧数据搬到新包名 app
+        applicationId = if (project.hasProperty("legacyPackage"))
+            "com.aifactory.appmessagecapture"
+        else
+            "com.zhaojin.billcatch"
         minSdk = 26
         targetSdk = 35
         versionCode = 3
@@ -58,13 +64,16 @@ android {
         }
     }
 
-    // 自定义 APK 输出文件名：应用名-v版本名.apk
+    // 自定义 APK 输出文件名：应用名-v版本名.apk；
+    // 旧包名桥接构建（-PlegacyPackage=true）带 legacy 后缀，避免与正式包同名互覆
     applicationVariants.all {
         val variant = this
+        val legacySuffix =
+            if (project.hasProperty("legacyPackage")) "-legacy" else ""
         outputs.forEach { output ->
             if (output is com.android.build.gradle.internal.api.BaseVariantOutputImpl) {
                 output.outputFileName =
-                    "AppMessageCapture-v${variant.versionName}.apk"
+                    "AppMessageCapture-v${variant.versionName}${legacySuffix}.apk"
             }
         }
     }
