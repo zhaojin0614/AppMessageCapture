@@ -103,6 +103,7 @@ import com.aifactory.appmessagecapture.ui.components.SoftCard
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.theme.AccentColor
 import com.aifactory.appmessagecapture.ui.theme.AccentColorRepository
+import com.aifactory.appmessagecapture.ui.theme.AccentVariant
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
 import com.aifactory.appmessagecapture.utils.NotificationServiceHelper
@@ -130,6 +131,8 @@ fun SettingsScreen(onBack: () -> Unit) {
     var showBudgetDialog by remember { mutableStateOf(false) }
     var showAccentDialog by remember { mutableStateOf(false) }
     var showCustomPicker by remember { mutableStateOf(false) }
+    // 弹窗内的草稿选择：点色块/调色板只改草稿，「使用此颜色」统一应用
+    var draftAccent by remember { mutableStateOf(AccentVariant.fromPreset(AccentColor.MINT)) }
     var draftCustomColor by remember { mutableStateOf(AccentColor.MINT.primary) }
     var importOverwrite by remember { mutableStateOf(false) }
 
@@ -272,7 +275,12 @@ fun SettingsScreen(onBack: () -> Unit) {
                 SettingsRow(
                     icon = Icons.Default.Palette,
                     title = "主题色",
-                    onClick = { showAccentDialog = true }
+                    onClick = {
+                        // 每次打开弹窗，草稿重置为当前已应用的主题色
+                        draftAccent = AccentColorRepository.current
+                        showCustomPicker = false
+                        showAccentDialog = true
+                    }
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
@@ -336,7 +344,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "当前：${currentAccent.label}",
+                        text = "已选：${draftAccent.label}",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -349,8 +357,8 @@ fun SettingsScreen(onBack: () -> Unit) {
                             rowPresets.forEach { preset ->
                                 AccentSwatch(
                                     color = preset.primary,
-                                    selected = currentAccent.id == preset.name,
-                                    onClick = { AccentColorRepository.setPreset(context, preset) }
+                                    selected = draftAccent.id == preset.name,
+                                    onClick = { draftAccent = AccentVariant.fromPreset(preset) }
                                 )
                             }
                         }
@@ -363,7 +371,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f))
                             .clickable {
                                 if (!showCustomPicker) {
-                                    draftCustomColor = if (currentAccent.isCustom) currentAccent.primary
+                                    draftCustomColor = if (draftAccent.isCustom) draftAccent.primary
                                     else AccentColorRepository.lastCustom ?: AccentColor.MINT.primary
                                 }
                                 showCustomPicker = !showCustomPicker
@@ -408,10 +416,10 @@ fun SettingsScreen(onBack: () -> Unit) {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        if (currentAccent.isCustom) {
+                        if (draftAccent.isCustom) {
                             Icon(
                                 imageVector = Icons.Default.Check,
-                                contentDescription = "当前使用自定义颜色",
+                                contentDescription = "已选自定义颜色",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(16.dp)
                             )
@@ -429,11 +437,14 @@ fun SettingsScreen(onBack: () -> Unit) {
                     AnimatedVisibility(visible = showCustomPicker) {
                         AccentHsvPickerContent(
                             initial = draftCustomColor,
-                            onColorChanged = { draftCustomColor = it }
+                            onColorChanged = { picked ->
+                                draftCustomColor = picked
+                                draftAccent = AccentVariant(AccentVariant.CUSTOM_ID, "自定义", picked)
+                            }
                         )
                     }
                     Text(
-                        text = "选择后立即生效；按钮、导航、选中态等会跟随主题色",
+                        text = "点击「使用此颜色」后生效；按钮、导航、选中态等会跟随主题色",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -441,7 +452,12 @@ fun SettingsScreen(onBack: () -> Unit) {
             },
             confirmButton = {
                 TextButton(onClick = {
-                    AccentColorRepository.setCustom(context, draftCustomColor)
+                    if (draftAccent.isCustom) {
+                        AccentColorRepository.setCustom(context, draftAccent.primary)
+                    } else {
+                        AccentColor.entries.firstOrNull { it.name == draftAccent.id }
+                            ?.let { AccentColorRepository.setPreset(context, it) }
+                    }
                     showAccentDialog = false
                 }) { Text("使用此颜色") }
             },
