@@ -74,6 +74,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aifactory.appmessagecapture.birthday.ui.components.BirthdayCard
+import com.aifactory.appmessagecapture.ui.theme.ComponentGap
 import com.aifactory.appmessagecapture.birthday.ui.components.EmptyBirthdayState
 import com.aifactory.appmessagecapture.birthday.utils.PermissionHelper
 import com.aifactory.appmessagecapture.ui.components.SoftFab
@@ -399,7 +400,7 @@ fun BirthdayListScreen(
                         .fillMaxSize()
                         .nestedScroll(nestedScrollConnection),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 96.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(ComponentGap)
                 ) {
                     items(
                         items = filteredItems,

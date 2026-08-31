@@ -230,7 +230,9 @@ fun ReportScreen(
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
-    
+
+                Spacer(modifier = Modifier.height(ComponentGap))
+
                 // Date nav + income/expense toggle
                 Row(
                     modifier = Modifier
@@ -253,8 +255,7 @@ fun ReportScreen(
                     )
                     IncomeExpenseToggle(
                         showIncome,
-                        { viewModel.toggleShowIncome() },
-                        modifier = Modifier.width(150.dp)
+                        { viewModel.toggleShowIncome() }
                     )
                 }
     
@@ -468,25 +469,25 @@ private fun IncomeExpenseToggle(
     modifier: Modifier = Modifier
 ) {
     val options = listOf("支出" to ExpenseRed, "收入" to IncomeGreen)
+    // 紧凑自适应宽度小胶囊：不与周期选择框抢宽度，仅包住内容
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(LocalReportColors.current.neutralGray.copy(alpha = 0.35f))
-            .border(glassBorder(), RoundedCornerShape(16.dp))
-            .padding(2.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp)
+            .border(glassBorder(), RoundedCornerShape(12.dp))
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         options.forEachIndexed { index, (label, color) ->
             val selected = (index == 1) == showIncome
             Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(if (selected) gradientBrush(color) else SolidColor(Color.Transparent))
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(if (selected) gradientBrush(color, alpha = 0.92f) else SolidColor(Color.Transparent))
                     .clickable {
                         if ((index == 1) != showIncome) onToggle()
                     }
-                    .padding(horizontal = 14.dp, vertical = 5.dp),
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(

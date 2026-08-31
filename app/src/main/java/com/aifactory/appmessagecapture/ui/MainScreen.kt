@@ -120,6 +120,7 @@ import com.aifactory.appmessagecapture.R
 import com.aifactory.appmessagecapture.data.NotificationEntity
 import com.aifactory.appmessagecapture.service.PaymentScreenAccessibilityService
 import com.aifactory.appmessagecapture.ui.components.SoftFab
+import com.aifactory.appmessagecapture.ui.theme.ComponentGap
 import com.aifactory.appmessagecapture.ui.components.SwipeableItem
 import com.aifactory.appmessagecapture.ui.components.GlassCompactDialog
 import com.aifactory.appmessagecapture.ui.components.glassBorder
@@ -502,7 +503,7 @@ fun MainScreen(
                     color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.88f),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp)
+                        .padding(bottom = ComponentGap)
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -535,7 +536,7 @@ fun MainScreen(
                         .fillMaxSize()
                         .nestedScroll(nestedScrollConnection),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 96.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(ComponentGap)
                 ) {
                     items(
                         items = groupedList,
@@ -997,7 +998,7 @@ fun AppFilterDialog(
                     text = "勾选表示在列表中显示该应用的消息，取消勾选表示隐藏",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = ComponentGap)
                 )
                 SearchableAppList(
                     apps = apps,
@@ -1045,7 +1046,7 @@ fun BlockedAppsDialog(
                     text = "勾选的应用将不会被捕获通知（服务级别屏蔽）",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = ComponentGap)
                 )
                 SearchableAppList(
                     apps = apps,
