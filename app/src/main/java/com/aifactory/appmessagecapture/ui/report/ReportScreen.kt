@@ -469,25 +469,26 @@ private fun IncomeExpenseToggle(
     modifier: Modifier = Modifier
 ) {
     val options = listOf("支出" to ExpenseRed, "收入" to IncomeGreen)
-    // 紧凑自适应宽度小胶囊：不与周期选择框抢宽度，仅包住内容
+    // 紧凑自适应小胶囊：字号比周期选择框（labelLarge 14sp）小一级（13sp，同记账页分类 chip），
+    // 圆角与记账页选择框同级（16dp），高度压到约 30dp
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(LocalReportColors.current.neutralGray.copy(alpha = 0.35f))
-            .border(glassBorder(), RoundedCornerShape(12.dp))
-            .padding(3.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp)
+            .border(glassBorder(), RoundedCornerShape(16.dp))
+            .padding(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         options.forEachIndexed { index, (label, color) ->
             val selected = (index == 1) == showIncome
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(9.dp))
+                    .clip(RoundedCornerShape(14.dp))
                     .background(if (selected) gradientBrush(color, alpha = 0.92f) else SolidColor(Color.Transparent))
                     .clickable {
                         if ((index == 1) != showIncome) onToggle()
                     }
-                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
