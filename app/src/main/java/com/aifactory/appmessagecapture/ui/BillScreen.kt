@@ -1093,7 +1093,7 @@ fun CategoryChip(
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.92f) else glassFill(),
-        shadowElevation = if (isSelected) 2.dp else 0.dp,
+        shadowElevation = 0.dp,
         modifier = Modifier
             .clickable { onClick() }
             .border(glassBorder(), RoundedCornerShape(16.dp))
