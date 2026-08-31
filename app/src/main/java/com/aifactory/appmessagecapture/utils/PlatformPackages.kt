@@ -15,6 +15,15 @@ object PlatformPackages {
 
     /** 平台名 → 包名（名称含关键字即命中，优先最长匹配） */
     private val PACKAGE_BY_KEYWORD = listOf(
+        // 具体银行名 → 对应 App 包名（勿用模糊的「银行」做兜底，否则会串到一家银行）
+        "中国银行" to "com.chinamworld.bocmbci",
+        "农业银行" to "com.android.bankabc",
+        "工商银行" to "com.icbc",
+        "招商银行" to "cmb.pb",
+        "建设银行" to "com.chinamworld.ccb",
+        "交通银行" to "com.bankcomm.Bankcomm",
+        "邮储" to "com.yitong.mbank.psbc",
+        // 支付/消费平台
         "美团外卖" to "com.sankuai.meituan.takeoutnew",
         "美团" to "com.sankuai.meituan",
         "支付宝" to "com.eg.android.AlipayGphone",
@@ -26,7 +35,6 @@ object PlatformPackages {
         "抖音" to "com.ss.android.ugc.aweme",
         "拼多多" to "com.xunmeng.pinduoduo",
         "滴滴" to "com.sdu.didi.psnger",
-        "银行" to "com.android.bankabc",
     )
 
     /** 按平台名解析包名；无匹配返回 null */
