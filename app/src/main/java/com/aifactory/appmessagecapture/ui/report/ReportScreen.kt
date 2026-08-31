@@ -4,6 +4,7 @@ package com.aifactory.appmessagecapture.ui.report
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,6 +44,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.Instant
 import java.time.LocalDate
@@ -58,6 +60,8 @@ import com.aifactory.appmessagecapture.ui.components.gradientBrush
 import com.aifactory.appmessagecapture.ui.getCategoryColor
 import com.aifactory.appmessagecapture.ui.getCategoryIconRes
 import com.aifactory.appmessagecapture.ui.theme.ComponentGap
+import com.aifactory.appmessagecapture.utils.PlatformPackages
+import com.aifactory.appmessagecapture.utils.rememberAppIcon
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
 import com.aifactory.appmessagecapture.ui.theme.ReportBlue
@@ -1235,21 +1239,44 @@ private fun CategoryListItem(
                 .background(color.copy(alpha = 0.15f)),
             contentAlignment = Alignment.Center
         ) {
-            val iconRes = getCategoryIconRes(stat.category)
-            if (iconRes != 0) {
-                Icon(
-                    painter = painterResource(id = iconRes),
-                    contentDescription = stat.category,
-                    modifier = Modifier.size(18.dp),
-                    tint = color
-                )
+            if (isPlatform) {
+                // 平台构成：优先真实 App 图标（与平台账户页一致），回退首文字
+                val appIcon = rememberAppIcon(
+                    PlatformPackages.packageForName(stat.category) ?: "",
+                    sizeDp = 36.dp
+                ).value
+                if (appIcon != null) {
+                    Image(
+                        bitmap = appIcon,
+                        contentDescription = stat.category,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Text(
+                        text = stat.category.take(1),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = color
+                    )
+                }
             } else {
-                Text(
-                    text = stat.category.take(1),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = color
-                )
+                val iconRes = getCategoryIconRes(stat.category)
+                if (iconRes != 0) {
+                    Icon(
+                        painter = painterResource(id = iconRes),
+                        contentDescription = stat.category,
+                        modifier = Modifier.size(18.dp),
+                        tint = color
+                    )
+                } else {
+                    Text(
+                        text = stat.category.take(1),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = color
+                    )
+                }
             }
         }
         Spacer(modifier = Modifier.width(8.dp))
