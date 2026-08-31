@@ -5,6 +5,7 @@ package com.aifactory.appmessagecapture.ui
 import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -56,6 +57,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -223,6 +225,11 @@ fun BillScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     val screenBillLive = remember(a11yResumeKey) { PaymentScreenAccessibilityService.isLive }
+    val screenBillRegistered = remember(a11yResumeKey) {
+        Settings.Secure.getString(
+            context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        )?.contains("PaymentScreenAccessibilityService") == true
+    }
 
     if (showReport) {
         com.aifactory.appmessagecapture.ui.report.ReportScreen(
@@ -436,6 +443,57 @@ fun BillScreen(
                     monthExpense = monthExpense,
                     monthIncome = monthIncome
                 )
+
+                // 屏幕记账未生效提醒：属于记账捕获能力，放在记账页（原在消息页）。
+                // 区分「未开启」与「已开启但未生效」，液态玻璃面板 + 红色警示点缀，
+                // 点击直达无障碍设置；从设置页返回时由 a11yResumeKey 刷新状态
+                AnimatedVisibility(visible = !screenBillLive) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = glassFill(),
+                        shadowElevation = 0.dp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, end = 16.dp, bottom = ComponentGap)
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                                )
+                            }
+                            .border(glassBorder(), RoundedCornerShape(16.dp))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .background(glassHighlightBrush())
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Visibility,
+                                contentDescription = null,
+                                tint = ExpenseRed,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (screenBillRegistered)
+                                    "屏幕记账已开启但未生效，可能因应用更新被系统断开"
+                                else
+                                    "屏幕记账未开启，京东等不发通知的支付无法自动记账",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = if (screenBillRegistered) "去修复" else "去开启",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = ExpenseRed
+                            )
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(ComponentGap))
     
