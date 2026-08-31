@@ -85,11 +85,9 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -101,7 +99,6 @@ import com.aifactory.appmessagecapture.service.PaymentScreenAccessibilityService
 import com.aifactory.appmessagecapture.service.SupportedCaptureApp
 import com.aifactory.appmessagecapture.service.SupportedPaymentApps
 import com.aifactory.appmessagecapture.ui.components.GlassCompactDialog
-import com.aifactory.appmessagecapture.ui.components.SoftButton
 import com.aifactory.appmessagecapture.ui.components.SoftCard
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.theme.AccentColor
@@ -430,18 +427,10 @@ fun SettingsScreen(onBack: () -> Unit) {
                     }
                     // 内联调色板：展开在弹窗内部，避免多窗口叠放冲突
                     AnimatedVisibility(visible = showCustomPicker) {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            AccentHsvPickerContent(
-                                initial = draftCustomColor,
-                                onColorChanged = { draftCustomColor = it }
-                            )
-                            SoftButton(
-                                text = "使用此颜色",
-                                onClick = { AccentColorRepository.setCustom(context, draftCustomColor) },
-                                modifier = Modifier.fillMaxWidth(),
-                                height = 42.dp
-                            )
-                        }
+                        AccentHsvPickerContent(
+                            initial = draftCustomColor,
+                            onColorChanged = { draftCustomColor = it }
+                        )
                     }
                     Text(
                         text = "选择后立即生效；按钮、导航、选中态等会跟随主题色",
@@ -451,7 +440,13 @@ fun SettingsScreen(onBack: () -> Unit) {
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showAccentDialog = false }) { Text("完成") }
+                TextButton(onClick = {
+                    AccentColorRepository.setCustom(context, draftCustomColor)
+                    showAccentDialog = false
+                }) { Text("使用此颜色") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAccentDialog = false }) { Text("取消") }
             }
         )
     }
@@ -594,13 +589,11 @@ private fun AccentHsvPickerContent(
     }
 
     // SV 面板：底层白→纯色横渐变，叠加透明→黑纵渐变
-    var panelSize by remember { mutableStateOf(IntSize.Zero) }
     val pureHue = Color(AndroidColor.HSVToColor(floatArrayOf(hue, 1f, 1f)))
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(150.dp)
-            .onSizeChanged { panelSize = it }
+            .height(128.dp)
             .clip(RoundedCornerShape(14.dp))
             .border(glassBorder(), RoundedCornerShape(14.dp))
             .pointerInput(Unit) {
@@ -617,22 +610,27 @@ private fun AccentHsvPickerContent(
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawRect(Brush.horizontalGradient(listOf(Color.White, pureHue)))
             drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black)))
+            // 圆环指示器夹在面板内，拖到边缘时不被裁剪
+            val r = 8.dp.toPx()
             drawCircle(
                 Color.White,
-                radius = 9.dp.toPx(),
-                center = Offset(sat * size.width, (1f - valueF) * size.height),
-                style = Stroke(width = 2.5.dp.toPx())
+                radius = r,
+                center = Offset(
+                    (sat * size.width).coerceIn(r, size.width - r),
+                    ((1f - valueF) * size.height).coerceIn(r, size.height - r)
+                ),
+                style = Stroke(width = 2.dp.toPx())
             )
         }
     }
 
-    Spacer(modifier = Modifier.height(12.dp))
+    Spacer(modifier = Modifier.height(8.dp))
 
     // 色相滑条
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(24.dp)
+            .height(20.dp)
             .clip(CircleShape)
             .border(glassBorder(), CircleShape)
             .pointerInput(Unit) {
@@ -652,14 +650,14 @@ private fun AccentHsvPickerContent(
             )
             drawCircle(
                 Color.White,
-                radius = 8.dp.toPx(),
+                radius = 7.dp.toPx(),
                 center = Offset(hue / 360f * size.width, size.height / 2f),
-                style = Stroke(width = 2.5.dp.toPx())
+                style = Stroke(width = 2.dp.toPx())
             )
         }
     }
 
-    Spacer(modifier = Modifier.height(12.dp))
+    Spacer(modifier = Modifier.height(8.dp))
 
     // 当前颜色预览 + 十六进制输入
     Row(
@@ -668,7 +666,7 @@ private fun AccentHsvPickerContent(
     ) {
         Box(
             modifier = Modifier
-                .size(30.dp)
+                .size(28.dp)
                 .clip(CircleShape)
                 .background(Color(AndroidColor.HSVToColor(floatArrayOf(hue, sat, valueF))))
                 .border(glassBorder(), CircleShape)
@@ -697,7 +695,9 @@ private fun AccentHsvPickerContent(
                 focusedIndicatorColor = MaterialTheme.colorScheme.outline,
                 unfocusedIndicatorColor = MaterialTheme.colorScheme.outlineVariant
             ),
-            modifier = Modifier.weight(1f)
+            modifier = Modifier
+                .weight(1f)
+                .height(48.dp)
         )
     }
 }
