@@ -21,7 +21,9 @@ object SupportedPaymentApps {
                     (content.contains("支出") || content.contains("收入"))
             "com.sankuai.meituan",
             "com.sankuai.meituan.takeoutnew" ->    // Meituan
-                title.contains("付款")
+                // 付款成功通知标题含「付款」；退款通知标题为「退款通知」，
+                // 正文「您有一笔90.00元的退款」由 BillParsing 判为收入
+                title.contains("付款") || title.contains("退款")
             "com.unionpay" ->                      // UnionPay 云闪付
                 title.contains("支付助手") && content.contains("消费")
             "com.android.bankabc" ->               // ABC 中国农业银行

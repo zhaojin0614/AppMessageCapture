@@ -127,6 +127,44 @@ class SupportedPaymentAppsTest {
         )
     }
 
+    /**
+     * 美团退款通知：门槛同时接受「付款」与「退款」标题。
+     * 预期：通过门槛，识别为收入账单（退款），金额 90.00。
+     */
+    @Test
+    fun `meituan refund notification is captured as income bill`() {
+        val packageName = "com.sankuai.meituan"
+        val title = "退款通知"
+        val content = "您有一笔90.00元的退款，点击查看详情！"
+        val fullText = "$title $content"
+
+        assertTrue(
+            "Should pass the Meituan app gate",
+            SupportedPaymentApps.isBillNotification(packageName, title, content)
+        )
+        assertTrue(
+            "Should contain a payment keyword",
+            BillParsing.hasPaymentKeyword(fullText)
+        )
+        assertEquals(
+            "Amount 90.00 must be extracted from 90.00元",
+            90.00,
+            BillParsing.parseAmount(fullText)!!,
+            0.001
+        )
+        assertTrue(
+            "退款 is income, not expense",
+            BillParsing.isIncome(content)
+        )
+
+        // Gate still rejects marketing pushes without 付款/退款 in the title
+        assertFalse(
+            SupportedPaymentApps.isBillNotification(
+                packageName, "美团外卖", "您有一张优惠券待使用，速来领取！"
+            )
+        )
+    }
+
     @Test
     fun `支持清单与捕获通道同步`() {
         // 屏幕通道：监视名单里的每个包都必须登记在支持清单中
