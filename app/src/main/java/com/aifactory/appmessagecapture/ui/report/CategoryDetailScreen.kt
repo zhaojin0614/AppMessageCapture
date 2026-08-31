@@ -33,6 +33,7 @@ import com.aifactory.appmessagecapture.ui.components.SoftCard
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.components.gradientBrush
+import com.aifactory.appmessagecapture.ui.theme.ComponentGap
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
 import com.aifactory.appmessagecapture.utils.rememberAppIcon
@@ -48,12 +49,15 @@ fun CategoryDetailScreen(
     startTime: Long,
     endTime: Long,
     onBack: () -> Unit,
+    platformName: String? = null,
     viewModel: CategoryDetailViewModel = viewModel()
 ) {
-    // null = still loading; distinguish "not loaded yet" from "loaded but empty"
-    // so the empty state doesn't flash on first frame.
-    val bills by viewModel.getBillsInTimeRange(category, isIncome, startTime, endTime)
-        .collectAsState(initial = null)
+    // platformName 非空 = 报表「平台构成」点进来的平台明细，按平台名过滤
+    val bills by (if (platformName != null) {
+        viewModel.getPlatformBillsInTimeRange(platformName, isIncome, startTime, endTime)
+    } else {
+        viewModel.getBillsInTimeRange(category, isIncome, startTime, endTime)
+    }).collectAsState(initial = null)
 
     BackHandler { onBack() }
 
@@ -70,7 +74,7 @@ fun CategoryDetailScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = category,
+                        text = platformName ?: category,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -109,13 +113,12 @@ fun CategoryDetailScreen(
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = ComponentGap)
                             )
                         }
                         items(dayBills, key = { it.id }) { bill ->
                             CategoryDetailBillItem(bill = bill)
                         }
-                        item(key = "gap_$date") { Spacer(modifier = Modifier.height(4.dp)) }
                     }
 
                     // 留出底部 Tab 栏空间，避免被 MainApp 的 NavigationBar 遮挡
@@ -157,7 +160,8 @@ private fun CategoryDetailBillItem(bill: BillEntity) {
     SoftCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            // 半间距：相邻卡片上下相加 = ComponentGap，与其他界面卡片间距一致
+            .padding(horizontal = 16.dp, vertical = ComponentGap / 2),
         shape = RoundedCornerShape(16.dp),
         contentPadding = 0.dp
     ) {

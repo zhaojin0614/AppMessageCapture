@@ -51,11 +51,13 @@ import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.sin
 
+import com.aifactory.appmessagecapture.ui.components.PillToggle
 import com.aifactory.appmessagecapture.ui.components.SoftCard
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.gradientBrush
 import com.aifactory.appmessagecapture.ui.getCategoryColor
 import com.aifactory.appmessagecapture.ui.getCategoryIconRes
+import com.aifactory.appmessagecapture.ui.theme.ComponentGap
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
 import com.aifactory.appmessagecapture.ui.theme.ReportBlue
@@ -109,6 +111,8 @@ fun ReportScreen(
     val currentOffset by viewModel.currentOffset.collectAsState()
 
     var selectedCategory by remember { mutableStateOf<String?>(null) }
+    // 平台构成点击进入的平台明细（按平台名过滤账单）
+    var selectedPlatform by remember { mutableStateOf<String?>(null) }
 
     if (selectedCategory != null) {
         CategoryDetailScreen(
@@ -117,6 +121,18 @@ fun ReportScreen(
             startTime = uiState.periodStartMillis,
             endTime = uiState.periodEndMillis,
             onBack = { selectedCategory = null }
+        )
+        return
+    }
+
+    if (selectedPlatform != null) {
+        CategoryDetailScreen(
+            category = selectedPlatform!!,
+            platformName = selectedPlatform,
+            isIncome = showIncome,
+            startTime = uiState.periodStartMillis,
+            endTime = uiState.periodEndMillis,
+            onBack = { selectedPlatform = null }
         )
         return
     }
@@ -168,11 +184,32 @@ fun ReportScreen(
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .verticalScroll(rememberScrollState())
             ) {
-                // Period tabs
-                PeriodTypeTabs(
-                    selected = periodType,
-                    onSelect = { viewModel.setPeriodType(it) },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                // Period tabs：与记账界面同款 PillToggle（同高度/同边距），
+                // 紧贴标题栏，不再额外留 12dp 纵向空白
+                PillToggle(
+                    options = listOf(
+                        "周报" to MaterialTheme.colorScheme.primary,
+                        "月报" to MaterialTheme.colorScheme.primary,
+                        "年报" to MaterialTheme.colorScheme.primary,
+                        "自定义" to MaterialTheme.colorScheme.primary
+                    ),
+                    selectedIndex = when (periodType) {
+                        ReportViewModel.PeriodType.WEEK -> 0
+                        ReportViewModel.PeriodType.MONTH -> 1
+                        ReportViewModel.PeriodType.YEAR -> 2
+                        ReportViewModel.PeriodType.CUSTOM -> 3
+                    },
+                    onSelect = { index ->
+                        viewModel.setPeriodType(
+                            when (index) {
+                                0 -> ReportViewModel.PeriodType.WEEK
+                                1 -> ReportViewModel.PeriodType.MONTH
+                                2 -> ReportViewModel.PeriodType.YEAR
+                                else -> ReportViewModel.PeriodType.CUSTOM
+                            }
+                        )
+                    },
+                    modifier = Modifier.padding(horizontal = 16.dp)
                 )
                 if (periodType == ReportViewModel.PeriodType.CUSTOM) {
                     Text(
@@ -221,7 +258,7 @@ fun ReportScreen(
                     )
                 }
     
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(ComponentGap))
     
                 // Summary cards
                 SummaryCards(
@@ -234,8 +271,8 @@ fun ReportScreen(
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
     
-                Spacer(modifier = Modifier.height(6.dp))
-    
+                Spacer(modifier = Modifier.height(ComponentGap))
+
                 // Trend line chart
                 TrendLineChartSection(
                     periodType = periodType,
@@ -243,21 +280,19 @@ fun ReportScreen(
                     data = uiState.trendData,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
-    
-                Spacer(modifier = Modifier.height(6.dp))
-    
+
                 // Bar chart（自定义时间段无上一周期对比，隐藏）
                 if (uiState.barData.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(ComponentGap))
                     TrendBarChartSection(
                         showIncome = showIncome,
                         data = uiState.barData,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
                 }
-    
-                Spacer(modifier = Modifier.height(6.dp))
-    
+
+                Spacer(modifier = Modifier.height(ComponentGap))
+
                 // Category breakdown
                 CategorySection(
                     showIncome = showIncome,
@@ -266,68 +301,22 @@ fun ReportScreen(
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
 
-                // Platform breakdown
+                // Platform breakdown（与分类构成一样可点击查看明细账单）
                 if (uiState.platformData.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(ComponentGap))
                     CategorySection(
                         showIncome = showIncome,
                         data = uiState.platformData,
                         title = if (showIncome) "存入平台构成" else "平台构成",
-                        onItemClick = {},
+                        onItemClick = { platformName -> selectedPlatform = platformName },
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }
-    
+
                 Spacer(modifier = Modifier.height(80.dp))
             }
         }
     }
-    }
-}
-
-@Composable
-private fun PeriodTypeTabs(
-    selected: ReportViewModel.PeriodType,
-    onSelect: (ReportViewModel.PeriodType) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val tabs = listOf(
-        ReportViewModel.PeriodType.WEEK to "周报",
-        ReportViewModel.PeriodType.MONTH to "月报",
-        ReportViewModel.PeriodType.YEAR to "年报",
-        ReportViewModel.PeriodType.CUSTOM to "自定义"
-    )
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(LocalReportColors.current.neutralGray.copy(alpha = 0.35f))
-            .border(glassBorder(), RoundedCornerShape(12.dp))
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        tabs.forEach { (type, label) ->
-            val isSelected = selected == type
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        if (isSelected) gradientBrush(MaterialTheme.colorScheme.primary)
-                        else SolidColor(Color.Transparent)
-                    )
-                    .clickable { onSelect(type) }
-                    .padding(vertical = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = label,
-                    fontSize = 14.sp,
-                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                    color = if (isSelected) Color.White else LocalReportColors.current.textGray
-                )
-            }
-        }
     }
 }
 
@@ -533,8 +522,8 @@ private fun SummaryCards(
             Triple("时段${typeLabel}（元）", "日均${typeLabel}（元）", "比上一时段（元）")
     }
 
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(ComponentGap)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(ComponentGap)) {
             StatCard(
                 modifier = Modifier.weight(1f),
                 title = totalLabel,
@@ -550,7 +539,7 @@ private fun SummaryCards(
                 leftBorderColor = MaterialTheme.colorScheme.secondary
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(ComponentGap)) {
             val diffColor = if (prevDiff >= 0) IncomeGreen else ExpenseRed
             val diffSign = if (prevDiff >= 0) "+" else ""
             StatCard(
@@ -1099,7 +1088,7 @@ private fun CategorySection(
                     .fillMaxWidth()
                     .height(200.dp)
             )
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(ComponentGap))
             data.forEachIndexed { index, stat ->
                 CategoryListItem(
                     rank = index + 1,
@@ -1111,7 +1100,7 @@ private fun CategorySection(
                     HorizontalDivider(
                         color = LocalReportColors.current.divider,
                         thickness = 0.5.dp,
-                        modifier = Modifier.padding(vertical = 6.dp)
+                        modifier = Modifier.padding(vertical = ComponentGap / 2)
                     )
                 }
             }

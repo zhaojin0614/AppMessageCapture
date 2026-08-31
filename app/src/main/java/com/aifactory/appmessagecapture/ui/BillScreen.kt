@@ -133,6 +133,7 @@ import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.components.glassHighlightBrush
 import com.aifactory.appmessagecapture.ui.components.gradientBrush
+import com.aifactory.appmessagecapture.ui.theme.ComponentGap
 import com.aifactory.appmessagecapture.ui.components.isDarkTheme
 import com.aifactory.appmessagecapture.ui.theme.CategoryBeauty
 import com.aifactory.appmessagecapture.ui.theme.CategoryEducation
@@ -436,7 +437,7 @@ fun BillScreen(
                     monthIncome = monthIncome
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(ComponentGap))
     
                 // Type Filter (全部/支出/收入) — equal-width pill toggle
                 PillToggle(
@@ -465,7 +466,7 @@ fun BillScreen(
                         .padding(horizontal = 16.dp)
                 )
     
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(ComponentGap))
     
                 // Category Filter Chips
                 // padding 必须放在 horizontalScroll 之后：滚动容器会在自身边界裁剪
@@ -488,7 +489,7 @@ fun BillScreen(
                     }
                 }
     
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(ComponentGap))
 
                 val totalBudget = budgets.firstOrNull { it.category == "" }?.amount ?: 0.0
                 if (totalBudget > 0) {
@@ -551,7 +552,7 @@ fun BillScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(ComponentGap))
                 }
 
                 if (showSearch) {
@@ -617,7 +618,7 @@ fun BillScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(ComponentGap))
                 }
 
                 // Bill List
@@ -635,7 +636,7 @@ fun BillScreen(
                             .fillMaxSize()
                             .nestedScroll(nestedScrollConnection),
                         contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 0.dp, bottom = 96.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        verticalArrangement = Arrangement.spacedBy(ComponentGap)
                     ) {
                         items(
                             items = groupedBills,
@@ -1237,7 +1238,7 @@ fun EmptyBillState() {
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(ComponentGap))
             Text(
                 text = "当收到微信支付、美团等消费通知时，将自动记账",
                 fontSize = 14.sp,
@@ -1301,7 +1302,7 @@ fun CategoryGridItem(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(ComponentGap))
         Text(
             text = label,
             fontSize = 11.sp,
@@ -1335,7 +1336,7 @@ private fun BillEditColumn(
                 .padding(horizontal = 8.dp)
         ) {
             content()
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(ComponentGap))
         }
     }
 }

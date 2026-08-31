@@ -163,6 +163,30 @@ interface BillDao {
         endTime: Long
     ): Flow<List<BillEntity>>
 
+    /**
+     * 按平台名查时间段内账单：报表「平台构成」点进明细用。
+     * 「待对账」= 未关联平台的账单（platformAccountId IS NULL）。
+     */
+    @Query(
+        """
+        SELECT b.* FROM bills b
+        LEFT JOIN platform_accounts p ON p.id = b.platformAccountId
+        WHERE b.isIncome = :isIncome
+          AND b.timestamp >= :startTime AND b.timestamp < :endTime
+          AND (
+                (:platformName = '待对账' AND b.platformAccountId IS NULL)
+                OR p.name = :platformName
+              )
+        ORDER BY b.timestamp DESC
+        """
+    )
+    fun getBillsByPlatformNameAndTimeRange(
+        isIncome: Boolean,
+        platformName: String,
+        startTime: Long,
+        endTime: Long
+    ): Flow<List<BillEntity>>
+
     @Query("DELETE FROM bills")
     suspend fun deleteAll()
 

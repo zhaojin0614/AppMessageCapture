@@ -21,4 +21,14 @@ class CategoryDetailViewModel(application: Application) : AndroidViewModel(appli
     ): Flow<List<BillEntity>> {
         return billDao.getBillsByCategoryAndTimeRange(isIncome, category, startTime, endTime)
     }
+
+    /** 报表「平台构成」点进明细：按平台名过滤（「待对账」= 未关联平台） */
+    fun getPlatformBillsInTimeRange(
+        platformName: String,
+        isIncome: Boolean,
+        startTime: Long,
+        endTime: Long
+    ): Flow<List<BillEntity>> {
+        return billDao.getBillsByPlatformNameAndTimeRange(isIncome, platformName, startTime, endTime)
+    }
 }
