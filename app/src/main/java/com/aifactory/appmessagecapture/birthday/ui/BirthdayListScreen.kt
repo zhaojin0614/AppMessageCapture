@@ -111,6 +111,8 @@ fun BirthdayListScreen(
     var deleteTargetId by remember { mutableStateOf<Int?>(null) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    // 搜索栏是否展开（点顶栏搜索按钮切换，与记账/消息页一致）
+    var showSearch by remember { mutableStateOf(false) }
     var showOverlayBanner by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -274,6 +276,17 @@ fun BirthdayListScreen(
                             )
                         }
                     } else {
+                        IconButton(onClick = {
+                            showSearch = !showSearch
+                            if (!showSearch) searchQuery = ""
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "搜索生日",
+                                tint = if (showSearch) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         IconButton(onClick = { showSettingsDialog = true }) {
                             Icon(
                                 imageVector = Icons.Default.Settings,
@@ -316,12 +329,13 @@ fun BirthdayListScreen(
                 totalCount = items.size
             )
 
-            // Search bar
-            if (!isSelectionMode) {
+            // Search bar（点顶栏搜索按钮展开）
+            if (showSearch && !isSelectionMode) {
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = ComponentGap)
                         .border(glassBorder(), RoundedCornerShape(24.dp)),
                     shape = RoundedCornerShape(24.dp),
                     color = glassFill(),

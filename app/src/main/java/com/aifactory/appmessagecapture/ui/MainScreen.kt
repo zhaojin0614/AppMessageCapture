@@ -6,7 +6,6 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
-import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -58,7 +57,6 @@ import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -173,6 +171,8 @@ fun MainScreen(
     var showBlockedDialog by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    // 搜索栏是否展开（点顶栏搜索按钮切换，与记账页一致）
+    var showSearch by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
@@ -352,13 +352,17 @@ fun MainScreen(
                             }
                         }
                         IconButton(onClick = {
-                            val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                            startActivity(context, intent, null)
+                            showSearch = !showSearch
+                            if (!showSearch) {
+                                searchQuery = ""
+                                viewModel.updateSearchQuery("")
+                            }
                         }) {
                             Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "Settings",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "搜索消息",
+                                tint = if (showSearch) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -408,16 +412,18 @@ fun MainScreen(
                 appCount = allApps.size
             )
 
-            // Search bar
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .border(glassBorder(), RoundedCornerShape(24.dp)),
-                shape = RoundedCornerShape(24.dp),
-                color = glassFill(),
-                shadowElevation = 0.dp
-            ) {
+            // Search bar（点顶栏搜索按钮展开）
+            if (showSearch) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = ComponentGap)
+                        .border(glassBorder(), RoundedCornerShape(24.dp)),
+                    shape = RoundedCornerShape(24.dp),
+                    color = glassFill(),
+                    shadowElevation = 0.dp
+                ) {
                 TextField(
                     value = searchQuery,
                     onValueChange = {
@@ -465,6 +471,7 @@ fun MainScreen(
                         unfocusedTextColor = MaterialTheme.colorScheme.onBackground
                     )
                 )
+                }
             }
 
             if (notifications.isEmpty()) {
