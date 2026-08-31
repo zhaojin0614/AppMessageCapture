@@ -64,16 +64,17 @@ android {
         }
     }
 
-    // 自定义 APK 输出文件名：应用名-v版本名.apk；
-    // 旧包名桥接构建（-PlegacyPackage=true）带 legacy 后缀，避免与正式包同名互覆
+    // 自定义 APK 输出文件名：捕账-v版本号.apk（正式包）；旧包名桥接构建
+    // （-PlegacyPackage=true）输出 捕账-legacy.apk，避免与正式包同名互覆
     applicationVariants.all {
         val variant = this
-        val legacySuffix =
-            if (project.hasProperty("legacyPackage")) "-legacy" else ""
         outputs.forEach { output ->
             if (output is com.android.build.gradle.internal.api.BaseVariantOutputImpl) {
                 output.outputFileName =
-                    "AppMessageCapture-v${variant.versionName}${legacySuffix}.apk"
+                    if (project.hasProperty("legacyPackage"))
+                        "捕账-legacy.apk"
+                    else
+                        "捕账-v${variant.versionName}.apk"
             }
         }
     }
