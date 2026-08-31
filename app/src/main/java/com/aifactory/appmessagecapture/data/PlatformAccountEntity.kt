@@ -20,6 +20,7 @@ data class PlatformAccountEntity(
     val id: Long = 0,
     val name: String,                    // 平台名称，如"微信钱包"、"支付宝"
     val balance: Double,                 // 当前余额
+    val colorArgb: Int? = null,          // 品牌色 ARGB（报表平台构成用）；创建时随机分配，null 走回退色
     val icon: String? = null,            // 预留图标标识（暂用名称首字母展示）
     val sortOrder: Int = 0,              // 排序权重，越小越靠前
     val createdAt: Long = System.currentTimeMillis(),

@@ -149,6 +149,7 @@ import com.aifactory.appmessagecapture.ui.theme.GradientExpenseStart
 import com.aifactory.appmessagecapture.ui.theme.GradientIncomeEnd
 import com.aifactory.appmessagecapture.ui.theme.GradientIncomeStart
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
+import com.aifactory.appmessagecapture.ui.theme.PlatformColors
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -233,14 +234,16 @@ private fun PlatformPickerItem(
                 .size(32.dp)
                 .clip(CircleShape)
                 .background(
-                    if (isUnreconciled) ExpenseRed.copy(alpha = 0.12f) else MaterialTheme.colorScheme.primaryContainer
+                    if (isUnreconciled) ExpenseRed.copy(alpha = 0.12f)
+                    else PlatformColors.colorForPlatformName(name).copy(alpha = 0.15f)
                 ),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = if (isUnreconciled) "?" else name.take(1).uppercase(),
                 fontWeight = FontWeight.Bold,
-                color = if (isUnreconciled) ExpenseRed else MaterialTheme.colorScheme.primary,
+                color = if (isUnreconciled) ExpenseRed
+                else PlatformColors.colorForPlatformName(name),
                 fontSize = 14.sp
             )
         }

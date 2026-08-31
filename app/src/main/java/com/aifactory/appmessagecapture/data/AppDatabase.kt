@@ -17,7 +17,7 @@ import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
  */
 @Database(
     entities = [NotificationEntity::class, BillEntity::class, BirthdayEntity::class, RecurringBillEntity::class, PlatformAccountEntity::class, BudgetEntity::class],
-    version = 14,
+    version = 15,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -300,6 +300,28 @@ abstract class AppDatabase : RoomDatabase() {
          * 1. Add `bills.merchantKey`（商户记忆键，标题规范化指纹）+ 查询索引
          * 2. Create `budgets` table（月度总预算/分类预算，分类唯一索引）
          */
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                BirthdayLog.i("[DB Migration] Executing MIGRATION_14_15: platform colorArgb")
+                db.execSQL("ALTER TABLE platform_accounts ADD COLUMN colorArgb INTEGER")
+                // 存量平台回填：按平台名分配品牌色（无品牌色时留空，展示端按名称哈希兜底）
+                db.query("SELECT id, name FROM platform_accounts").use { cursor ->
+                    while (cursor.moveToNext()) {
+                        val id = cursor.getLong(0)
+                        val name = cursor.getString(1)
+                        val color = com.aifactory.appmessagecapture.ui.theme.PlatformColors.brandColorFor(name)
+                        if (color != null) {
+                            db.execSQL(
+                                "UPDATE platform_accounts SET colorArgb = ? WHERE id = ?",
+                                arrayOf(color, id)
+                            )
+                        }
+                    }
+                }
+                BirthdayLog.i("[DB Migration] MIGRATION_14_15 completed")
+            }
+        }
+
         private val MIGRATION_13_14 = object : Migration(13, 14) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 BirthdayLog.i("[DB Migration] Executing MIGRATION_13_14: bills.merchantKey + budgets table")
@@ -339,10 +361,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "notification_database"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
                     .build()
                 INSTANCE = instance
-                BirthdayLog.i("AppDatabase initialized. Version=13")
+                BirthdayLog.i("AppDatabase initialized. Version=15")
                 instance
             }
         }

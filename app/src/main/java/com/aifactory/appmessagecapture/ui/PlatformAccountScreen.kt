@@ -65,6 +65,7 @@ import com.aifactory.appmessagecapture.ui.components.isDarkTheme
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.AccentColorRepository
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
+import com.aifactory.appmessagecapture.ui.theme.PlatformColors
 
 /**
  * 平台账户管理界面。
@@ -309,18 +310,19 @@ private fun PlatformAccountCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 首字母圆形图标
+            // 品牌色圆形图标（微信→微信绿等；无品牌色时名称哈希兜底）
+            val platformColor = PlatformColors.resolveColor(account)
             Box(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
+                    .background(platformColor.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = account.name.take(1).uppercase(),
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = platformColor,
                     fontSize = 18.sp
                 )
             }

@@ -145,14 +145,23 @@ class AccountRepository(
 
     /**
      * 新增平台账户。
+     * 自动分配一个随机品牌候选色（colorArgb），报表平台构成据此区分颜色。
      */
     suspend fun addAccount(name: String, balance: Double): Long {
         val now = System.currentTimeMillis()
         val nextOrder = (platformDao.getMaxSortOrder() ?: -1) + 1
+        val color = com.aifactory.appmessagecapture.ui.theme.PlatformColors.randomColor()
         val id = platformDao.insert(
-            PlatformAccountEntity(name = name, balance = balance, sortOrder = nextOrder, createdAt = now, updatedAt = now)
+            PlatformAccountEntity(
+                name = name,
+                balance = balance,
+                colorArgb = color,
+                sortOrder = nextOrder,
+                createdAt = now,
+                updatedAt = now
+            )
         )
-        BirthdayLog.i("[AccountRepo] addAccount id=$id name=$name balance=$balance")
+        BirthdayLog.i("[AccountRepo] addAccount id=$id name=$name balance=$balance colorArgb=$color")
         return id
     }
 

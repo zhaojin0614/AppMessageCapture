@@ -310,7 +310,8 @@ fun ReportScreen(
                         data = uiState.platformData,
                         title = if (showIncome) "存入平台构成" else "平台构成",
                         onItemClick = { platformName -> selectedPlatform = platformName },
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        isPlatform = true
                     )
                 }
 
@@ -1073,7 +1074,8 @@ private fun CategorySection(
     data: List<ReportViewModel.CategoryStat>,
     onItemClick: (String) -> Unit,
     modifier: Modifier = Modifier,
-    title: String? = null
+    title: String? = null,
+    isPlatform: Boolean = false
 ) {
     SoftCard(
         modifier = modifier.fillMaxWidth(),
@@ -1086,6 +1088,7 @@ private fun CategorySection(
         if (data.isNotEmpty()) {
             DonutChartWithLabels(
                 data = data,
+                isPlatform = isPlatform,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(200.dp)
@@ -1096,6 +1099,7 @@ private fun CategorySection(
                     rank = index + 1,
                     stat = stat,
                     showIncome = showIncome,
+                    isPlatform = isPlatform,
                     onClick = { onItemClick(stat.category) }
                 )
                 if (index < data.lastIndex) {
@@ -1115,7 +1119,8 @@ private fun CategorySection(
 @Composable
 private fun DonutChartWithLabels(
     data: List<ReportViewModel.CategoryStat>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isPlatform: Boolean = false
 ) {
     val textMeasurer = rememberTextMeasurer()
     val colors = LocalReportColors.current
@@ -1130,7 +1135,10 @@ private fun DonutChartWithLabels(
             var startAngle = -90f
             data.forEachIndexed { index, stat ->
                 val sweepAngle = (stat.percentage * 360).toFloat()
-                val arcColor = getCategoryColor(stat.category)
+                val arcColor = if (isPlatform)
+                    com.aifactory.appmessagecapture.ui.theme.PlatformColors.colorForPlatformName(stat.category)
+                else
+                    getCategoryColor(stat.category)
                 drawArc(
                     color = arcColor,
                     startAngle = startAngle,
@@ -1198,9 +1206,13 @@ private fun CategoryListItem(
     rank: Int,
     stat: ReportViewModel.CategoryStat,
     showIncome: Boolean = false,
+    isPlatform: Boolean = false,
     onClick: () -> Unit = {}
 ) {
-    val color = getCategoryColor(stat.category)
+    val color = if (isPlatform)
+        com.aifactory.appmessagecapture.ui.theme.PlatformColors.colorForPlatformName(stat.category)
+    else
+        getCategoryColor(stat.category)
 
     Row(
         modifier = Modifier
