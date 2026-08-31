@@ -491,99 +491,117 @@ fun BillScreen(
                 if (totalBudget > 0) {
                     val over = monthExpense > totalBudget
                     val ratio = (monthExpense / totalBudget).toFloat().coerceIn(0f, 1f)
-                    Column(
+                    // 与日卡片同款液态玻璃面板：glassFill + 顶部高光 + 渐变描边
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = glassFill(),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                            .padding(horizontal = 16.dp)
                             .clickable { showBudgetDialog = true }
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .border(glassBorder(), RoundedCornerShape(16.dp))
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Savings,
-                                contentDescription = null,
-                                tint = if (over) ExpenseRed else MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (over) "本月已超预算 ¥%.2f".format(monthExpense - totalBudget)
-                                else "本月已支出 ¥%.2f / 预算 ¥%.2f".format(monthExpense, totalBudget),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = if (over) ExpenseRed else MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                text = "%d%%".format((ratio * 100).toInt()),
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        Column(
+                            modifier = Modifier
+                                .background(glassHighlightBrush())
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Savings,
+                                    contentDescription = null,
+                                    tint = if (over) ExpenseRed else MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (over) "本月已超预算 ¥%.2f".format(monthExpense - totalBudget)
+                                    else "本月已支出 ¥%.2f / 预算 ¥%.2f".format(monthExpense, totalBudget),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (over) ExpenseRed else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = "%d%%".format((ratio * 100).toInt()),
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(5.dp))
+                            LinearProgressIndicator(
+                                progress = { ratio },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(5.dp)
+                                    .clip(CircleShape),
+                                color = if (over) ExpenseRed else MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
                             )
                         }
-                        Spacer(modifier = Modifier.height(5.dp))
-                        LinearProgressIndicator(
-                            progress = { ratio },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(5.dp)
-                                .clip(CircleShape),
-                            color = if (over) ExpenseRed else MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
                 if (showSearch) {
-                    TextField(
-                        value = searchText,
-                        onValueChange = {
-                            searchText = it
-                            viewModel.setSearchQuery(it)
-                        },
-                        placeholder = {
-                            Text(
-                                text = "搜索标题 / 商户 / 分类 / 金额",
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        },
-                        trailingIcon = {
-                            if (searchText.isNotEmpty()) {
-                                IconButton(
-                                    onClick = {
-                                        searchText = ""
-                                        viewModel.setSearchQuery("")
-                                    },
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "清除搜索",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                    // 与日卡片同款液态玻璃面板，输入框本体全透明，去掉 Material 指示线
+                    SoftCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        TextField(
+                            value = searchText,
+                            onValueChange = {
+                                searchText = it
+                                viewModel.setSearchQuery(it)
+                            },
+                            placeholder = {
+                                Text(
+                                    text = "搜索标题 / 商户 / 分类 / 金额",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            trailingIcon = {
+                                if (searchText.isNotEmpty()) {
+                                    IconButton(
+                                        onClick = {
+                                            searchText = ""
+                                            viewModel.setSearchQuery("")
+                                        },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "清除搜索",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
                                 }
-                            }
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                disabledContainerColor = Color.Transparent,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
