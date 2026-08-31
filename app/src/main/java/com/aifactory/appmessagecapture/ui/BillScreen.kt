@@ -64,7 +64,6 @@ import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -531,18 +530,26 @@ fun BillScreen(
                                 )
                             }
                             Spacer(modifier = Modifier.height(5.dp))
-                            LinearProgressIndicator(
-                                progress = { ratio },
+                            // 自绘进度条：M3 LinearProgressIndicator 默认带端点圆点与缺口，
+                            // 观感割裂，这里用双层 Box 按比例填充
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(5.dp)
-                                    .clip(CircleShape),
-                                color = if (over) ExpenseRed else MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-                            )
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(ratio)
+                                        .fillMaxHeight()
+                                        .clip(CircleShape)
+                                        .background(if (over) ExpenseRed else MaterialTheme.colorScheme.primary)
+                                )
+                            }
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
 
                 if (showSearch) {
@@ -601,7 +608,9 @@ fun BillScreen(
                                 focusedIndicatorColor = Color.Transparent,
                                 unfocusedIndicatorColor = Color.Transparent
                             ),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
