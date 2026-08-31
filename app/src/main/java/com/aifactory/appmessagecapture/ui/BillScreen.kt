@@ -467,11 +467,13 @@ fun BillScreen(
                 Spacer(modifier = Modifier.height(6.dp))
     
                 // Category Filter Chips
+                // padding 必须放在 horizontalScroll 之后：滚动容器会在自身边界裁剪
+                // 内容，第一颗 chip 的描边/阴影贴着边界会被切出一条平边
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .horizontalScroll(rememberScrollState()),
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     categories.forEach { cat ->

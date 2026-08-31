@@ -61,8 +61,7 @@ import com.aifactory.appmessagecapture.ui.components.isDarkTheme
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.theme.AppMessageCaptureTheme
-import com.aifactory.appmessagecapture.ui.theme.GradientBrandStart
-import com.aifactory.appmessagecapture.ui.theme.GradientBrandEnd
+import com.aifactory.appmessagecapture.ui.theme.AccentColorRepository
 
 enum class AppTab(val label: String, val icon: ImageVector, val iconFilled: ImageVector) {
     Messages("消息", Icons.Outlined.Notifications, Icons.Filled.Notifications),
@@ -78,6 +77,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AccentColorRepository.init(this)
         // Wake up the notification listener service to trigger onCreate() -> requestRebind()
         val serviceIntent = Intent(this, MessageCaptureService::class.java)
         startService(serviceIntent)
@@ -243,7 +243,9 @@ private fun SoftNavItem(
             )
             .background(
                 brush = if (selected) {
-                    Brush.horizontalGradient(listOf(GradientBrandStart, GradientBrandEnd))
+                    // 选中胶囊用主色调渐变（跟随设置页主题色）
+                    val accent = AccentColorRepository.current
+                    Brush.horizontalGradient(listOf(accent.primary, accent.gradientEnd))
                 } else {
                     Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent))
                 }

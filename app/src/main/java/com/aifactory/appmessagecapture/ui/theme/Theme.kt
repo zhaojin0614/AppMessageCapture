@@ -102,13 +102,25 @@ fun AppMessageCaptureTheme(
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
+    // 主色调覆盖：primary 角色组跟随设置页所选主题色，其余角色保持固定
+    val accent = AccentColorRepository.current
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+        darkTheme -> DarkColorScheme.copy(
+            primary = accent.primary,
+            onPrimary = Color.White,
+            primaryContainer = accent.containerDark,
+            onPrimaryContainer = accent.onContainerDark
+        )
+        else -> LightColorScheme.copy(
+            primary = accent.primary,
+            onPrimary = Color.White,
+            primaryContainer = accent.containerLight,
+            onPrimaryContainer = accent.onContainerLight
+        )
     }
     val view = LocalView.current
     if (!view.isInEditMode) {

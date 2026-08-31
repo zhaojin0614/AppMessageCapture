@@ -63,8 +63,7 @@ import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassHighlightBrush
 import com.aifactory.appmessagecapture.ui.components.isDarkTheme
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
-import com.aifactory.appmessagecapture.ui.theme.GradientBrandEnd
-import com.aifactory.appmessagecapture.ui.theme.GradientBrandStart
+import com.aifactory.appmessagecapture.ui.theme.AccentColorRepository
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
 
 /**
@@ -142,7 +141,11 @@ fun PlatformAccountScreen(
             ) {
                 SoftGradientCard(
                     brush = Brush.linearGradient(
-                        colors = listOf(GradientBrandStart, GradientBrandEnd)
+                        // 品牌渐变跟随设置页所选主色调
+                        colors = listOf(
+                            AccentColorRepository.current.primary,
+                            AccentColorRepository.current.gradientEnd
+                        )
                     ),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),

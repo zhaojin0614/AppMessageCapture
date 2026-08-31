@@ -8,6 +8,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -30,9 +33,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.SettingsBackupRestore
@@ -79,6 +84,9 @@ import com.aifactory.appmessagecapture.service.SupportedCaptureApp
 import com.aifactory.appmessagecapture.service.SupportedPaymentApps
 import com.aifactory.appmessagecapture.ui.components.GlassCompactDialog
 import com.aifactory.appmessagecapture.ui.components.SoftCard
+import com.aifactory.appmessagecapture.ui.components.glassBorder
+import com.aifactory.appmessagecapture.ui.theme.AccentColor
+import com.aifactory.appmessagecapture.ui.theme.AccentColorRepository
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
 import com.aifactory.appmessagecapture.utils.NotificationServiceHelper
@@ -104,7 +112,11 @@ fun SettingsScreen(onBack: () -> Unit) {
     var showBackupDialog by remember { mutableStateOf(false) }
     var showRestoreConfirm by remember { mutableStateOf(false) }
     var showBudgetDialog by remember { mutableStateOf(false) }
+    var showAccentDialog by remember { mutableStateOf(false) }
     var importOverwrite by remember { mutableStateOf(false) }
+
+    // 主色调：全局单例状态，选色后即时生效（读取处自动订阅重组）
+    val currentAccent = AccentColorRepository.current
 
     // 从系统设置页/子页面返回时刷新权限状态与计数
     var resumeKey by remember { mutableStateOf(0) }
@@ -238,6 +250,35 @@ fun SettingsScreen(onBack: () -> Unit) {
                 )
             }
 
+            SettingsGroup("外观") {
+                SettingsRow(
+                    icon = Icons.Default.Palette,
+                    title = "主题色",
+                    onClick = { showAccentDialog = true }
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .background(currentAccent.primary, CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = currentAccent.label,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+
             SettingsGroup("数据") {
                 SettingsNavigateRow(
                     icon = Icons.Default.Backup,
@@ -264,6 +305,36 @@ fun SettingsScreen(onBack: () -> Unit) {
 
     if (showBudgetDialog) {
         BudgetDialog(viewModel = viewModel, onDismiss = { showBudgetDialog = false })
+    }
+
+    if (showAccentDialog) {
+        GlassCompactDialog(
+            onDismissRequest = { showAccentDialog = false },
+            title = "主题色",
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AccentColor.entries.chunked(4).forEach { rowColors ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            rowColors.forEach { accent ->
+                                AccentSwatch(
+                                    accent = accent,
+                                    selected = accent == currentAccent,
+                                    onClick = { AccentColorRepository.set(context, accent) }
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        text = "选择后立即生效；按钮、导航、选中态等会跟随主题色",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAccentDialog = false }) { Text("完成") }
+            }
+        )
     }
 
     if (showBackupDialog) {
@@ -340,6 +411,49 @@ fun SettingsScreen(onBack: () -> Unit) {
 }
 
 // ── 分组与行组件 ─────────────────────────────────────────────────────────
+
+/** 主题色色块：圆形色点 + 名称，选中时描边并显示对勾 */
+@Composable
+private fun AccentSwatch(
+    accent: AccentColor,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.width(62.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(CircleShape)
+                .background(accent.primary)
+                .border(
+                    if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                    else glassBorder(),
+                    CircleShape
+                )
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "已选择",
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = accent.label,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
 
 /** 分组卡片：组标题 + 圆角玻璃卡片内的若干行 */
 @Composable
