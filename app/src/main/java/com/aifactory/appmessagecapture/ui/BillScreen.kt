@@ -39,6 +39,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
@@ -97,6 +98,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -433,8 +435,8 @@ fun BillScreen(
                     monthExpense = monthExpense,
                     monthIncome = monthIncome
                 )
-    
-                Spacer(modifier = Modifier.height(8.dp))
+
+                Spacer(modifier = Modifier.height(6.dp))
     
                 // Type Filter (全部/支出/收入) — equal-width pill toggle
                 PillToggle(
@@ -486,8 +488,8 @@ fun BillScreen(
                     }
                 }
     
-                Spacer(modifier = Modifier.height(8.dp))
-    
+                Spacer(modifier = Modifier.height(6.dp))
+
                 val totalBudget = budgets.firstOrNull { it.category == "" }?.amount ?: 0.0
                 if (totalBudget > 0) {
                     val over = monthExpense > totalBudget
@@ -553,67 +555,69 @@ fun BillScreen(
                 }
 
                 if (showSearch) {
-                    // 与日卡片同款液态玻璃面板，输入框本体全透明，去掉 Material 指示线
+                    // 与日卡片同款液态玻璃面板；用 BasicTextField 自控高度，
+                    // M3 TextField 有最小内容高度，强行压矮会裁掉文字
                     SoftCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp),
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        TextField(
+                        BasicTextField(
                             value = searchText,
                             onValueChange = {
                                 searchText = it
                                 viewModel.setSearchQuery(it)
                             },
-                            placeholder = {
-                                Text(
-                                    text = "搜索标题 / 商户 / 分类 / 金额",
-                                    fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            },
-                            trailingIcon = {
-                                if (searchText.isNotEmpty()) {
-                                    IconButton(
-                                        onClick = {
-                                            searchText = ""
-                                            viewModel.setSearchQuery("")
-                                        },
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Close,
-                                            contentDescription = "清除搜索",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(16.dp)
-                                        )
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface
+                            ),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            decorationBox = { innerTextField ->
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 13.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        if (searchText.isEmpty()) {
+                                            Text(
+                                                text = "搜索标题 / 商户 / 分类 / 金额",
+                                                fontSize = 13.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        innerTextField()
+                                    }
+                                    if (searchText.isNotEmpty()) {
+                                        IconButton(
+                                            onClick = {
+                                                searchText = ""
+                                                viewModel.setSearchQuery("")
+                                            },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "清除搜索",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
                                     }
                                 }
                             },
-                            singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                disabledContainerColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
 
                 // Bill List
