@@ -444,9 +444,12 @@ fun BillScreen(
                     monthIncome = monthIncome
                 )
 
+                Spacer(modifier = Modifier.height(ComponentGap))
+
                 // 屏幕记账未生效提醒：属于记账捕获能力，放在记账页（原在消息页）。
                 // 区分「未开启」与「已开启但未生效」，液态玻璃面板 + 红色警示点缀，
-                // 点击直达无障碍设置；从设置页返回时由 a11yResumeKey 刷新状态
+                // 点击直达无障碍设置；从设置页返回时由 a11yResumeKey 刷新状态。
+                // 与下方控件的间距全部走 ComponentGap（横幅内部 bottom + 此处上方各一份）
                 AnimatedVisibility(visible = !screenBillLive) {
                     Surface(
                         shape = RoundedCornerShape(16.dp),
@@ -478,13 +481,16 @@ fun BillScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = if (screenBillRegistered)
-                                    "屏幕记账已开启但未生效，可能因应用更新被系统断开"
+                                    "屏幕记账未生效，请关闭后重新开启"
                                 else
-                                    "屏幕记账未开启，京东等不发通知的支付无法自动记账",
+                                    "屏幕记账未开启，部分支付无法自动记账",
                                 fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f)
                             )
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = if (screenBillRegistered) "去修复" else "去开启",
                                 fontSize = 12.sp,
@@ -494,8 +500,6 @@ fun BillScreen(
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(ComponentGap))
     
                 // Type Filter (全部/支出/收入) — equal-width pill toggle
                 PillToggle(
