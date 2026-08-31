@@ -122,6 +122,7 @@ import com.aifactory.appmessagecapture.ui.components.glassHighlightBrush
 import com.aifactory.appmessagecapture.ui.components.gradientBrush
 import com.aifactory.appmessagecapture.ui.components.isDarkTheme
 import com.aifactory.appmessagecapture.utils.rememberAppIcon
+import com.aifactory.appmessagecapture.utils.PlatformPackages
 import com.aifactory.appmessagecapture.ui.theme.CategoryBeauty
 import com.aifactory.appmessagecapture.ui.theme.CategoryEducation
 import com.aifactory.appmessagecapture.ui.theme.CategoryEntertainment
@@ -229,6 +230,10 @@ private fun PlatformPickerItem(
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val appIcon = rememberAppIcon(
+            if (isUnreconciled) "" else (PlatformPackages.packageForName(name) ?: ""),
+            sizeDp = 32.dp
+        ).value
         Box(
             modifier = Modifier
                 .size(32.dp)
@@ -239,13 +244,22 @@ private fun PlatformPickerItem(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = if (isUnreconciled) "?" else name.take(1).uppercase(),
-                fontWeight = FontWeight.Bold,
-                color = if (isUnreconciled) ExpenseRed
-                else PlatformColors.colorForPlatformName(name),
-                fontSize = 14.sp
-            )
+            if (!isUnreconciled && appIcon != null) {
+                Image(
+                    bitmap = appIcon,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Text(
+                    text = if (isUnreconciled) "?" else name.take(1).uppercase(),
+                    fontWeight = FontWeight.Bold,
+                    color = if (isUnreconciled) ExpenseRed
+                    else PlatformColors.colorForPlatformName(name),
+                    fontSize = 14.sp
+                )
+            }
         }
         Spacer(modifier = Modifier.width(10.dp))
         Text(

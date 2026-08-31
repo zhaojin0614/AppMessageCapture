@@ -1,6 +1,7 @@
 package com.aifactory.appmessagecapture.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,6 +68,8 @@ import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.AccentColorRepository
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
 import com.aifactory.appmessagecapture.ui.theme.PlatformColors
+import com.aifactory.appmessagecapture.utils.PlatformPackages
+import com.aifactory.appmessagecapture.utils.rememberAppIcon
 
 /**
  * 平台账户管理界面。
@@ -310,7 +314,12 @@ private fun PlatformAccountCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 品牌色圆形图标（微信→微信绿等；无品牌色时名称哈希兜底）
+            // 优先真实 App 图标（微信→微信Logo，走系统图标缓存，与消息列表一致）；
+            // 无匹配包名/加载失败时回退品牌色首字母
+            val appIcon = rememberAppIcon(
+                PlatformPackages.packageForName(account.name) ?: "",
+                sizeDp = 44.dp
+            ).value
             val platformColor = PlatformColors.resolveColor(account)
             Box(
                 modifier = Modifier
@@ -319,12 +328,21 @@ private fun PlatformAccountCard(
                     .background(platformColor.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = account.name.take(1).uppercase(),
-                    fontWeight = FontWeight.Bold,
-                    color = platformColor,
-                    fontSize = 18.sp
-                )
+                if (appIcon != null) {
+                    Image(
+                        bitmap = appIcon,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Text(
+                        text = account.name.take(1).uppercase(),
+                        fontWeight = FontWeight.Bold,
+                        color = platformColor,
+                        fontSize = 18.sp
+                    )
+                }
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
