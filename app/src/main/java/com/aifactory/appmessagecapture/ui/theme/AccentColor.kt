@@ -22,6 +22,7 @@ enum class AccentColor(val label: String, val primary: Color) {
     OCEAN("海雾蓝", Color(0xFF4A7BC4)),
     IOSBLUE("知更蓝", Color(0xFF007AFF)),     // iOS systemBlue
     INDIGO("靛蓝", Color(0xFF5865D6)),        // iOS indigo / Discord 系
+    NAVY("藏青", Color(0xFF3D5A80)),
     VIOLET("紫罗兰", Color(0xFF8B6FD6)),
     IMPERIAL("典雅紫", Color(0xFF6750A4)),    // Material 3 baseline
     ROSE("樱花粉", Color(0xFFD9648F)),

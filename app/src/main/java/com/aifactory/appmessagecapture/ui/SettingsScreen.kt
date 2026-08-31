@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -42,6 +43,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Repeat
@@ -98,6 +101,7 @@ import com.aifactory.appmessagecapture.service.PaymentScreenAccessibilityService
 import com.aifactory.appmessagecapture.service.SupportedCaptureApp
 import com.aifactory.appmessagecapture.service.SupportedPaymentApps
 import com.aifactory.appmessagecapture.ui.components.GlassCompactDialog
+import com.aifactory.appmessagecapture.ui.components.SoftButton
 import com.aifactory.appmessagecapture.ui.components.SoftCard
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.theme.AccentColor
@@ -128,7 +132,8 @@ fun SettingsScreen(onBack: () -> Unit) {
     var showRestoreConfirm by remember { mutableStateOf(false) }
     var showBudgetDialog by remember { mutableStateOf(false) }
     var showAccentDialog by remember { mutableStateOf(false) }
-    var showCustomPickerDialog by remember { mutableStateOf(false) }
+    var showCustomPicker by remember { mutableStateOf(false) }
+    var draftCustomColor by remember { mutableStateOf(AccentColor.MINT.primary) }
     var importOverwrite by remember { mutableStateOf(false) }
 
     // 主色调：全局单例状态，选色后即时生效（读取处自动订阅重组）
@@ -328,14 +333,22 @@ fun SettingsScreen(onBack: () -> Unit) {
             onDismissRequest = { showAccentDialog = false },
             title = "主题色",
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // 可滚动：展开调色板或键盘弹出时内容不会顶飞
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     Text(
                         text = "当前：${currentAccent.label}",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    AccentColor.entries.chunked(6).forEach { rowPresets ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // 20 个预设 = 4 行 × 5 列满排，两端对齐消除右侧空白
+                    AccentColor.entries.chunked(5).forEach { rowPresets ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
                             rowPresets.forEach { preset ->
                                 AccentSwatch(
                                     color = preset.primary,
@@ -345,15 +358,18 @@ fun SettingsScreen(onBack: () -> Unit) {
                             }
                         }
                     }
-                    // 自定义入口：彩虹渐变圆 + 调色板弹窗
+                    // 自定义入口：点击在下方展开/收起调色板（不再弹独立窗口）
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f))
                             .clickable {
-                                showAccentDialog = false
-                                showCustomPickerDialog = true
+                                if (!showCustomPicker) {
+                                    draftCustomColor = if (currentAccent.isCustom) currentAccent.primary
+                                    else AccentColorRepository.lastCustom ?: AccentColor.MINT.primary
+                                }
+                                showCustomPicker = !showCustomPicker
                             }
                             .padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -398,9 +414,32 @@ fun SettingsScreen(onBack: () -> Unit) {
                         if (currentAccent.isCustom) {
                             Icon(
                                 imageVector = Icons.Default.Check,
-                                contentDescription = "已选择",
+                                contentDescription = "当前使用自定义颜色",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Icon(
+                            imageVector = if (showCustomPicker) Icons.Default.KeyboardArrowUp
+                            else Icons.Default.KeyboardArrowDown,
+                            contentDescription = if (showCustomPicker) "收起调色板" else "展开调色板",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    // 内联调色板：展开在弹窗内部，避免多窗口叠放冲突
+                    AnimatedVisibility(visible = showCustomPicker) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            AccentHsvPickerContent(
+                                initial = draftCustomColor,
+                                onColorChanged = { draftCustomColor = it }
+                            )
+                            SoftButton(
+                                text = "使用此颜色",
+                                onClick = { AccentColorRepository.setCustom(context, draftCustomColor) },
+                                modifier = Modifier.fillMaxWidth(),
+                                height = 42.dp
                             )
                         }
                     }
@@ -413,40 +452,6 @@ fun SettingsScreen(onBack: () -> Unit) {
             },
             confirmButton = {
                 TextButton(onClick = { showAccentDialog = false }) { Text("完成") }
-            }
-        )
-    }
-
-    if (showCustomPickerDialog) {
-        var pickedColor by remember {
-            mutableStateOf(
-                if (currentAccent.isCustom) currentAccent.primary
-                else AccentColorRepository.lastCustom ?: AccentColor.MINT.primary
-            )
-        }
-        GlassCompactDialog(
-            onDismissRequest = {
-                showCustomPickerDialog = false
-                showAccentDialog = true
-            },
-            title = "自定义颜色",
-            text = {
-                AccentHsvPickerContent(
-                    initial = pickedColor,
-                    onColorChanged = { pickedColor = it }
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    AccentColorRepository.setCustom(context, pickedColor)
-                    showCustomPickerDialog = false
-                }) { Text("使用此颜色") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showCustomPickerDialog = false
-                    showAccentDialog = true
-                }) { Text("返回") }
             }
         )
     }
