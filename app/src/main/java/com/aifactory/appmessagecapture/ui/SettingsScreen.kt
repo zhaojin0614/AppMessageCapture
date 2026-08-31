@@ -588,117 +588,117 @@ private fun AccentHsvPickerContent(
         onColorChanged(Color(AndroidColor.HSVToColor(floatArrayOf(hue, sat, valueF))))
     }
 
-    // SV 面板：底层白→纯色横渐变，叠加透明→黑纵渐变
-    val pureHue = Color(AndroidColor.HSVToColor(floatArrayOf(hue, 1f, 1f)))
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(128.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .border(glassBorder(), RoundedCornerShape(14.dp))
-            .pointerInput(Unit) {
-                detectTapGestures { pos ->
-                    push(s = pos.x / size.width, v = 1f - pos.y / size.height)
-                }
-            }
-            .pointerInput(Unit) {
-                detectDragGestures { change, _ ->
-                    push(s = change.position.x / size.width, v = 1f - change.position.y / size.height)
-                }
-            }
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawRect(Brush.horizontalGradient(listOf(Color.White, pureHue)))
-            drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black)))
-            // 圆环指示器夹在面板内，拖到边缘时不被裁剪
-            val r = 8.dp.toPx()
-            drawCircle(
-                Color.White,
-                radius = r,
-                center = Offset(
-                    (sat * size.width).coerceIn(r, size.width - r),
-                    ((1f - valueF) * size.height).coerceIn(r, size.height - r)
-                ),
-                style = Stroke(width = 2.dp.toPx())
-            )
-        }
-    }
+    // 必须是单一根节点：AnimatedVisibility 等单槽容器会把多个平级子组件叠放在同一位置
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
 
-    Spacer(modifier = Modifier.height(8.dp))
-
-    // 色相滑条
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(20.dp)
-            .clip(CircleShape)
-            .border(glassBorder(), CircleShape)
-            .pointerInput(Unit) {
-                detectTapGestures { pos -> push(h = pos.x / size.width * 360f) }
-            }
-            .pointerInput(Unit) {
-                detectDragGestures { change, _ ->
-                    push(h = change.position.x / size.width * 360f)
-                }
-            }
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawRect(
-                Brush.horizontalGradient(
-                    List(13) { Color(AndroidColor.HSVToColor(floatArrayOf(it * 30f, 1f, 1f))) }
-                )
-            )
-            drawCircle(
-                Color.White,
-                radius = 7.dp.toPx(),
-                center = Offset(hue / 360f * size.width, size.height / 2f),
-                style = Stroke(width = 2.dp.toPx())
-            )
-        }
-    }
-
-    Spacer(modifier = Modifier.height(8.dp))
-
-    // 当前颜色预览 + 十六进制输入
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
+        // SV 面板：底层白→纯色横渐变，叠加透明→黑纵渐变
+        val pureHue = Color(AndroidColor.HSVToColor(floatArrayOf(hue, 1f, 1f)))
         Box(
             modifier = Modifier
-                .size(28.dp)
-                .clip(CircleShape)
-                .background(Color(AndroidColor.HSVToColor(floatArrayOf(hue, sat, valueF))))
-                .border(glassBorder(), CircleShape)
-        )
-        TextField(
-            value = hexText,
-            onValueChange = { input ->
-                hexText = input
-                parseHexColor(input)?.let { argb ->
-                    val hsv = FloatArray(3).also { AndroidColor.colorToHSV(argb, it) }
-                    push(h = hsv[0], s = hsv[1], v = hsv[2], syncHex = false)
+                .fillMaxWidth()
+                .height(128.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .border(glassBorder(), RoundedCornerShape(14.dp))
+                .pointerInput(Unit) {
+                    detectTapGestures { pos ->
+                        push(s = pos.x / size.width, v = 1f - pos.y / size.height)
+                    }
                 }
-            },
-            placeholder = {
-                Text(
-                    text = "#RRGGBB",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                .pointerInput(Unit) {
+                    detectDragGestures { change, _ ->
+                        push(s = change.position.x / size.width, v = 1f - change.position.y / size.height)
+                    }
+                }
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawRect(Brush.horizontalGradient(listOf(Color.White, pureHue)))
+                drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black)))
+                // 圆环指示器夹在面板内，拖到边缘时不被裁剪
+                val r = 8.dp.toPx()
+                drawCircle(
+                    Color.White,
+                    radius = r,
+                    center = Offset(
+                        (sat * size.width).coerceIn(r, size.width - r),
+                        ((1f - valueF) * size.height).coerceIn(r, size.height - r)
+                    ),
+                    style = Stroke(width = 2.dp.toPx())
                 )
-            },
-            singleLine = true,
-            textStyle = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent,
-                focusedIndicatorColor = MaterialTheme.colorScheme.outline,
-                unfocusedIndicatorColor = MaterialTheme.colorScheme.outlineVariant
-            ),
+            }
+        }
+
+        // 色相滑条
+        Box(
             modifier = Modifier
-                .weight(1f)
-                .height(48.dp)
-        )
+                .fillMaxWidth()
+                .height(20.dp)
+                .clip(CircleShape)
+                .border(glassBorder(), CircleShape)
+                .pointerInput(Unit) {
+                    detectTapGestures { pos -> push(h = pos.x / size.width * 360f) }
+                }
+                .pointerInput(Unit) {
+                    detectDragGestures { change, _ ->
+                        push(h = change.position.x / size.width * 360f)
+                    }
+                }
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawRect(
+                    Brush.horizontalGradient(
+                        List(13) { Color(AndroidColor.HSVToColor(floatArrayOf(it * 30f, 1f, 1f))) }
+                    )
+                )
+                drawCircle(
+                    Color.White,
+                    radius = 7.dp.toPx(),
+                    center = Offset(hue / 360f * size.width, size.height / 2f),
+                    style = Stroke(width = 2.dp.toPx())
+                )
+            }
+        }
+
+        // 当前颜色预览 + 十六进制输入
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color(AndroidColor.HSVToColor(floatArrayOf(hue, sat, valueF))))
+                    .border(glassBorder(), CircleShape)
+            )
+            TextField(
+                value = hexText,
+                onValueChange = { input ->
+                    hexText = input
+                    parseHexColor(input)?.let { argb ->
+                        val hsv = FloatArray(3).also { AndroidColor.colorToHSV(argb, it) }
+                        push(h = hsv[0], s = hsv[1], v = hsv[2], syncHex = false)
+                    }
+                },
+                placeholder = {
+                    Text(
+                        text = "#RRGGBB",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = MaterialTheme.colorScheme.outline,
+                    unfocusedIndicatorColor = MaterialTheme.colorScheme.outlineVariant
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp)
+            )
+        }
     }
 }
 
