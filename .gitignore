@@ -44,3 +44,6 @@ screenshots/
 
 # Kotlin 2.x local state
 .kotlin/
+
+# 本地数据迁移备份（migrate_old_app.sh 产物，含账单数据库）
+migration_backup_*/
