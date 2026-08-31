@@ -153,16 +153,14 @@ private fun BudgetTextField(
         onValueChange = { new -> if (new.all { it.isDigit() || it == '.' }) onValueChange(new) },
         placeholder = {
             Text(
-                text = "¥ 金额",
+                text = "金额",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         },
-        prefix = if (value.isEmpty()) {
-            {
-                Text(text = "¥", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        } else null,
+        prefix = {
+            Text(text = "¥", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        },
         singleLine = true,
         textStyle = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
         colors = TextFieldDefaults.colors(
