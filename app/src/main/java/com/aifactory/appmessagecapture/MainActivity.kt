@@ -6,9 +6,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -178,11 +181,18 @@ fun MainApp(initialTab: String? = null) {
                 // SaveableStateProvider keeps each tab's scroll position and
                 // remember state alive across tab switches (previously the
                 // whole screen was disposed and lists reset to the top).
+                // Crossfade：切 tab 时内容轻微淡入淡出，与滑块滑动节奏配合。
                 val stateHolder = rememberSaveableStateHolder()
-                when (selectedTab) {
-                    0 -> stateHolder.SaveableStateProvider(key = "tab_messages") { MainScreen() }
-                    1 -> stateHolder.SaveableStateProvider(key = "tab_bills") { BillScreen() }
-                    2 -> stateHolder.SaveableStateProvider(key = "tab_birthday") { BirthdayScreen() }
+                Crossfade(
+                    targetState = selectedTab,
+                    animationSpec = tween(200, easing = FastOutSlowInEasing),
+                    label = "tabContentFade"
+                ) { tab ->
+                    when (tab) {
+                        0 -> stateHolder.SaveableStateProvider(key = "tab_messages") { MainScreen() }
+                        1 -> stateHolder.SaveableStateProvider(key = "tab_bills") { BillScreen() }
+                        2 -> stateHolder.SaveableStateProvider(key = "tab_birthday") { BirthdayScreen() }
+                    }
                 }
             }
         }
