@@ -144,8 +144,12 @@ class BirthdayAlarmReceiver : BroadcastReceiver() {
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        val channelId = "birthday_reminder_channel"
+        val channelId = "birthday_reminder_v2_channel"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // 旧渠道可能已被系统锁定（用户关过悬浮等），改用新 ID 让悬浮（heads-up）默认开启
+            if (notificationManager.getNotificationChannel("birthday_reminder_channel") != null) {
+                notificationManager.deleteNotificationChannel("birthday_reminder_channel")
+            }
             val existing = notificationManager.getNotificationChannel(channelId)
             if (existing == null) {
                 val channel = NotificationChannel(
@@ -154,6 +158,8 @@ class BirthdayAlarmReceiver : BroadcastReceiver() {
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "亲友生日倒计时提醒"
+                    // 悬浮（heads-up）默认开启
+                    setImportance(NotificationManager.IMPORTANCE_HIGH)
                     setSound(
                         RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
                         AudioAttributes.Builder()

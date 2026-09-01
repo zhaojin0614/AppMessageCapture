@@ -22,7 +22,7 @@ import java.time.YearMonth
  */
 object BudgetNotifier {
 
-    private const val CHANNEL_ID = "budget_alert_channel"
+    private const val CHANNEL_ID = "budget_alert_v2_channel"
     private const val CHANNEL_NAME = "预算提醒"
     private const val PREFS = "budget_notify_state"
     private const val KEY_MONTH = "month"
@@ -69,10 +69,18 @@ object BudgetNotifier {
 
     private fun postNotification(context: Context, level: Int, spent: Double, total: Double) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        // 旧渠道可能已被系统锁定（用户关过悬浮等），改用新渠道 ID 让悬浮走默认开启
+        if (manager.getNotificationChannel("budget_alert_channel") != null) {
+            manager.deleteNotificationChannel("budget_alert_channel")
+        }
         val existing = manager.getNotificationChannel(CHANNEL_ID)
         if (existing == null) {
             manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_DEFAULT)
+                NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH).apply {
+                    description = "月度预算达到 80% / 超支时推送提醒"
+                    // 悬浮（heads-up）默认开启
+                    setImportance(NotificationManager.IMPORTANCE_HIGH)
+                }
             )
         }
 
