@@ -273,7 +273,7 @@ fun BillScreen(
     // 过渡期双 LazyColumn 组合会产生状态耦合；alpha 淡入无此问题
     val listFade = remember(selectedType) { Animatable(0f) }
     LaunchedEffect(selectedType) {
-        listFade.animateTo(1f, tween(200, easing = FastOutSlowInEasing))
+        listFade.animateTo(1f, tween(100, easing = FastOutSlowInEasing))
     }
     val scope = rememberCoroutineScope()
     val pullOffset = remember { Animatable(0f) }

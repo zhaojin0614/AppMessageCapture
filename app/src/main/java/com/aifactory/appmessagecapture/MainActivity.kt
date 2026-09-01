@@ -185,7 +185,7 @@ fun MainApp(initialTab: String? = null) {
                 val stateHolder = rememberSaveableStateHolder()
                 Crossfade(
                     targetState = selectedTab,
-                    animationSpec = tween(200, easing = FastOutSlowInEasing),
+                    animationSpec = tween(100, easing = FastOutSlowInEasing),
                     label = "tabContentFade"
                 ) { tab ->
                     when (tab) {
@@ -233,17 +233,17 @@ private fun SoftNavBar(
                 sliderLeft.snapTo(targetLeft)
                 sliderWidth.snapTo(targetWidth)
             } else {
-                // 滑块滑动：位置与宽度并行动画。刚度用 Medium：太软（MediumLow）
-                // 收尾拖沓，加上切页瞬间的重组负载，观感是"卡一下才滑过去"
+                // 滑块滑动：位置与宽度并行动画。StiffnessHigh ≈100ms 到位，
+                // 与 100ms 内容 Crossfade 同步，切换几乎无感
                 launch {
                     sliderLeft.animateTo(
                         targetLeft,
-                        spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMedium)
+                        spring(Spring.DampingRatioNoBouncy, Spring.StiffnessHigh)
                     )
                 }
                 sliderWidth.animateTo(
                     targetWidth,
-                    spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMedium)
+                    spring(Spring.DampingRatioNoBouncy, Spring.StiffnessHigh)
                 )
             }
         }

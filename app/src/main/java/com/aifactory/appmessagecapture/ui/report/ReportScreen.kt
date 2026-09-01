@@ -4,7 +4,10 @@ package com.aifactory.appmessagecapture.ui.report
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -30,6 +33,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -49,6 +53,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.Instant
 import java.time.LocalDate
@@ -71,6 +77,7 @@ import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
 import com.aifactory.appmessagecapture.ui.theme.ReportBlue
 import com.aifactory.appmessagecapture.ui.theme.ReportBlueLight
+import kotlinx.coroutines.launch
 
 // ============================================================
 // Theme-aware report palette: light/dark via CompositionLocal
@@ -226,7 +233,7 @@ fun ReportScreen(
                 // 报表主体：切换周期类型时轻微淡入淡出，与 PillToggle 滑块动画配合
                 Crossfade(
                     targetState = periodType,
-                    animationSpec = tween(200, easing = FastOutSlowInEasing),
+                    animationSpec = tween(100, easing = FastOutSlowInEasing),
                     label = "reportBody"
                 ) { bodyType ->
                     Column {
@@ -471,25 +478,73 @@ private fun IncomeExpenseToggle(
     modifier: Modifier = Modifier
 ) {
     val options = listOf("支出" to ExpenseRed, "收入" to IncomeGreen)
+    var itemLefts by remember { mutableStateOf(FloatArray(options.size)) }
+    var itemWidths by remember { mutableStateOf(IntArray(options.size)) }
+    var measured by remember { mutableStateOf(false) }
+    val sliderLeft = remember { Animatable(0f) }
+    val sliderWidth = remember { Animatable(0f) }
+    val selectedIndex = if (showIncome) 1 else 0
+
+    LaunchedEffect(itemLefts, itemWidths, selectedIndex) {
+        if (!measured) return@LaunchedEffect
+        val targetLeft = itemLefts[selectedIndex]
+        val targetWidth = itemWidths[selectedIndex].toFloat()
+        if (sliderWidth.value == 0f) {
+            sliderLeft.snapTo(targetLeft)
+            sliderWidth.snapTo(targetWidth)
+        } else {
+            launch {
+                sliderLeft.animateTo(
+                    targetLeft,
+                    spring(Spring.DampingRatioNoBouncy, Spring.StiffnessHigh)
+                )
+            }
+            sliderWidth.animateTo(
+                targetWidth,
+                spring(Spring.DampingRatioNoBouncy, Spring.StiffnessHigh)
+            )
+        }
+    }
+
+    val selectedBrush = gradientBrush(options[selectedIndex].second, alpha = 0.92f)
+
     // 紧凑自适应小胶囊：字号比周期选择框（labelLarge 14sp）小一级（13sp，同记账页分类 chip），
-    // 圆角与记账页选择框同级（16dp），高度压到约 30dp
+    // 圆角与记账页选择框同级（16dp），高度压到约 30dp；选中胶囊为滑动滑块
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(LocalReportColors.current.neutralGray.copy(alpha = 0.35f))
             .border(glassBorder(), RoundedCornerShape(16.dp))
+            .drawBehind {
+                if (!measured || sliderWidth.value <= 0f) return@drawBehind
+                val pad = 2.dp.toPx()
+                drawRoundRect(
+                    brush = selectedBrush,
+                    topLeft = Offset(pad + sliderLeft.value, pad),
+                    size = Size(sliderWidth.value, this.size.height - pad * 2),
+                    cornerRadius = CornerRadius(14.dp.toPx())
+                )
+            }
             .padding(2.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        options.forEachIndexed { index, (label, color) ->
-            val selected = (index == 1) == showIncome
+        options.forEachIndexed { index, (label, _) ->
+            val selected = selectedIndex == index
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(if (selected) gradientBrush(color, alpha = 0.92f) else SolidColor(Color.Transparent))
-                    .clickable {
-                        if ((index == 1) != showIncome) onToggle()
+                    .onGloballyPositioned { coords ->
+                        val left = coords.positionInParent().x
+                        val width = coords.size.width
+                        if (itemLefts[index] != left || itemWidths[index] != width) {
+                            val newLefts = itemLefts.copyOf(); newLefts[index] = left
+                            val newWidths = itemWidths.copyOf(); newWidths[index] = width
+                            itemLefts = newLefts
+                            itemWidths = newWidths
+                            measured = true
+                        }
                     }
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable { if (!selected) onToggle() }
                     .padding(horizontal = 12.dp, vertical = 4.dp),
                 contentAlignment = Alignment.Center
             ) {

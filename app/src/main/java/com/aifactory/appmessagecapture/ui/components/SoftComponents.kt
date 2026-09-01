@@ -307,12 +307,12 @@ fun PillToggle(
             launch {
                 sliderLeft.animateTo(
                     targetLeft,
-                    spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMedium)
+                    spring(Spring.DampingRatioNoBouncy, Spring.StiffnessHigh)
                 )
             }
             sliderWidth.animateTo(
                 targetWidth,
-                spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMedium)
+                spring(Spring.DampingRatioNoBouncy, Spring.StiffnessHigh)
             )
         }
     }
