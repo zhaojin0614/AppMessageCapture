@@ -6,18 +6,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -228,16 +223,17 @@ private fun SoftNavBar(
                 sliderLeft.snapTo(targetLeft)
                 sliderWidth.snapTo(targetWidth)
             } else {
-                // 滑块滑动：选中项宽 = 图标 + 文字，未选中只有图标，位置与宽度并行动画
+                // 滑块滑动：位置与宽度并行动画。刚度用 Medium：太软（MediumLow）
+                // 收尾拖沓，加上切页瞬间的重组负载，观感是"卡一下才滑过去"
                 launch {
                     sliderLeft.animateTo(
                         targetLeft,
-                        spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow)
+                        spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMedium)
                     )
                 }
                 sliderWidth.animateTo(
                     targetWidth,
-                    spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow)
+                    spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMedium)
                 )
             }
         }
@@ -324,25 +320,24 @@ private fun SoftNavItem(
             .padding(horizontal = 18.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             Icon(
                 imageVector = if (selected) tab.iconFilled else tab.icon,
                 contentDescription = tab.label,
                 tint = if (selected) Color.White else scheme.onSurfaceVariant,
                 modifier = Modifier.size(22.dp)
             )
-            // 标签展开/收起动画：滑块宽度随 item 实测宽度逐帧跟随，
-            // 切换时滑块是「滑动 + 变宽/变窄」而不是跳变
-            AnimatedVisibility(
-                visible = selected,
-                enter = expandHorizontally(animationSpec = tween(220)) + fadeIn(tween(220)),
-                exit = shrinkHorizontally(animationSpec = tween(220)) + fadeOut(tween(220))
-            ) {
+            // 标签瞬时切换（不做展开动画）：item 宽度在一次布局内到位，
+            // 滑块只对「最终几何」做一次干净的滑动动画，
+            // 若标签逐帧展开，滑块弹簧每帧被打断重启，观感卡顿
+            if (selected) {
                 Text(
                     text = tab.label,
                     style = MaterialTheme.typography.labelLarge,
-                    color = Color.White,
-                    modifier = Modifier.padding(start = 6.dp)
+                    color = Color.White
                 )
             }
         }
