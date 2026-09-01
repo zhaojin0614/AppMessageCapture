@@ -65,6 +65,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 import com.aifactory.appmessagecapture.ui.components.PillToggle
+import com.aifactory.appmessagecapture.ui.components.SliderStiffness
 import com.aifactory.appmessagecapture.ui.components.SoftCard
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.gradientBrush
@@ -493,12 +494,12 @@ private fun IncomeExpenseToggle(
             launch {
                 sliderLeft.animateTo(
                     targetLeft,
-                    spring(Spring.DampingRatioNoBouncy, Spring.StiffnessHigh)
+                    spring(Spring.DampingRatioNoBouncy, SliderStiffness)
                 )
             }
             sliderWidth.animateTo(
                 targetWidth,
-                spring(Spring.DampingRatioNoBouncy, Spring.StiffnessHigh)
+                spring(Spring.DampingRatioNoBouncy, SliderStiffness)
             )
         }
     }

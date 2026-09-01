@@ -275,6 +275,9 @@ private fun Modifier.softClickable(
 
 // ---------- PillToggle: segmented control ----------
 
+/** 滑块滑动统一节奏：spring stiffness ≈200ms 到位（底部导航/分段控件共用） */
+const val SliderStiffness = 500f
+
 /**
  * 分段控件：选中胶囊是独立「滑块」，用 drawBehind 画在底色之上、文字之下，
  * 切换时以弹簧动画在选项间滑动（与底部导航栏同款效果）。
@@ -307,12 +310,12 @@ fun PillToggle(
             launch {
                 sliderLeft.animateTo(
                     targetLeft,
-                    spring(Spring.DampingRatioNoBouncy, Spring.StiffnessHigh)
+                    spring(Spring.DampingRatioNoBouncy, SliderStiffness)
                 )
             }
             sliderWidth.animateTo(
                 targetWidth,
-                spring(Spring.DampingRatioNoBouncy, Spring.StiffnessHigh)
+                spring(Spring.DampingRatioNoBouncy, SliderStiffness)
             )
         }
     }

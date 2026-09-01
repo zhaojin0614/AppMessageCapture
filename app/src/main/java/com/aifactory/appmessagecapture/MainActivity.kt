@@ -70,6 +70,7 @@ import com.aifactory.appmessagecapture.ui.BillScreen
 import com.aifactory.appmessagecapture.ui.MainScreen
 import com.aifactory.appmessagecapture.ui.components.AmbientBackground
 import com.aifactory.appmessagecapture.ui.components.GlassBackdropRoot
+import com.aifactory.appmessagecapture.ui.components.SliderStiffness
 import com.aifactory.appmessagecapture.ui.components.isDarkTheme
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
@@ -233,17 +234,16 @@ private fun SoftNavBar(
                 sliderLeft.snapTo(targetLeft)
                 sliderWidth.snapTo(targetWidth)
             } else {
-                // 滑块滑动：位置与宽度并行动画。StiffnessHigh ≈100ms 到位，
-                // 与 100ms 内容 Crossfade 同步，切换几乎无感
+                // 滑块滑动：位置与宽度并行动画，≈200ms 到位
                 launch {
                     sliderLeft.animateTo(
                         targetLeft,
-                        spring(Spring.DampingRatioNoBouncy, Spring.StiffnessHigh)
+                        spring(Spring.DampingRatioNoBouncy, SliderStiffness)
                     )
                 }
                 sliderWidth.animateTo(
                     targetWidth,
-                    spring(Spring.DampingRatioNoBouncy, Spring.StiffnessHigh)
+                    spring(Spring.DampingRatioNoBouncy, SliderStiffness)
                 )
             }
         }
