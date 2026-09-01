@@ -3,6 +3,9 @@
 package com.aifactory.appmessagecapture.ui.report
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -220,6 +223,13 @@ fun ReportScreen(
                 // 自定义时间段的选择入口只有下方 DateNavigation 一处：
                 // 「2026.07.15~07.17（点击选择）」既展示当前区间又可点击打开选择器
 
+                // 报表主体：切换周期类型时轻微淡入淡出，与 PillToggle 滑块动画配合
+                Crossfade(
+                    targetState = periodType,
+                    animationSpec = tween(200, easing = FastOutSlowInEasing),
+                    label = "reportBody"
+                ) { bodyType ->
+                    Column {
                 Spacer(modifier = Modifier.height(ComponentGap))
 
                 // Date nav + income/expense toggle
@@ -231,7 +241,7 @@ fun ReportScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     DateNavigation(
-                        periodType = periodType,
+                        periodType = bodyType,
                         label = uiState.periodLabel,
                         currentYear = uiState.currentYear,
                         currentMonth = uiState.currentMonth,
@@ -247,12 +257,12 @@ fun ReportScreen(
                         { viewModel.toggleShowIncome() }
                     )
                 }
-    
+
                 Spacer(modifier = Modifier.height(ComponentGap))
-    
+
                 // Summary cards
                 SummaryCards(
-                    periodType = periodType,
+                    periodType = bodyType,
                     showIncome = showIncome,
                     periodTotal = uiState.periodTotal,
                     dailyAvg = uiState.dailyAvg,
@@ -260,12 +270,12 @@ fun ReportScreen(
                     balance = uiState.balance,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
-    
+
                 Spacer(modifier = Modifier.height(ComponentGap))
 
                 // Trend line chart
                 TrendLineChartSection(
-                    periodType = periodType,
+                    periodType = bodyType,
                     showIncome = showIncome,
                     data = uiState.trendData,
                     modifier = Modifier.padding(horizontal = 16.dp)
@@ -305,10 +315,12 @@ fun ReportScreen(
                 }
 
                 Spacer(modifier = Modifier.height(80.dp))
+                    }
+                }
             }
         }
     }
-    }
+}
 }
 
 @Composable

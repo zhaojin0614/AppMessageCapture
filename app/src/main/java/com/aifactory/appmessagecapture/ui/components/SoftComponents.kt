@@ -1,11 +1,14 @@
 package com.aifactory.appmessagecapture.ui.components
 
 import androidx.compose.animation.animateColor
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -37,17 +40,28 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -56,6 +70,7 @@ import com.aifactory.appmessagecapture.ui.theme.GradientBrandEnd
 import com.aifactory.appmessagecapture.ui.theme.GradientBrandStart
 import com.aifactory.appmessagecapture.ui.theme.MistBlue
 import com.aifactory.appmessagecapture.ui.theme.SandGold
+import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -260,6 +275,11 @@ private fun Modifier.softClickable(
 
 // ---------- PillToggle: segmented control ----------
 
+/**
+ * 分段控件：选中胶囊是独立「滑块」，用 drawBehind 画在底色之上、文字之下，
+ * 切换时以弹簧动画在选项间滑动（与底部导航栏同款效果）。
+ * 选项文字瞬时变色，几何一次布局到位，滑块只对最终位置做一次干净滑动。
+ */
 @Composable
 fun PillToggle(
     options: List<Pair<String, Color>>,
@@ -268,24 +288,73 @@ fun PillToggle(
     modifier: Modifier = Modifier,
     shape: RoundedCornerShape = RoundedCornerShape(14.dp)
 ) {
+    // 各选项几何（px，相对内容区原点）；首次测量直接落位，之后切换才滑动
+    var itemLefts by remember { mutableStateOf(FloatArray(options.size)) }
+    var itemWidths by remember { mutableStateOf(IntArray(options.size)) }
+    var measured by remember { mutableStateOf(false) }
+    val sliderLeft = remember { Animatable(0f) }
+    val sliderWidth = remember { Animatable(0f) }
+    val safeIndex = selectedIndex.coerceIn(0, options.lastIndex)
+
+    LaunchedEffect(itemLefts, itemWidths, safeIndex) {
+        if (!measured) return@LaunchedEffect
+        val targetLeft = itemLefts[safeIndex]
+        val targetWidth = itemWidths[safeIndex].toFloat()
+        if (sliderWidth.value == 0f) {
+            sliderLeft.snapTo(targetLeft)
+            sliderWidth.snapTo(targetWidth)
+        } else {
+            launch {
+                sliderLeft.animateTo(
+                    targetLeft,
+                    spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMedium)
+                )
+            }
+            sliderWidth.animateTo(
+                targetWidth,
+                spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMedium)
+            )
+        }
+    }
+
+    val selectedBrush = gradientBrush(options[safeIndex].second, alpha = 0.92f)
+
     Row(
         modifier = modifier
             .clip(shape)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f))
             .border(glassBorder(), shape)
+            .drawBehind {
+                // 滑块画在底色之上、文字之下；坐标系含 3dp 内边距，需补回
+                if (!measured || sliderWidth.value <= 0f) return@drawBehind
+                val pad = 3.dp.toPx()
+                drawRoundRect(
+                    brush = selectedBrush,
+                    topLeft = Offset(pad + sliderLeft.value, pad),
+                    size = Size(sliderWidth.value, this.size.height - pad * 2),
+                    cornerRadius = CornerRadius(11.dp.toPx())
+                )
+            }
             .padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp)
     ) {
-        options.forEachIndexed { index, (label, color) ->
-            val selected = selectedIndex == index
+        options.forEachIndexed { index, (label, _) ->
+            val selected = safeIndex == index
             Box(
                 modifier = Modifier
                     .weight(1f)
+                    .onGloballyPositioned { coords ->
+                        val left = coords.positionInParent().x
+                        val width = coords.size.width
+                        if (itemLefts[index] != left || itemWidths[index] != width) {
+                            val newLefts = itemLefts.copyOf(); newLefts[index] = left
+                            val newWidths = itemWidths.copyOf(); newWidths[index] = width
+                            itemLefts = newLefts
+                            itemWidths = newWidths
+                            measured = true
+                        }
+                    }
                     .clip(RoundedCornerShape(11.dp))
-                    .background(
-                        if (selected) gradientBrush(color, alpha = 0.92f)
-                        else SolidColor(Color.Transparent)
-                    )
                     .softClickable(onClick = { onSelect(index) })
                     .padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center

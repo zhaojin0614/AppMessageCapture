@@ -7,6 +7,7 @@ import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -102,6 +103,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -266,6 +268,13 @@ fun BillScreen(
 
     // Pull-down stats panel
     val listState = rememberLazyListState()
+    // 类型（全部/支出/收入）切换时列表轻微淡入。
+    // 不用 Crossfade：列表 LazyListState 与下方下拉刷新手势逻辑共享，
+    // 过渡期双 LazyColumn 组合会产生状态耦合；alpha 淡入无此问题
+    val listFade = remember(selectedType) { Animatable(0f) }
+    LaunchedEffect(selectedType) {
+        listFade.animateTo(1f, tween(200, easing = FastOutSlowInEasing))
+    }
     val scope = rememberCoroutineScope()
     val pullOffset = remember { Animatable(0f) }
     val maxPullOffsetPx = with(LocalDensity.current) { 80.dp.toPx() }
@@ -683,10 +692,11 @@ fun BillScreen(
                     Spacer(modifier = Modifier.height(ComponentGap))
                 }
 
-                // Bill List
-                if (bills.isEmpty()) {
-                    EmptyBillState()
-                } else {
+                // Bill List（类型切换时整体淡入）
+                Box(modifier = Modifier.graphicsLayer { alpha = listFade.value }) {
+                    if (bills.isEmpty()) {
+                        EmptyBillState()
+                    } else {
                     val groupedBills = remember(bills) {
                         bills.groupBy {
                             Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
@@ -745,6 +755,7 @@ fun BillScreen(
                             )
                         }
                     }
+                }
                 }
             }
         }
