@@ -3,7 +3,6 @@
 package com.aifactory.appmessagecapture.ui.report
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -42,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -230,13 +230,15 @@ fun ReportScreen(
                 // 自定义时间段的选择入口只有下方 DateNavigation 一处：
                 // 「2026.07.15~07.17（点击选择）」既展示当前区间又可点击打开选择器
 
-                // 报表主体：切换周期类型时轻微淡入淡出，与 PillToggle 滑块动画配合
-                Crossfade(
-                    targetState = periodType,
-                    animationSpec = tween(100, easing = FastOutSlowInEasing),
-                    label = "reportBody"
-                ) { bodyType ->
-                    Column {
+                // 报表主体：切换周期类型时轻微淡入（35%→100%，避免闪出底色）。
+                // 不用 Crossfade：过渡期会同时组合新旧两份报表，图表全是 Canvas
+                // 自绘（折线+柱状+drawText），年报数据点最多，双份组合+双份绘制
+                // 直接掉帧；单 body + alpha 淡入的组合成本与无动画时代完全一致
+                val bodyFade = remember(periodType) { Animatable(0.35f) }
+                LaunchedEffect(periodType) {
+                    bodyFade.animateTo(1f, tween(100, easing = FastOutSlowInEasing))
+                }
+                Column(modifier = Modifier.graphicsLayer { alpha = bodyFade.value }) {
                 Spacer(modifier = Modifier.height(ComponentGap))
 
                 // Date nav + income/expense toggle
@@ -248,7 +250,7 @@ fun ReportScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     DateNavigation(
-                        periodType = bodyType,
+                        periodType = periodType,
                         label = uiState.periodLabel,
                         currentYear = uiState.currentYear,
                         currentMonth = uiState.currentMonth,
@@ -269,7 +271,7 @@ fun ReportScreen(
 
                 // Summary cards
                 SummaryCards(
-                    periodType = bodyType,
+                    periodType = periodType,
                     showIncome = showIncome,
                     periodTotal = uiState.periodTotal,
                     dailyAvg = uiState.dailyAvg,
@@ -282,7 +284,7 @@ fun ReportScreen(
 
                 // Trend line chart
                 TrendLineChartSection(
-                    periodType = bodyType,
+                    periodType = periodType,
                     showIncome = showIncome,
                     data = uiState.trendData,
                     modifier = Modifier.padding(horizontal = 16.dp)
@@ -322,7 +324,6 @@ fun ReportScreen(
                 }
 
                 Spacer(modifier = Modifier.height(80.dp))
-                    }
                 }
             }
         }
