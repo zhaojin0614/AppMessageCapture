@@ -54,6 +54,7 @@ import com.aifactory.appmessagecapture.data.AppDatabase
 import com.aifactory.appmessagecapture.data.BillEntity
 import com.aifactory.appmessagecapture.data.PlatformAccountEntity
 import com.aifactory.appmessagecapture.service.BillNotificationHelper
+import com.aifactory.appmessagecapture.service.BudgetNotifier
 import com.aifactory.appmessagecapture.ui.theme.AppMessageCaptureTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -141,6 +142,10 @@ class BillQuickEditActivity : ComponentActivity() {
                     )
                 }
                 cancelBillNotification(appContext)
+            }
+            // 改分类会即时改变该分类的本月支出，可能跨过预算阈值
+            if (categoryChanged) {
+                BudgetNotifier.checkAndNotify(appContext)
             }
             Toast.makeText(appContext, "已保存 ${changes.joinToString("、")}", Toast.LENGTH_SHORT).show()
             finish()

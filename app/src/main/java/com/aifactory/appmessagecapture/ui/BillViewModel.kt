@@ -300,6 +300,8 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             // 记忆化写库：回填商户键，让这次纠正对之后同商户的捕获生效
             repository.updateCategoryRemembered(id, category)
+            // 改分类会即时改变新旧分类的本月支出，可能跨过预算阈值
+            BudgetNotifier.checkAndNotify(getApplication())
         }
     }
 
@@ -316,6 +318,8 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
     fun updateAmount(id: Long, amount: Double) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.updateBillAmount(id, amount)
+            // 改金额直接改变总支出/分类支出，同样需要检查预算阈值
+            BudgetNotifier.checkAndNotify(getApplication())
         }
     }
 
