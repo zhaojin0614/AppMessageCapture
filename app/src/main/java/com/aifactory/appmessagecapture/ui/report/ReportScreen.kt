@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -48,6 +49,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 import kotlin.math.ceil
 import kotlin.math.cos
@@ -215,25 +217,8 @@ fun ReportScreen(
                     },
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
-                if (periodType == ReportViewModel.PeriodType.CUSTOM) {
-                    Text(
-                        text = "当前时间段：${uiState.periodLabel}（点击下方按钮选择）",
-                        fontSize = 12.sp,
-                        color = LocalReportColors.current.textGray,
-                        modifier = Modifier.padding(horizontal = 20.dp)
-                    )
-                    Text(
-                        text = "选择时间段",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .padding(horizontal = 20.dp, vertical = 6.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .clickable { showCustomRangePicker = true }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
+                // 自定义时间段的选择入口只有下方 DateNavigation 一处：
+                // 「2026.07.15~07.17（点击选择）」既展示当前区间又可点击打开选择器
 
                 Spacer(modifier = Modifier.height(ComponentGap))
 
@@ -1285,6 +1270,7 @@ private fun CategoryListItem(
                 Text(
                     text = stat.category,
                     fontSize = 14.sp,
+                    lineHeight = 18.sp,
                     fontWeight = FontWeight.Medium,
                     color = LocalReportColors.current.textDark,
                     maxLines = 1,
@@ -1295,6 +1281,7 @@ private fun CategoryListItem(
                 Text(
                     text = "${stat.count}笔",
                     fontSize = 11.sp,
+                    lineHeight = 18.sp,
                     color = LocalReportColors.current.textGray,
                     maxLines = 1
                 )
@@ -1305,11 +1292,12 @@ private fun CategoryListItem(
                     Text(
                         text = "较上期 %+.1f%%".format(deltaPct),
                         fontSize = 9.sp,
+                        lineHeight = 12.sp,
                         color = if ((deltaPct > 0) == showIncome) IncomeGreen else ExpenseRed
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(3.dp))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1353,7 +1341,11 @@ private fun CategoryListItem(
 }
 
 /**
- * 自定义时间段选择弹窗：Material3 DateRangePicker，最长 366 天。
+ * 自定义时间段选择弹窗：自绘月历（最长 366 天）。
+ * 不用 M3 DateRangePicker：窄宽度下 7 列会挤成 6 列、不支持年月快速跳转、
+ * 区间底色按单元格绘制导致断开。自绘实现保证——
+ * 7 列完整等宽；点「2026年7月」展开年/月快跳面板；选中区间的底色带
+ * 从起点圆右缘一直连到终点圆左缘（起点右半格 + 中间整格 + 终点左半格拼接）。
  */
 @Composable
 private fun CustomRangePickerDialog(
@@ -1362,28 +1354,203 @@ private fun CustomRangePickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (LocalDate, LocalDate) -> Unit
 ) {
-    val zone = ZoneId.systemDefault()
-    val state = rememberDateRangePickerState(
-        initialSelectedStartDateMillis = initialStart
-            ?.atStartOfDay(zone)?.toInstant()?.toEpochMilli(),
-        initialSelectedEndDateMillis = initialEnd
-            ?.atStartOfDay(zone)?.toInstant()?.toEpochMilli()
-    )
+    val today = remember { LocalDate.now() }
+    var displayMonth by remember { mutableStateOf(YearMonth.from(initialStart ?: today)) }
+    var rangeStart by remember { mutableStateOf(initialStart) }
+    var rangeEnd by remember { mutableStateOf(initialEnd) }
+    var showJumpPanel by remember { mutableStateOf(false) }
+    var jumpYear by remember { mutableStateOf(displayMonth.year) }
+
+    val colors = LocalReportColors.current
+    val bandColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+    val accent = MaterialTheme.colorScheme.primary
+
+    val rangeTooLong = rangeStart != null && rangeEnd != null &&
+        (rangeEnd!!.toEpochDay() - rangeStart!!.toEpochDay()) > 365
+
+    fun onDayClick(date: LocalDate) {
+        val s = rangeStart
+        when {
+            // 未开始选，或上一段已选完 → 开始新一段
+            s == null || rangeEnd != null -> { rangeStart = date; rangeEnd = null }
+            date.isBefore(s) -> rangeStart = date
+            else -> rangeEnd = date
+        }
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(20.dp),
-            color = LocalReportColors.current.cardBg
+            color = colors.cardBg,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                DateRangePicker(
-                    state = state,
-                    showModeToggle = false,
-                    title = null,
-                    headline = null,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 430.dp)
+            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp)) {
+                // ── 年月导航：◀ 2026年7月 ▾ ▶ ──────────────────────────
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { displayMonth = displayMonth.minusMonths(1) },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.KeyboardArrowLeft, contentDescription = "上一月",
+                            tint = colors.textDark, modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                jumpYear = displayMonth.year
+                                showJumpPanel = !showJumpPanel
+                            }
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${displayMonth.year}年${displayMonth.monthValue}月",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (showJumpPanel) accent else colors.textDark
+                        )
+                        Icon(
+                            Icons.Default.KeyboardArrowDown, contentDescription = "选择年月",
+                            tint = colors.textGray, modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = { displayMonth = displayMonth.plusMonths(1) },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.KeyboardArrowRight, contentDescription = "下一月",
+                            tint = colors.textDark, modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+
+                // ── 年/月快跳面板 ──────────────────────────────────────
+                if (showJumpPanel) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val years = remember(today) { (2020..today.year + 1).toList() }
+                    Text(
+                        text = "年份",
+                        fontSize = 11.sp,
+                        color = colors.textGray,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        years.forEach { year ->
+                            val selected = year == jumpYear
+                            Text(
+                                text = "${year}年",
+                                fontSize = 12.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selected) accent else colors.textDark,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (selected) accent.copy(alpha = 0.15f) else Color.Transparent)
+                                    .clickable { jumpYear = year }
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "月份",
+                        fontSize = 11.sp,
+                        color = colors.textGray,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+                    listOf(1..6, 7..12).forEach { months ->
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            months.forEach { month ->
+                                val selected = jumpYear == displayMonth.year && month == displayMonth.monthValue
+                                Text(
+                                    text = "${month}月",
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (selected) accent else colors.textDark,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(horizontal = 3.dp, vertical = 3.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (selected) accent.copy(alpha = 0.15f) else colors.divider)
+                                        .clickable {
+                                            displayMonth = YearMonth.of(jumpYear, month)
+                                            showJumpPanel = false
+                                        }
+                                        .padding(vertical = 7.dp)
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // ── 星期表头：7 列完整等宽 ─────────────────────────────
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    listOf("一", "二", "三", "四", "五", "六", "日").forEach { day ->
+                        Text(
+                            text = day,
+                            fontSize = 12.sp,
+                            color = colors.textGray,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+
+                // ── 月历网格：周一开头，区间底色连续拼接 ───────────────
+                val leadingBlanks = displayMonth.atDay(1).dayOfWeek.value - 1
+                val cells: List<LocalDate?> =
+                    List(leadingBlanks) { null } + (1..displayMonth.lengthOfMonth()).map { displayMonth.atDay(it) }
+                cells.chunked(7).forEach { week ->
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        week.forEach { date ->
+                            RangePickerDayCell(
+                                date = date,
+                                rangeStart = rangeStart,
+                                rangeEnd = rangeEnd,
+                                today = today,
+                                bandColor = bandColor,
+                                accent = accent,
+                                onClick = { date?.let { onDayClick(it) } },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        repeat(7 - week.size) { Spacer(modifier = Modifier.weight(1f)) }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // ── 已选摘要 + 操作 ────────────────────────────────────
+                val fmt: (LocalDate) -> String = { "%d.%02d.%02d".format(it.year, it.monthValue, it.dayOfMonth) }
+                val summary = when {
+                    rangeStart != null && rangeEnd != null -> "已选 ${fmt(rangeStart!!)} ~ ${fmt(rangeEnd!!)}"
+                    rangeStart != null -> "已选 ${fmt(rangeStart!!)}，请选择结束日期"
+                    else -> "点选起止日期"
+                }
+                Text(
+                    text = if (rangeTooLong) "最长可选 366 天，请重新选择" else summary,
+                    fontSize = 12.sp,
+                    color = if (rangeTooLong) ExpenseRed else colors.textGray,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1391,17 +1558,88 @@ private fun CustomRangePickerDialog(
                 ) {
                     TextButton(onClick = onDismiss) { Text("取消") }
                     TextButton(
-                        enabled = state.selectedStartDateMillis != null && state.selectedEndDateMillis != null,
-                        onClick = {
-                            val start = Instant.ofEpochMilli(state.selectedStartDateMillis!!)
-                                .atZone(zone).toLocalDate()
-                            val end = Instant.ofEpochMilli(state.selectedEndDateMillis!!)
-                                .atZone(zone).toLocalDate()
-                            onConfirm(start, end)
-                        }
+                        enabled = rangeStart != null && rangeEnd != null && !rangeTooLong,
+                        onClick = { onConfirm(rangeStart!!, rangeEnd!!) }
                     ) { Text("确定") }
                 }
             }
+        }
+    }
+}
+
+/** 月历单格：端点实心圆 + 区间底色带（起点右半格/中间整格/终点左半格拼成连续色带） */
+@Composable
+private fun RangePickerDayCell(
+    date: LocalDate?,
+    rangeStart: LocalDate?,
+    rangeEnd: LocalDate?,
+    today: LocalDate,
+    bandColor: Color,
+    accent: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .height(38.dp)
+            .then(if (date != null) Modifier.clickable(onClick = onClick) else Modifier),
+        contentAlignment = Alignment.Center
+    ) {
+        date ?: return@Box
+        val isStart = date == rangeStart
+        val isEnd = date == rangeEnd
+        val inRange = rangeStart != null && rangeEnd != null &&
+            date.isAfter(rangeStart) && date.isBefore(rangeEnd)
+
+        // 底色带高度略小于圆，视觉上像环绕日期的横带
+        if (rangeStart != null && rangeEnd != null) {
+            when {
+                isStart && isEnd -> {}
+                isStart -> Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxHeight(0.66f)
+                        .fillMaxWidth(0.5f)
+                        .background(bandColor)
+                )
+                isEnd -> Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .fillMaxHeight(0.66f)
+                        .fillMaxWidth(0.5f)
+                        .background(bandColor)
+                )
+                inRange -> Box(
+                    modifier = Modifier
+                        .fillMaxHeight(0.66f)
+                        .fillMaxWidth()
+                        .background(bandColor)
+                )
+            }
+        }
+
+        if (isStart || isEnd) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(accent),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = date.dayOfMonth.toString(),
+                    fontSize = 13.sp,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        } else {
+            Text(
+                text = date.dayOfMonth.toString(),
+                fontSize = 13.sp,
+                color = if (date == today) accent else LocalReportColors.current.textDark,
+                fontWeight = if (date == today) FontWeight.Bold else FontWeight.Normal
+            )
         }
     }
 }
