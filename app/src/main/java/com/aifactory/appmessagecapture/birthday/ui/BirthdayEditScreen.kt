@@ -1,45 +1,43 @@
 package com.aifactory.appmessagecapture.birthday.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Cake
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -49,22 +47,33 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.aifactory.appmessagecapture.birthday.data.BirthdayEntity
 import com.aifactory.appmessagecapture.birthday.data.ReminderType
 import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
+import com.aifactory.appmessagecapture.ui.components.PillToggle
 import com.aifactory.appmessagecapture.ui.components.SoftCard
+import com.aifactory.appmessagecapture.ui.components.glassBorder
+import com.aifactory.appmessagecapture.ui.components.glassFill
+import com.aifactory.appmessagecapture.ui.components.gradientBrush
 
 /**
  * 添加/编辑生日记录页。
  *
- * 支持输入姓名、公历/农历切换、月日选择、出生年份（可选）、提醒设置。
+ * 液态玻璃风格：头像英雄卡（首字随姓名实时变化）、玻璃分段控件（公历/农历）、
+ * 玻璃下拉（月/日/时/分）、提醒方式芯片组，替换原先的 M3 描边输入框 +
+ * 单选按钮列表的朴素样式。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,6 +120,27 @@ fun BirthdayEditScreen(
         }
     }
 
+    fun saveBirthday() {
+        val trimmedName = name.trim()
+        if (trimmedName.isBlank()) return
+
+        val yearInt = birthYear.toIntOrNull()
+        val reminderTimeStr = if (reminderType == ReminderType.NONE) null
+        else String.format("%02d:%02d", reminderHour, reminderMinute)
+
+        val entity = BirthdayEntity(
+            id = birthdayId ?: 0,
+            name = trimmedName,
+            isLunar = isLunar,
+            birthYear = yearInt,
+            birthMonth = birthMonth,
+            birthDay = birthDay,
+            reminderType = reminderType,
+            reminderTime = reminderTimeStr
+        )
+        viewModel.save(entity) { onNavigateBack() }
+    }
+
     Scaffold(
         modifier = modifier,
         containerColor = Color.Transparent,
@@ -127,7 +157,7 @@ fun BirthdayEditScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "返回"
                         )
                     }
@@ -148,171 +178,252 @@ fun BirthdayEditScreen(
                 .padding(top = 8.dp, bottom = 104.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 基本信息卡片
+            // ── 头像英雄卡：首字头像 + 姓名 ────────────────────────────
             SoftCard(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                contentPadding = 16.dp
+                shape = RoundedCornerShape(20.dp),
+                contentPadding = 20.dp
             ) {
-                Text(
-                    text = "基本信息",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // 姓名
-                CompactOutlinedField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("亲友姓名 *") },
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // 公历 / 农历 切换
-                CalendarTypeSelector(
-                    isLunar = isLunar,
-                    onToggle = { isLunar = it }
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // 月 / 日 选择
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    NumberDropdown(
-                        label = "月份",
-                        selected = birthMonth,
-                        range = 1..12,
-                        onSelected = { birthMonth = it },
-                        modifier = Modifier.weight(1f)
-                    )
-                    NumberDropdown(
-                        label = "日期",
-                        selected = birthDay,
-                        range = 1..31,
-                        onSelected = { birthDay = it },
-                        modifier = Modifier.weight(1f)
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        MaterialTheme.colorScheme.primary,
+                                        MaterialTheme.colorScheme.tertiary
+                                    )
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val trimmed = name.trim()
+                        if (trimmed.isEmpty()) {
+                            Icon(
+                                imageVector = Icons.Default.Cake,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.92f),
+                                modifier = Modifier.size(30.dp)
+                            )
+                        } else {
+                            Text(
+                                text = trimmed.take(1),
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
+                    BasicTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        singleLine = true,
+                        textStyle = TextStyle(
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        ),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        modifier = Modifier.fillMaxWidth(),
+                        decorationBox = { innerTextField ->
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (name.isEmpty()) {
+                                    Text(
+                                        text = "点此输入亲友姓名",
+                                        fontSize = 16.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        }
                     )
                 }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // 出生年份（可选）
-                CompactOutlinedField(
-                    value = birthYear,
-                    onValueChange = {
-                        if (it.isEmpty() || it.matches(Regex("\\d{0,4}"))) {
-                            birthYear = it
-                        }
-                    },
-                    label = { Text("出生年份（可选，用于计算岁数）") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
             }
 
-            // 提醒设置卡片
+            // ── 生日日期卡 ─────────────────────────────────────────────
             SoftCard(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(20.dp),
                 contentPadding = 16.dp
             ) {
-                Text(
-                    text = "提醒设置",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // 提醒类型
-                ReminderTypeSelector(
-                    selected = reminderType,
-                    onSelected = { reminderType = it }
-                )
-
-                // 提醒时间（若提醒类型不为 NONE）
-                if (reminderType != ReminderType.NONE) {
-                    Spacer(modifier = Modifier.height(10.dp))
+                Column {
+                    EditSectionHeader(icon = Icons.Default.Cake, title = "生日日期")
+                    Spacer(modifier = Modifier.height(12.dp))
+                    PillToggle(
+                        options = listOf(
+                            "公历" to MaterialTheme.colorScheme.primary,
+                            "农历" to MaterialTheme.colorScheme.primary
+                        ),
+                        selectedIndex = if (isLunar) 1 else 0,
+                        onSelect = { isLunar = it == 1 }
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text(
-                            text = "提醒时间",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        NumberDropdown(
-                            label = "时",
-                            selected = reminderHour,
-                            range = 0..23,
-                            onSelected = { reminderHour = it },
+                        GlassNumberDropdown(
+                            selected = birthMonth,
+                            range = 1..12,
+                            format = { "$it 月" },
+                            onSelected = { birthMonth = it },
                             modifier = Modifier.weight(1f)
                         )
-                        Text(":", style = MaterialTheme.typography.bodyLarge)
-                        NumberDropdown(
-                            label = "分",
-                            selected = reminderMinute,
-                            range = 0..59,
-                            onSelected = { reminderMinute = it },
+                        GlassNumberDropdown(
+                            selected = birthDay,
+                            range = 1..31,
+                            format = { "$it 日" },
+                            onSelected = { birthDay = it },
                             modifier = Modifier.weight(1f)
                         )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    YearField(
+                        value = birthYear,
+                        onValueChange = { if (it.isEmpty() || it.matches(Regex("\\d{0,4}"))) birthYear = it }
+                    )
+                }
+            }
+
+            // ── 提醒设置卡 ─────────────────────────────────────────────
+            SoftCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                contentPadding = 16.dp
+            ) {
+                Column {
+                    EditSectionHeader(icon = Icons.Default.Notifications, title = "提醒设置")
+                    Spacer(modifier = Modifier.height(12.dp))
+                    // 提醒方式芯片：两行 3+2
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ReminderChip(
+                            label = "不提醒",
+                            selected = reminderType == ReminderType.NONE,
+                            onClick = { reminderType = ReminderType.NONE },
+                            modifier = Modifier.weight(1f)
+                        )
+                        ReminderChip(
+                            label = "当天",
+                            selected = reminderType == ReminderType.ON_DAY,
+                            onClick = { reminderType = ReminderType.ON_DAY },
+                            modifier = Modifier.weight(1f)
+                        )
+                        ReminderChip(
+                            label = "提前1天",
+                            selected = reminderType == ReminderType.ONE_DAY_BEFORE,
+                            onClick = { reminderType = ReminderType.ONE_DAY_BEFORE },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ReminderChip(
+                            label = "提前3天",
+                            selected = reminderType == ReminderType.THREE_DAYS_BEFORE,
+                            onClick = { reminderType = ReminderType.THREE_DAYS_BEFORE },
+                            modifier = Modifier.weight(1f)
+                        )
+                        ReminderChip(
+                            label = "提前1周",
+                            selected = reminderType == ReminderType.ONE_WEEK_BEFORE,
+                            onClick = { reminderType = ReminderType.ONE_WEEK_BEFORE },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    // 提醒时间（若提醒类型不为 NONE）
+                    if (reminderType != ReminderType.NONE) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "提醒时间",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            GlassNumberDropdown(
+                                selected = reminderHour,
+                                range = 0..23,
+                                format = { "%02d 时".format(it) },
+                                onSelected = { reminderHour = it },
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = ":",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            GlassNumberDropdown(
+                                selected = reminderMinute,
+                                range = 0..59,
+                                format = { "%02d 分".format(it) },
+                                onSelected = { reminderMinute = it },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
             }
 
-            // 操作按钮
+            // ── 操作按钮：玻璃取消 + 主色保存 ──────────────────────────
+            val canSave = name.trim().isNotBlank()
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                OutlinedButton(
-                    onClick = onNavigateBack,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(glassFill())
+                        .border(glassBorder(), RoundedCornerShape(14.dp))
+                        .clickable { onNavigateBack() },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("取消")
+                    Text(
+                        text = "取消",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                Button(
-                    onClick = {
-                        val trimmedName = name.trim()
-                        if (trimmedName.isBlank()) return@Button
-
-                        val yearInt = birthYear.toIntOrNull()
-                        val reminderTimeStr = if (reminderType == ReminderType.NONE) null
-                        else String.format("%02d:%02d", reminderHour, reminderMinute)
-
-                        val entity = BirthdayEntity(
-                            id = birthdayId ?: 0,
-                            name = trimmedName,
-                            isLunar = isLunar,
-                            birthYear = yearInt,
-                            birthMonth = birthMonth,
-                            birthDay = birthDay,
-                            reminderType = reminderType,
-                            reminderTime = reminderTimeStr
-                        )
-
-                        viewModel.save(entity) {
-                            onNavigateBack()
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                    enabled = name.trim().isNotBlank(),
-                    shape = RoundedCornerShape(16.dp)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp)
+                        .alpha(if (canSave) 1f else 0.45f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(gradientBrush(MaterialTheme.colorScheme.primary, alpha = 0.95f))
+                        .clickable(enabled = canSave) { saveBirthday() },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(if (isEdit) "保存" else "添加")
+                    Text(
+                        text = if (isEdit) "保存" else "添加",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
                 }
             }
 
@@ -325,108 +436,66 @@ fun BirthdayEditScreen(
 // 子组件
 // -------------------------------------------------------------------------
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** 卡片区标题：主题色小图标 + 标题 */
 @Composable
-private fun CalendarTypeSelector(
-    isLunar: Boolean,
-    onToggle: (Boolean) -> Unit
-) {
-    Column {
-        Text(
-            text = "历法类型",
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onBackground
+private fun EditSectionHeader(icon: ImageVector, title: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp)
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    RadioButton(
-                        selected = !isLunar,
-                        onClick = { onToggle(false) }
-                    )
-                    Text("公历（阳历）", style = MaterialTheme.typography.bodyMedium)
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    RadioButton(
-                        selected = isLunar,
-                        onClick = { onToggle(true) }
-                    )
-                    Text("农历（阴历）", style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-        }
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = title,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
+/** 玻璃下拉选择：居中显示，选中项带主题色 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NumberDropdown(
-    label: String,
+private fun GlassNumberDropdown(
     selected: Int,
     range: IntRange,
+    format: (Int) -> String,
     onSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val interactionSource = remember { MutableInteractionSource() }
-    val textStyle = MaterialTheme.typography.bodyLarge
-    val colors = OutlinedTextFieldDefaults.colors()
-    val shape = RoundedCornerShape(16.dp)
-
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
         modifier = modifier
     ) {
-        BasicTextField(
-            value = "$selected",
-            onValueChange = {},
-            readOnly = true,
-            textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
-            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            interactionSource = interactionSource,
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-            decorationBox = { innerTextField ->
-                OutlinedTextFieldDefaults.DecorationBox(
-                    value = "$selected",
-                    innerTextField = innerTextField,
-                    enabled = true,
-                    singleLine = true,
-                    visualTransformation = VisualTransformation.None,
-                    interactionSource = interactionSource,
-                    label = { Text(label) },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                    colors = colors,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    container = {
-                        OutlinedTextFieldDefaults.Container(
-                            enabled = true,
-                            isError = false,
-                            interactionSource = interactionSource,
-                            colors = colors,
-                            shape = shape
-                        )
-                    }
-                )
-            }
-        )
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .clip(RoundedCornerShape(12.dp))
+                .background(glassFill())
+                .border(glassBorder(), RoundedCornerShape(12.dp))
+                .padding(vertical = 11.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = format(selected),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
         ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
             range.forEach { value ->
                 DropdownMenuItem(
-                    text = { Text("$value") },
+                    text = { Text(format(value), fontSize = 14.sp) },
                     onClick = {
                         onSelected(value)
                         expanded = false
@@ -437,88 +506,88 @@ private fun NumberDropdown(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** 提醒方式芯片：选中态主题色渐变填充，未选中玻璃填充 */
 @Composable
-private fun ReminderTypeSelector(
-    selected: ReminderType,
-    onSelected: (ReminderType) -> Unit
+private fun ReminderChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Column {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                if (selected) gradientBrush(MaterialTheme.colorScheme.primary, alpha = 0.92f)
+                else SolidColor(glassFill())
+            )
+            .border(glassBorder(), RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
         Text(
-            text = "提醒方式",
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onBackground
+            text = label,
+            fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
         )
-        Spacer(modifier = Modifier.height(12.dp))
-        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ReminderType.entries.forEach { type ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        RadioButton(
-                            selected = selected == type,
-                            onClick = { onSelected(type) }
-                        )
-                        Text(
-                            text = type.displayName,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 
-/**
- * 紧凑版 OutlinedTextField，缩小内部上下留白（8dp/8dp 代替默认 16dp/16dp）。
- */
-@OptIn(ExperimentalMaterial3Api::class)
+/** 出生年份玻璃输入行：左标签 + 右数字输入（选填） + 「年」后缀 */
 @Composable
-private fun CompactOutlinedField(
+private fun YearField(
     value: String,
-    onValueChange: (String) -> Unit,
-    label: @Composable (() -> Unit)? = null,
-    modifier: Modifier = Modifier,
-    singleLine: Boolean = false,
-    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(16.dp)
+    onValueChange: (String) -> Unit
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val textStyle = MaterialTheme.typography.bodyLarge
-    val colors = OutlinedTextFieldDefaults.colors()
-
-    BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        singleLine = singleLine,
-        textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
-        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-        interactionSource = interactionSource,
-        modifier = modifier,
-        decorationBox = { innerTextField ->
-            OutlinedTextFieldDefaults.DecorationBox(
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(glassFill())
+            .border(glassBorder(), RoundedCornerShape(12.dp))
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "出生年份",
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        Box(
+            contentAlignment = Alignment.CenterEnd,
+            modifier = Modifier.width(110.dp)
+        ) {
+            if (value.isEmpty()) {
+                Text(
+                    text = "选填",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                )
+            }
+            BasicTextField(
                 value = value,
-                innerTextField = innerTextField,
-                enabled = true,
-                singleLine = singleLine,
-                visualTransformation = VisualTransformation.None,
-                interactionSource = interactionSource,
-                label = label,
-                colors = colors,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
-                container = {
-                    OutlinedTextFieldDefaults.Container(
-                        enabled = true,
-                        isError = false,
-                        interactionSource = interactionSource,
-                        colors = colors,
-                        shape = shape
-                    )
-                }
+                onValueChange = onValueChange,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                textStyle = TextStyle(
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.End
+                ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                modifier = Modifier.fillMaxWidth()
             )
         }
-    )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = "年",
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 }
