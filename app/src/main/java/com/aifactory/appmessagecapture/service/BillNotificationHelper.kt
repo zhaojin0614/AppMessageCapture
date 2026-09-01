@@ -36,7 +36,7 @@ import java.util.Locale
  */
 object BillNotificationHelper {
 
-    private const val CHANNEL_ID = "bill_recognized_channel"
+    private const val CHANNEL_ID = "bill_recognized_v2_channel"
     private const val CHANNEL_NAME = "账单识别提醒"
 
     /** 账单通知 ID 下限（id 从它起滚动分配），外部用于校验/清除 */
@@ -197,6 +197,13 @@ object BillNotificationHelper {
 
     private fun createChannelIfNeeded(notificationManager: NotificationManager) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // 旧渠道：一旦被系统创建，用户的悬浮/声音设置会被系统永久记住，
+            // App 无法再改。这里改用新渠道 ID，让系统视为全新渠道：
+            // IMPORTANCE_HIGH → 悬浮（heads-up）默认开启，无需用户单独去开。
+            val oldChannel = notificationManager.getNotificationChannel("bill_recognized_channel")
+            if (oldChannel != null) {
+                notificationManager.deleteNotificationChannel("bill_recognized_channel")
+            }
             val existing = notificationManager.getNotificationChannel(CHANNEL_ID)
             if (existing == null) {
                 val channel = NotificationChannel(
@@ -205,6 +212,8 @@ object BillNotificationHelper {
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "当成功识别到新的账单记录时推送通知"
+                    // 显式声明悬浮通知（heads-up）默认开启
+                    setImportance(NotificationManager.IMPORTANCE_HIGH)
                 }
                 notificationManager.createNotificationChannel(channel)
             }
