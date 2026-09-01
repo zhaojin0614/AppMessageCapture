@@ -89,6 +89,17 @@ interface BillDao {
     @Query("SELECT SUM(amount) FROM bills WHERE isIncome = 0 AND timestamp >= :monthStart")
     suspend fun getMonthExpenseOnce(monthStart: Long): Double?
 
+    /** 本月各分类支出（一次性，分类预算通知检查用） */
+    @Query(
+        """
+        SELECT category AS category, SUM(amount) AS total
+        FROM bills
+        WHERE isIncome = 0 AND timestamp >= :monthStart
+        GROUP BY category
+        """
+    )
+    suspend fun getMonthCategoryExpenseOnce(monthStart: Long): List<CategorySum>
+
     @Query("SELECT SUM(amount) FROM bills WHERE isIncome = 0")
     fun getTotalExpense(): Flow<Double?>
 

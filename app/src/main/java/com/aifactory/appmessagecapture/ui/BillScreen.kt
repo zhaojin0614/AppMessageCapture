@@ -185,6 +185,7 @@ fun BillScreen(
     val totalAccountBalance by viewModel.totalAccountBalance.collectAsState()
     val platforms by viewModel.platforms.collectAsState()
     val monthExpense by viewModel.monthExpense.collectAsState()
+    val monthCategorySpend by viewModel.monthCategorySpend.collectAsState()
     val budgets by viewModel.budgets.collectAsState()
     val monthIncome by viewModel.monthIncome.collectAsState()
     val expenseCount by viewModel.expenseCount.collectAsState()
@@ -210,8 +211,9 @@ fun BillScreen(
     // 账单搜索
     var showSearch by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
-    // 预算弹窗
-    var showBudgetDialog by remember { mutableStateOf(false) }
+    // 预算弹窗：点进度卡先看分类进度，点「编辑」再进编辑弹窗
+    var showBudgetProgressDialog by remember { mutableStateOf(false) }
+    var showBudgetEditDialog by remember { mutableStateOf(false) }
     // 屏幕记账（无障碍）开关状态：从系统设置页返回时刷新角标
     var a11yResumeKey by remember { mutableStateOf(0) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -562,7 +564,7 @@ fun BillScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp)
-                            .clickable { showBudgetDialog = true }
+                            .clickable { showBudgetProgressDialog = true }
                             .border(glassBorder(), RoundedCornerShape(16.dp))
                     ) {
                         Column(
@@ -748,8 +750,19 @@ fun BillScreen(
         }
     }
 
-    if (showBudgetDialog) {
-        BudgetDialog(viewModel = viewModel, onDismiss = { showBudgetDialog = false })
+    if (showBudgetProgressDialog) {
+        BudgetProgressDialog(
+            budgets = budgets,
+            categorySpend = monthCategorySpend,
+            onDismiss = { showBudgetProgressDialog = false },
+            onEdit = {
+                showBudgetProgressDialog = false
+                showBudgetEditDialog = true
+            }
+        )
+    }
+    if (showBudgetEditDialog) {
+        BudgetDialog(viewModel = viewModel, onDismiss = { showBudgetEditDialog = false })
     }
 
     // Add bill dialog

@@ -14,11 +14,12 @@ import java.time.ZoneId
 import java.time.YearMonth
 
 /**
- * 预算阈值通知：账单入库后检查本月支出与月度总预算的比例。
+ * 预算阈值通知：账单入库后检查本月支出与月度总预算 / 各分类预算的比例。
  *
- * 两级提醒（80% 预警 / 100% 超支），每级每个自然月只提醒一次
- * （状态记录在 SharedPreferences，跨月自动重置）。通知固定 ID 原地更新，
- * 升级级别时覆盖旧提醒而不是堆叠。
+ * 两级提醒（80% 预警 / 100% 超支）。总预算与每个分类预算各自独立：
+ * 每个自然月内，每个监控项（总预算 + 各分类预算）只提醒到已达成的最
+ * 高级别（状态记录在 SharedPreferences，跨月自动重置）。
+ * 通知固定 ID 原地更新，升级级别时覆盖旧提醒而不是堆叠。
  */
 object BudgetNotifier {
 
@@ -26,49 +27,102 @@ object BudgetNotifier {
     private const val CHANNEL_NAME = "预算提醒"
     private const val PREFS = "budget_notify_state"
     private const val KEY_MONTH = "month"
-    private const val KEY_LEVEL = "notified_level"
     private const val NOTIFICATION_ID = 9001
 
     /** 级别：0 正常 / 1 预警(≥80%) / 2 超支(≥100%) */
-    private const val LEVEL_OK = 0
-    private const val LEVEL_WARN = 1
-    private const val LEVEL_OVER = 2
+    const val LEVEL_OK = 0
+    const val LEVEL_WARN = 1
+    const val LEVEL_OVER = 2
+
+    /**
+     * 预算阈值判定（纯函数，便于单测）：
+     * 已用 ≥ 预算 → 超支；已用 ≥ 预算×80% → 预警；否则正常。
+     */
+    internal fun budgetLevel(spent: Double, budget: Double): Int = when {
+        spent >= budget -> LEVEL_OVER
+        spent >= budget * 0.8 -> LEVEL_WARN
+        else -> LEVEL_OK
+    }
+
+    /** 监控项：总预算（category=null）或某分类预算 */
+    private data class BudgetWatch(
+        val category: String?,
+        val budget: Double,
+        val spent: Double
+    ) {
+        val level: Int get() = budgetLevel(spent, budget)
+        val label: String
+            get() = category ?: "总预算"
+    }
 
     suspend fun checkAndNotify(context: Context) {
         try {
             val db = AppDatabase.getDatabase(context)
-            val total = db.budgetDao().getByCategory("")?.amount ?: return
-            if (total <= 0.0) return
+            val allBudgets = db.budgetDao().getAllOnce()
+            if (allBudgets.isEmpty()) return
+
+            val totalBudget = allBudgets.firstOrNull { it.category == "" }?.amount ?: 0.0
+            // 分类预算：排除总预算行（category == ""），金额 > 0 才算
+            val categoryBudgets = allBudgets
+                .filter { it.category.isNotEmpty() && it.amount > 0 }
+                .associate { it.category to it.amount }
+
+            // 没有任何预算（总预算也未设）→ 无意义
+            if (totalBudget <= 0.0 && categoryBudgets.isEmpty()) return
 
             val monthStart = LocalDate.now().withDayOfMonth(1)
                 .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-            val spent = db.billDao().getMonthExpenseOnce(monthStart) ?: return
 
-            val level = when {
-                spent >= total -> LEVEL_OVER
-                spent >= total * 0.8 -> LEVEL_WARN
-                else -> LEVEL_OK
+            val watches = mutableListOf<BudgetWatch>()
+            if (totalBudget > 0.0) {
+                val totalSpent = db.billDao().getMonthExpenseOnce(monthStart) ?: 0.0
+                watches += BudgetWatch(null, totalBudget, totalSpent)
             }
-            if (level == LEVEL_OK) return
+            if (categoryBudgets.isNotEmpty()) {
+                // 本月各分类实际支出
+                val spendByCategory = db.billDao().getMonthCategoryExpenseOnce(monthStart)
+                    .associate { it.category to it.total }
+                categoryBudgets.forEach { (category, budget) ->
+                    val spent = spendByCategory[category] ?: 0.0
+                    watches += BudgetWatch(category, budget, spent)
+                }
+            }
+
+            // 过滤掉未达阈值的项；若一项都没有则不发通知
+            val triggered = watches.filter { it.level != LEVEL_OK }
+            if (triggered.isEmpty()) return
 
             // 每个自然月只提醒到已达到的最高级别；跨月自动重置
+            // 键：level:<category|total>，值：该监控项本月已达级别
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             val currentMonth = YearMonth.now().toString()
             if (prefs.getString(KEY_MONTH, "") != currentMonth) {
                 prefs.edit().clear().putString(KEY_MONTH, currentMonth).apply()
             }
-            if (prefs.getInt(KEY_LEVEL, LEVEL_OK) >= level) return
-            prefs.edit().putInt(KEY_LEVEL, level).apply()
 
-            postNotification(context, level, spent, total)
-            BirthdayLog.i("[BudgetNotifier] notified level=$level spent=$spent total=$total")
+            // 找出本次需要升级提醒的项（本月尚未达到其当前级别）
+            val toNotify = triggered.filter { watch ->
+                val key = watch.category ?: "total"
+                val notified = prefs.getInt("level:$key", LEVEL_OK)
+                if (notified >= watch.level) false
+                else {
+                    prefs.edit().putInt("level:$key", watch.level).apply()
+                    true
+                }
+            }
+            if (toNotify.isEmpty()) return
+
+            postNotification(context, toNotify)
+            BirthdayLog.i(
+                "[BudgetNotifier] notified " +
+                    toNotify.joinToString { "${it.label}(level=${it.level},${it.spent}/${it.budget})" }
+            )
         } catch (e: Exception) {
             BirthdayLog.logException("[BudgetNotifier] checkAndNotify", e)
         }
     }
 
-    private fun postNotification(context: Context, level: Int, spent: Double, total: Double) {
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private fun postNotification(context: Context, watches: List<BudgetWatch>) {        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         // 旧渠道可能已被系统锁定（用户关过悬浮等），改用新渠道 ID 让悬浮走默认开启
         if (manager.getNotificationChannel("budget_alert_channel") != null) {
             manager.deleteNotificationChannel("budget_alert_channel")
@@ -84,11 +138,25 @@ object BudgetNotifier {
             )
         }
 
-        val title = if (level == LEVEL_OVER) "本月预算已超支" else "本月预算预警"
-        val text = if (level == LEVEL_OVER)
-            "本月已支出 ¥%.2f，超出预算 ¥%.2f，点击查看明细".format(spent, spent - total)
-        else
-            "本月已支出 ¥%.2f，达到预算 ¥%.2f 的 80%%".format(spent, total)
+        val overWatches = watches.filter { it.level == LEVEL_OVER }
+        val warnWatches = watches.filter { it.level == LEVEL_WARN }
+
+        val title = when {
+            overWatches.isNotEmpty() && warnWatches.isNotEmpty() -> "本月预算已超支"
+            overWatches.isNotEmpty() -> "本月预算已超支"
+            else -> "本月预算预警"
+        }
+
+        // 多行文本：每项一行「名称 已用¥X / 预算¥Y」
+        val lines = buildString {
+            overWatches.forEach { watch ->
+                append("超支 · ${watch.label}：已用 ¥%.2f / 预算 ¥%.2f\n".format(watch.spent, watch.budget))
+            }
+            warnWatches.forEach { watch ->
+                append("预警 · ${watch.label}：已用 ¥%.2f / 预算 ¥%.2f\n".format(watch.spent, watch.budget))
+            }
+            append("点击查看明细")
+        }
 
         val contentIntent = PendingIntent.getActivity(
             context,
@@ -100,8 +168,8 @@ object BudgetNotifier {
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
-            .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentText(lines.trim().substringBefore('\n'))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(lines.trim()))
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .build()
