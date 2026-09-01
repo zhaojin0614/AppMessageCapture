@@ -14,11 +14,13 @@ import java.time.ZoneId
 import java.time.YearMonth
 
 /**
- * 预算阈值通知：账单入库后检查本月支出与月度总预算 / 各分类预算的比例。
+ * 预算阈值通知：账单入库/编辑后检查本月支出与月度总预算 / 各分类预算的比例。
  *
- * 两级提醒（80% 预警 / 100% 超支）。总预算与每个分类预算各自独立：
- * 每个自然月内，每个监控项（总预算 + 各分类预算）只提醒到已达成的最
- * 高级别（状态记录在 SharedPreferences，跨月自动重置）。
+ * 两级提醒（80% 预警 / 100% 超支），总预算与各分类预算独立监控。
+ * 提醒按「级别上升」触发：与上次检查相比级别升高才发通知，回落则静默
+ * 同步记录——误选分类触发提醒、纠正后支出回落时，之后真实消费再次跨
+ * 阈值仍会重新提醒（若只记"已提醒过"就会永远沉默）。级别不变不重复发；
+ * 状态记录在 SharedPreferences，跨月自动重置。
  * 通知固定 ID 原地更新，升级级别时覆盖旧提醒而不是堆叠。
  */
 object BudgetNotifier {
@@ -88,28 +90,24 @@ object BudgetNotifier {
                 }
             }
 
-            // 过滤掉未达阈值的项；若一项都没有则不发通知
-            val triggered = watches.filter { it.level != LEVEL_OK }
-            if (triggered.isEmpty()) return
-
-            // 每个自然月只提醒到已达到的最高级别；跨月自动重置
-            // 键：level:<category|total>，值：该监控项本月已达级别
+            // 与上次检查比较各监控项的级别：升高才提醒，回落静默同步记录
+            // 键：level:<category|total>，值：上次检查时的级别
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             val currentMonth = YearMonth.now().toString()
             if (prefs.getString(KEY_MONTH, "") != currentMonth) {
                 prefs.edit().clear().putString(KEY_MONTH, currentMonth).apply()
             }
 
-            // 找出本次需要升级提醒的项（本月尚未达到其当前级别）
-            val toNotify = triggered.filter { watch ->
-                val key = watch.category ?: "total"
-                val notified = prefs.getInt("level:$key", LEVEL_OK)
-                if (notified >= watch.level) false
-                else {
-                    prefs.edit().putInt("level:$key", watch.level).apply()
-                    true
-                }
+            val editor = prefs.edit()
+            val toNotify = watches.filter { watch ->
+                val key = "level:${watch.category ?: "total"}"
+                val previous = prefs.getInt(key, LEVEL_OK)
+                editor.putInt(key, watch.level)
+                // 级别上升（如 80% 预警 → 100% 超支，或正常 → 预警）才提醒；
+                // 回落（纠正误选分类）静默更新记录，不拦截之后的再次提醒
+                watch.level > previous
             }
+            editor.apply()
             if (toNotify.isEmpty()) return
 
             postNotification(context, toNotify)

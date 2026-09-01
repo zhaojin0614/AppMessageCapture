@@ -29,6 +29,12 @@ import androidx.compose.ui.unit.sp
 import com.aifactory.appmessagecapture.data.BudgetEntity
 import com.aifactory.appmessagecapture.ui.components.GlassCompactDialog
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
+import java.util.Locale
+
+/** 金额显示：整数不带小数位，带小数显示两位（与 BudgetDialog 输入框一致） */
+private fun amountText(value: Double): String =
+    if (value % 1.0 == 0.0) value.toLong().toString()
+    else String.format(Locale.getDefault(), "%.2f", value)
 
 /**
  * 分类预算进度弹窗：点记账页预算卡后展示本月总预算与各分类预算的
@@ -145,7 +151,7 @@ private fun BudgetProgressRow(
                 modifier = Modifier.weight(1f)
             )
             Text(
-                text = "¥%.0f / ¥%.0f".format(spent, budget),
+                text = "¥%s / ¥%s".format(amountText(spent), amountText(budget)),
                 style = MaterialTheme.typography.labelSmall,
                 color = if (over) ExpenseRed else MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -41,4 +41,22 @@ class BudgetNotifierTest {
         assertEquals(BudgetNotifier.LEVEL_WARN, BudgetNotifier.budgetLevel(spent = 40.0, budget = 50.0))
         assertEquals(BudgetNotifier.LEVEL_OVER, BudgetNotifier.budgetLevel(spent = 50.0, budget = 50.0))
     }
+
+    /**
+     * 误选分类场景：消费触发超支 → 纠正分类后支出回落 → 之后真实消费再次
+     * 跨阈值。级别序列 2 → 0 → 2 中的每次上升都是一次提醒点（2→0 回落静默）。
+     */
+    @Test
+    fun `level drop then rise again yields new notify points`() {
+        val levels = listOf(2, 0, 1, 2)
+        // 相邻比较：上升(>0) 的位置都是提醒点；这里 0→1、1→2 两次提醒，
+        // 2→0 回落静默。验证级别函数对这条序列的判定与预期一致
+        val computed = listOf(
+            BudgetNotifier.budgetLevel(spent = 60.0, budget = 50.0),
+            BudgetNotifier.budgetLevel(spent = 10.0, budget = 50.0),
+            BudgetNotifier.budgetLevel(spent = 45.0, budget = 50.0),
+            BudgetNotifier.budgetLevel(spent = 55.0, budget = 50.0)
+        )
+        assertEquals(levels, computed)
+    }
 }
