@@ -230,15 +230,11 @@ fun ReportScreen(
                 // 自定义时间段的选择入口只有下方 DateNavigation 一处：
                 // 「2026.07.15~07.17（点击选择）」既展示当前区间又可点击打开选择器
 
-                // 报表主体：切换周期类型时轻微淡入（35%→100%，避免闪出底色）。
-                // 不用 Crossfade：过渡期会同时组合新旧两份报表，图表全是 Canvas
-                // 自绘（折线+柱状+drawText），年报数据点最多，双份组合+双份绘制
-                // 直接掉帧；单 body + alpha 淡入的组合成本与无动画时代完全一致
-                val bodyFade = remember(periodType) { Animatable(0.35f) }
-                LaunchedEffect(periodType) {
-                    bodyFade.animateTo(1f, tween(100, easing = FastOutSlowInEasing))
-                }
-                Column(modifier = Modifier.graphicsLayer { alpha = bodyFade.value }) {
+                // 报表主体：周期切换为瞬时切换（不做过场动画）。
+                // 图表全是 Canvas 自绘且年报数据点最多，任何双布局过场
+                // （Crossfade）都会掉帧；实测 alpha 淡入在这种重布局下
+                // 也贡献可感知的迟滞，用户确认改回秒切
+                Column {
                 Spacer(modifier = Modifier.height(ComponentGap))
 
                 // Date nav + income/expense toggle
