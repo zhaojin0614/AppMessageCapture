@@ -67,6 +67,7 @@ import com.aifactory.appmessagecapture.ui.components.SoftCard
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.components.gradientBrush
+import com.aifactory.appmessagecapture.ui.theme.ComponentGap
 
 /**
  * 添加/编辑生日记录页。
@@ -174,15 +175,17 @@ fun BirthdayEditScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
+                // 页边距与主栏组件间距遵循全局标准（Dimens.ComponentGap / 16dp），
+                // 与账单列表、生日列表、报表等界面一致
+                .padding(horizontal = 16.dp)
                 .padding(top = 8.dp, bottom = 104.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(ComponentGap)
         ) {
             // ── 头像英雄卡：首字头像 + 姓名 ────────────────────────────
             SoftCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                contentPadding = 20.dp
+                contentPadding = 16.dp
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -219,7 +222,7 @@ fun BirthdayEditScreen(
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     BasicTextField(
                         value = name,
                         onValueChange = { name = it },
@@ -259,7 +262,7 @@ fun BirthdayEditScreen(
             ) {
                 Column {
                     EditSectionHeader(icon = Icons.Default.Cake, title = "生日日期")
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     PillToggle(
                         options = listOf(
                             "公历" to MaterialTheme.colorScheme.primary,
@@ -268,10 +271,10 @@ fun BirthdayEditScreen(
                         selectedIndex = if (isLunar) 1 else 0,
                         onSelect = { isLunar = it == 1 }
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         GlassNumberDropdown(
                             selected = birthMonth,
@@ -288,7 +291,7 @@ fun BirthdayEditScreen(
                             modifier = Modifier.weight(1f)
                         )
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     YearField(
                         value = birthYear,
                         onValueChange = { if (it.isEmpty() || it.matches(Regex("\\d{0,4}"))) birthYear = it }
@@ -304,7 +307,7 @@ fun BirthdayEditScreen(
             ) {
                 Column {
                     EditSectionHeader(icon = Icons.Default.Notifications, title = "提醒设置")
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     // 提醒方式芯片：两行 3+2
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -349,7 +352,7 @@ fun BirthdayEditScreen(
                     }
                     // 提醒时间（若提醒类型不为 NONE）
                     if (reminderType != ReminderType.NONE) {
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -426,8 +429,6 @@ fun BirthdayEditScreen(
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
