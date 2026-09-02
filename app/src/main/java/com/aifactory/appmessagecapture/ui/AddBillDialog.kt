@@ -3,7 +3,10 @@
 package com.aifactory.appmessagecapture.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -341,24 +344,37 @@ fun AddBillDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // 分类网格：外层已是 verticalScroll，改用普通分行布局避免
-                // 嵌套同向滚动的手势冲突（条目固定且少，无需 lazy）
-                categories.chunked(4).forEach { rowCategories ->
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        rowCategories.forEach { cat ->
-                            Box(
-                                modifier = Modifier.weight(1f),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CategoryGridItem(
-                                    label = cat,
-                                    isSelected = selectedCategory == cat,
-                                    onClick = { selectedCategory = cat }
-                                )
+                // 嵌套同向滚动的手势冲突（条目固定且少，无需 lazy）。
+                // 支出 12 项 3 行 / 收入 8 项 2 行，切换时高度变化交给
+                // animateContentSize 平滑过渡，避免底部面板整体跳动。
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = 500f
+                            )
+                        )
+                ) {
+                    categories.chunked(4).forEach { rowCategories ->
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            rowCategories.forEach { cat ->
+                                Box(
+                                    modifier = Modifier.weight(1f),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CategoryGridItem(
+                                        label = cat,
+                                        isSelected = selectedCategory == cat,
+                                        onClick = { selectedCategory = cat }
+                                    )
+                                }
                             }
-                        }
-                        // 末行不足4个时补齐占位保持等宽
-                        repeat(4 - rowCategories.size) {
-                            Spacer(modifier = Modifier.weight(1f))
+                            // 末行不足4个时补齐占位保持等宽
+                            repeat(4 - rowCategories.size) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
                         }
                     }
                 }
