@@ -3,7 +3,6 @@
 package com.aifactory.appmessagecapture.ui.report
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -33,6 +32,7 @@ import com.aifactory.appmessagecapture.ui.components.SoftCard
 import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.components.glassFill
 import com.aifactory.appmessagecapture.ui.components.gradientBrush
+import com.aifactory.appmessagecapture.ui.getCategoryColor
 import com.aifactory.appmessagecapture.ui.theme.ComponentGap
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
@@ -162,18 +162,20 @@ private fun CategoryDetailBillItem(bill: BillEntity) {
             .fillMaxWidth()
             // 半间距：相邻卡片上下相加 = ComponentGap，与其他界面卡片间距一致
             .padding(horizontal = 16.dp, vertical = ComponentGap / 2),
-        shape = RoundedCornerShape(16.dp),
+        // R 角与 SoftCard 默认值一致（20dp），卡内 8dp 纵向内边距 + 40dp 图标
+        // 让卡片更扁更圆润，与主账单列表的行高节奏统一
+        shape = RoundedCornerShape(20.dp),
         contentPadding = 0.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(40.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(gradientBrush(MaterialTheme.colorScheme.secondary, alpha = 0.18f))
                     .border(glassBorder(), RoundedCornerShape(10.dp)),
@@ -207,15 +209,15 @@ private fun CategoryDetailBillItem(bill: BillEntity) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.width(8.dp))
+                    // 标签色按分类取色，与主账单列表 BillCard 一致
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = IncomeGreen.copy(alpha = 0.10f),
-                        border = BorderStroke(0.5.dp, IncomeGreen)
+                        color = getCategoryColor(bill.category).copy(alpha = 0.12f)
                     ) {
                         Text(
                             text = bill.category,
                             fontSize = 10.sp,
-                            color = IncomeGreen,
+                            color = getCategoryColor(bill.category),
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
