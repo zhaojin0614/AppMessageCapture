@@ -8,6 +8,10 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -43,6 +47,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Search
@@ -280,6 +285,11 @@ fun BillScreen(
         }
     }
 
+    // Scroll-to-top visibility（与消息页一致：滚过 5 项后出现）
+    val showScrollToTop by remember {
+        derivedStateOf { listState.firstVisibleItemIndex > 5 }
+    }
+
     LaunchedEffect(shouldLoadMore) {
         if (shouldLoadMore) {
             viewModel.loadMore()
@@ -413,12 +423,33 @@ fun BillScreen(
             },
             floatingActionButton = {
                 if (!isSelectionMode) {
-                    SoftFab(
-                        icon = Icons.Default.Add,
-                        contentDescription = "添加账单",
-                        onClick = { showAddDialog = true },
-                        modifier = Modifier.padding(bottom = 88.dp)
-                    )
+                    Column(
+                        modifier = Modifier.padding(bottom = 88.dp),
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        // 返回顶部（与消息页一致）：滚过 5 项后滑入
+                        AnimatedVisibility(
+                            visible = showScrollToTop,
+                            enter = fadeIn() + slideInVertically { it },
+                            exit = fadeOut() + slideOutVertically { it }
+                        ) {
+                            SoftFab(
+                                icon = Icons.Default.ArrowUpward,
+                                contentDescription = stringResource(R.string.scroll_to_top),
+                                onClick = {
+                                    scope.launch {
+                                        listState.animateScrollToItem(index = 0)
+                                    }
+                                },
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
+                        }
+                        SoftFab(
+                            icon = Icons.Default.Add,
+                            contentDescription = "添加账单",
+                            onClick = { showAddDialog = true }
+                        )
+                    }
                 }
             }
         ) { innerPadding ->
