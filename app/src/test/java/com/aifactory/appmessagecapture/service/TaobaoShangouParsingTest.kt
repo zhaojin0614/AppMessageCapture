@@ -50,7 +50,7 @@ class TaobaoShangouParsingTest {
 
     private val zone = ZoneId.of("Asia/Shanghai")
 
-    /** me.ele 独立 App 订单页节点（「下单时间」折叠在「订单信息」里，默认不可见） */
+    /** me.ele 独立 App 历史订单页节点：「下单时间」折叠在「订单信息」里，默认不可见 */
     private val eleOrderPageNodes = listOf(
         "订单已送达",
         "送至 松江大学城2期西桥星巴克旁美团外卖柜 徐东杰",
@@ -70,19 +70,18 @@ class TaobaoShangouParsingTest {
     @Test
     fun `订单详情页被识别`() {
         assertTrue(
-            TaobaoShangouParsing.isOrderPage(SupportedPaymentApps.TAOBAO_PACKAGE, shangouOrderPageNodes.joinToString("\n"))
+            TaobaoShangouParsing.isOrderPage(shangouOrderPageNodes.joinToString("\n"))
         )
+        // 独立 App 支付完成订单页与淘宝内同构：门槛统一，不区分包名
+        val elePaidPage = eleOrderPageNodes + "下单时间 2026-08-30 18:16:14.118"
+        assertTrue(TaobaoShangouParsing.isOrderPage(elePaidPage.joinToString("\n")))
     }
 
     @Test
-    fun `独立App订单页被识别且不依赖下单时间`() {
-        val pageText = eleOrderPageNodes.joinToString("\n")
-        assertTrue(TaobaoShangouParsing.isOrderPage(SupportedPaymentApps.ELE_PACKAGE, pageText))
-        // 同一页面若出现在淘宝内，因缺「下单时间」不命中（淘宝内门槛更严）
-        assertFalse(TaobaoShangouParsing.isOrderPage(SupportedPaymentApps.TAOBAO_PACKAGE, pageText))
-        // 缺订单号（如「订单信息」未渲染完的过渡态）不命中
-        val noId = eleOrderPageNodes.filterNot { it.startsWith("订单号") }.joinToString("\n")
-        assertFalse(TaobaoShangouParsing.isOrderPage(SupportedPaymentApps.ELE_PACKAGE, noId))
+    fun `历史订单页下单时间折叠时不识别`() {
+        // 历史订单详情页「下单时间」收起在「订单信息」里：不命中门槛，
+        // 浏览历史订单零动作（也是不重复入账的防线之一）
+        assertFalse(TaobaoShangouParsing.isOrderPage(eleOrderPageNodes.joinToString("\n")))
     }
 
     @Test
@@ -93,8 +92,7 @@ class TaobaoShangouParsingTest {
             "袁记云饺(文汇路店)", "共1件", "实付¥18.98",
             "再下一单"
         ).joinToString("\n")
-        assertFalse(TaobaoShangouParsing.isOrderPage(SupportedPaymentApps.TAOBAO_PACKAGE, listPage))
-        assertFalse(TaobaoShangouParsing.isOrderPage(SupportedPaymentApps.ELE_PACKAGE, listPage))
+        assertFalse(TaobaoShangouParsing.isOrderPage(listPage))
     }
 
     @Test
@@ -104,18 +102,7 @@ class TaobaoShangouParsingTest {
             "等待发货", "官方旗舰店", "实付¥129.00",
             "下单时间 2026-08-30 10:00:00"
         ).joinToString("\n")
-        assertFalse(TaobaoShangouParsing.isOrderPage(SupportedPaymentApps.TAOBAO_PACKAGE, normalPage))
-    }
-
-    @Test
-    fun `独立App提取订单号`() {
-        assertEquals("8023786204058882481", TaobaoShangouParsing.extractOrderId(eleOrderPageNodes))
-        // 标签与数字拆成两个节点时取纯数字节点
-        assertEquals(
-            "8023786204058882481",
-            TaobaoShangouParsing.extractOrderId(listOf("订单号", "8023786204058882481", "复制"))
-        )
-        assertNull(TaobaoShangouParsing.extractOrderId(shangouOrderPageNodes.dropLast(4)))
+        assertFalse(TaobaoShangouParsing.isOrderPage(normalPage))
     }
 
     @Test

@@ -15,9 +15,9 @@ object SupportedPaymentApps {
     const val TAOBAO_PACKAGE = "com.taobao.taobao"
 
     /**
-     * 独立淘宝闪购 App 包名（原饿了么换牌）。订单详情页与淘宝内闪购频道
-     * 同构，走同一套 [TaobaoShangouParsing] 解析，仅页面门槛按包名区分
-     * （独立 App 默认不可见「下单时间」，见其 KDoc）。
+     * 独立淘宝闪购 App 包名（原饿了么换牌）。支付完成订单页与淘宝内闪购
+     * 频道同构，走同一套 [TaobaoShangouParsing] 解析与统一门槛
+     * （「闪购」+「实付」+「下单时间」）。
      */
     const val ELE_PACKAGE = "me.ele"
 

@@ -6,11 +6,12 @@
     新增监视应用时两处要同步更新。
 
     事件类型：
-    - typeWindowStateChanged：Activity/窗口切换（京东成功页是独立 Activity，
-      靠它触发）；
-    - typeWindowContentChanged：内容变化（淘宝闪购 App 为单 Activity 应用，
-      订单列表→详情是内部页面切换、不发窗口切换事件，必须订阅内容变化才能
-      捕获；服务端按包名做了 1 秒节流，动画/轮播的连续事件不会刷屏遍历）
+    - typeWindowStateChanged：Activity/窗口切换（唯一订阅源）。
+      捕获目标是支付完成后自动弹出的订单页（京东成功页/淘宝闪购订单页均为
+      独立 Activity 或窗口切换可达）；历史订单详情页「下单时间」折叠不可见、
+      不命中页面门槛，浏览历史订单零动作。曾试验订阅
+      typeWindowContentChanged 以覆盖单 Activity 应用的内部页面切换，
+      但按支付完成页的设计无需订阅（内容事件风暴也费电），已移除
 
     accessibilityFlags：
     - flagRetrieveInteractiveWindows：getWindows() 返回全部窗口（金额行在
@@ -20,7 +21,7 @@
       自带此标志所以测试时能看到，服务端却看不到）
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
     android:canRetrieveWindowContent="true"
