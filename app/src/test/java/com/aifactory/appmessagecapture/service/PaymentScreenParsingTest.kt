@@ -109,6 +109,9 @@ class PaymentScreenParsingTest {
         // 京东 App 加入了屏幕监视名单，但其通知仍不应被通知通道捕获（营销推送噪音大）
         assertFalse(SupportedPaymentApps.isBillNotification("com.jingdong.app.mall", "京东", "任意内容"))
         assertTrue(SupportedPaymentApps.isScreenCaptureApp("com.jingdong.app.mall"))
+        // 淘宝 App 在屏幕监视名单（淘宝闪购订单页），通知通道保持关闭
+        assertFalse(SupportedPaymentApps.isBillNotification("com.taobao.taobao", "淘宝", "任意内容"))
+        assertTrue(SupportedPaymentApps.isScreenCaptureApp("com.taobao.taobao"))
         // 未实测的应用不在监视名单（大众点评/京东金融/百度钱包已移除）
         assertFalse(SupportedPaymentApps.isScreenCaptureApp("com.jd.jrapp"))
         assertFalse(SupportedPaymentApps.isScreenCaptureApp("com.dianping.v1"))
@@ -117,5 +120,32 @@ class PaymentScreenParsingTest {
         // 其通知与通知门槛同样被移除（未实测）
         assertFalse(SupportedPaymentApps.isBillNotification("com.dianping.v1", "任意", "任意"))
         assertFalse(SupportedPaymentApps.isBillNotification("com.baidu.wallet", "任意", "任意"))
+    }
+
+    @Test
+    fun `页面门槛路由_淘宝闪购走订单页门槛_京东走成功页门槛`() {
+        // 淘宝闪购订单页：isCapturePage 命中订单页门槛
+        val shangouPage = listOf(
+            "闪购 袁记云饺(文汇路店)", "价格明细", "总优惠¥33 实付¥18.98",
+            "下单时间 2026-08-30 18:16:14.118"
+        ).joinToString("\n")
+        assertTrue(
+            PaymentScreenParsing.isCapturePage(SupportedPaymentApps.TAOBAO_PACKAGE, shangouPage)
+        )
+        // 淘宝闪购页不含「支付成功」，若误走京东门槛应不命中
+        assertFalse(
+            PaymentScreenParsing.isPaymentSuccessPage(SupportedPaymentApps.TAOBAO_PACKAGE, shangouPage)
+        )
+        // 缺「下单时间」（订单列表页形态）不命中
+        val listPage = "闪购\n袁记云饺(文汇路店)\n实付¥18.98"
+        assertFalse(PaymentScreenParsing.isCapturePage(SupportedPaymentApps.TAOBAO_PACKAGE, listPage))
+
+        // 京东成功页：isCapturePage 保持原行为
+        assertTrue(
+            PaymentScreenParsing.isCapturePage("com.jingdong.app.mall", "支付成功\n京东支付¥30.38")
+        )
+        assertFalse(
+            PaymentScreenParsing.isCapturePage("com.jingdong.app.mall", "商品详情\n¥59.0")
+        )
     }
 }

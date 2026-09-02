@@ -9,6 +9,12 @@ package com.aifactory.appmessagecapture.service
 object SupportedPaymentApps {
 
     /**
+     * 淘宝 App 包名。淘宝闪购是淘宝内的外卖/即时零售频道，支付完成后的
+     * 订单页就在淘宝 App 里，页面解析见 [TaobaoShangouParsing]。
+     */
+    const val TAOBAO_PACKAGE = "com.taobao.taobao"
+
+    /**
      * 该通知是否为候选账单通知。仅放行已知支付应用，且各应用有独立的
      * 标题/正文门槛，用于排除营销推送、优惠券、后台服务等非消费通知。
      */
@@ -35,17 +41,27 @@ object SupportedPaymentApps {
     }
 
     /**
-     * 无障碍屏幕记账监视的包名（支付成功页捕获）。
+     * 无障碍屏幕记账监视的包名（支付成功页 / 淘宝闪购订单页捕获）。
      * 用于「付款了但不发通知/通知里没有金额」的应用：从支付完成页的
      * 屏幕文本里提取金额。系统层只投递这些包的窗口事件（见
      * res/xml/payment_screen_accessibility_config.xml 的 packageNames）。
      */
     val screenWatchPackages = setOf(
-        "com.jingdong.app.mall"    // 京东（支付成功页不发系统通知）
+        "com.jingdong.app.mall",   // 京东（支付成功页不发系统通知）
+        TAOBAO_PACKAGE             // 淘宝闪购（支付完成后的订单详情页）
     )
 
     fun isScreenCaptureApp(packageName: String): Boolean =
         packageName in screenWatchPackages
+
+    /**
+     * 屏幕捕获来源的账单展示名：包管理器 label 与业务频道名不一致时覆盖
+     * （淘宝 App 的 label 是「淘宝」，闪购订单账单展示为「淘宝闪购」更准确）。
+     */
+    fun screenAppDisplayName(packageName: String): String? = when (packageName) {
+        TAOBAO_PACKAGE -> "淘宝闪购"
+        else -> null
+    }
 
     /** 捕获通道标签（支持清单展示用） */
     const val CHANNEL_NOTIFY = "通知捕获"
@@ -59,7 +75,8 @@ object SupportedPaymentApps {
         SupportedCaptureApp("com.unionpay", "云闪付", CHANNEL_NOTIFY),
         SupportedCaptureApp("com.android.bankabc", "农业银行", CHANNEL_NOTIFY),
         SupportedCaptureApp("com.ss.android.ugc.lifeservices", "抖省省", CHANNEL_NOTIFY),
-        SupportedCaptureApp("com.jingdong.app.mall", "京东", CHANNEL_SCREEN)
+        SupportedCaptureApp("com.jingdong.app.mall", "京东", CHANNEL_SCREEN),
+        SupportedCaptureApp(TAOBAO_PACKAGE, "淘宝闪购", CHANNEL_SCREEN)
     )
 
     /**
@@ -72,6 +89,7 @@ object SupportedPaymentApps {
         return when (packageName) {
             "com.sankuai.meituan",
             "com.sankuai.meituan.takeoutnew" -> 100 // Meituan
+            TAOBAO_PACKAGE -> 90                     // 淘宝闪购（平台 + 商户信息）
             "com.ss.android.ugc.lifeservices" -> 90  // 抖省省（团购商户）
             "com.jingdong.app.mall" -> 80            // 京东（屏幕捕获）
             "com.eg.android.AlipayGphone" -> 50      // Alipay

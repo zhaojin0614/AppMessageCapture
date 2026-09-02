@@ -35,6 +35,6 @@
     <string name="app_widget_description">展示即将到来的生日倒计时</string>
 
     <string name="accessibility_service_label">捕账</string>
-    <string name="accessibility_service_description">在京东等应用的支付成功页自动读取支付金额并记账。仅监视名单内应用前台时读取页面文本，不上传任何数据。</string>
+    <string name="accessibility_service_description">在京东等应用的支付成功页、淘宝闪购订单页自动读取支付金额并记账。仅监视名单内应用前台时读取页面文本，不上传任何数据。</string>
     <string name="accessibility_settings">屏幕记账权限</string>
 </resources>

@@ -86,7 +86,12 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
      */
     internal suspend fun handlePageContent(packageName: String, nodeTexts: List<String>) {
         val pageText = nodeTexts.joinToString("\n")
-        if (!PaymentScreenParsing.isPaymentSuccessPage(packageName, pageText)) return
+        if (!PaymentScreenParsing.isCapturePage(packageName, pageText)) return
+
+        if (packageName == SupportedPaymentApps.TAOBAO_PACKAGE) {
+            recordShangouOrder(nodeTexts, pageText)
+            return
+        }
 
         val (amountLine, amount) = PaymentScreenParsing.extractAmountLine(nodeTexts) ?: run {
             android.util.Log.d(
@@ -98,15 +103,8 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
             return
         }
 
-        val now = System.currentTimeMillis()
-        val key = "$packageName|$amount"
-        recentCaptures[key]?.let { last ->
-            if (now - last < DEBOUNCE_MS) return
-        }
-        recentCaptures[key] = now
-        if (recentCaptures.size > 64) {
-            recentCaptures.entries.removeIf { now - it.value > DEBOUNCE_MS }
-        }
+        val title = amountLine
+        if (!passesDebounce("$packageName|$amount|$title")) return
 
         // 与通知捕获一致的屏蔽名单
         if (PreferencesManager.getInstance(this).isAppBlocked(packageName)) return
@@ -116,17 +114,73 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
             context = this,
             packageName = packageName,
             appName = appName,
-            title = amountLine,
+            title = title,
             fullText = pageText,
             amount = amount,
             // 成功页里的「领5元红包」「共优惠」是营销词，方向固定为支出，
             // 不做收入关键词推断
             isIncome = false,
-            timestamp = now
+            timestamp = System.currentTimeMillis()
         )
         android.util.Log.d(TAG, "屏幕记账 $packageName ¥$amount ($appName) → $result")
     }
 
+    /**
+     * 淘宝闪购订单页入库：实付金额 + 商户名 + 下单时间。
+     *
+     * 订单页是持久页面（历史订单可反复打开），幂等性靠两个确定性字段交给
+     * [BillIngestor] 内容去重：timestamp = 页面上的「下单时间」、title =
+     * 商户名 + 实付金额。同一订单再次打开时，同 App + 同金额 + 同标题 +
+     * 同方向且时间窗口锚定在下单时间上，必然判为重复丢弃。
+     */
+    private suspend fun recordShangouOrder(nodeTexts: List<String>, pageText: String) {
+        val amount = TaobaoShangouParsing.extractPaidAmount(nodeTexts) ?: run {
+            android.util.Log.d(TAG, "闪购订单页但未找到实付金额行 nodes=${nodeTexts.size} 样例=${nodeTexts.take(10)}")
+            return
+        }
+        val merchant = TaobaoShangouParsing.extractMerchant(nodeTexts)
+        val orderTime = TaobaoShangouParsing.parseOrderTimeMillis(nodeTexts)
+
+        val title = buildString {
+            merchant?.let { append(it).append(' ') }
+            append("实付¥").append(String.format("%.2f", amount))
+        }
+        if (!passesDebounce("${SupportedPaymentApps.TAOBAO_PACKAGE}|$amount|$title")) return
+
+        if (PreferencesManager.getInstance(this).isAppBlocked(SupportedPaymentApps.TAOBAO_PACKAGE)) return
+
+        val result = BillIngestor.record(
+            context = this,
+            packageName = SupportedPaymentApps.TAOBAO_PACKAGE,
+            appName = SupportedPaymentApps.screenAppDisplayName(SupportedPaymentApps.TAOBAO_PACKAGE)
+                ?: resolveAppName(SupportedPaymentApps.TAOBAO_PACKAGE),
+            title = title,
+            fullText = pageText,
+            amount = amount,
+            // 页面含「返12元外卖红包」等营销词，方向固定为支出
+            isIncome = false,
+            // 下单时间是每单唯一的确定值：既是账单的真实发生时间，
+            // 也是重复打开订单页时内容去重的锚点
+            timestamp = orderTime ?: System.currentTimeMillis()
+        )
+        android.util.Log.d(
+            TAG,
+            "闪购订单记账 $title 下单时间=$orderTime → $result"
+        )
+    }
+
+    /** 同一页面可能触发多次窗口事件（Activity + Dialog），30 秒内同 key 只处理一次 */
+    private fun passesDebounce(key: String): Boolean {
+        val now = System.currentTimeMillis()
+        recentCaptures[key]?.let { last ->
+            if (now - last < DEBOUNCE_MS) return false
+        }
+        recentCaptures[key] = now
+        if (recentCaptures.size > 64) {
+            recentCaptures.entries.removeIf { now - it.value > DEBOUNCE_MS }
+        }
+        return true
+    }
 
     /**
      * 收集监视应用所有窗口的文本节点（广度优先：不可见子树剪枝 + 节点数上限）。
@@ -141,16 +195,29 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         var visited = 0
         var windowCount = 0
 
-        // 「找到即停」：成功页门槛词与支付金额行都拿到后，剩余子树无需再遍历
-        // （金额行实测在页面顶部，通常几十个节点内命中）
+        // 「找到即停」：门槛词与金额行都拿到后，剩余子树无需再遍历。
+        // 京东：成功页标题 + 支付动词金额行；淘宝闪购：闪购标 + 实付金额行
+        // + 完整下单时间戳（三者分别在不同的文本节点上，缺一会读不到关键字段）
         var seenSuccess = false
         var amountFound = false
+        var seenShangou = false
+        var seenPaidAmount = false
+        var seenOrderDatetime = false
+
+        fun earlyStop(): Boolean =
+            (seenSuccess && amountFound) ||
+                (seenShangou && seenPaidAmount && seenOrderDatetime)
 
         fun accept(text: String) {
             if (!seen.add(text)) return
             out.add(text)
             if (PaymentScreenParsing.isSuccessText(text)) seenSuccess = true
             if (BillParsing.parseAmountAfterPaymentVerb(text) != null) amountFound = true
+            if (text.contains("闪购")) seenShangou = true
+            if (TaobaoShangouParsing.parsePaidAmount(text) != null) seenPaidAmount = true
+            if (text.contains("下单时间") || TaobaoShangouParsing.containsOrderDatetime(text)) {
+                seenOrderDatetime = true
+            }
         }
 
         fun traverse(root: android.view.accessibility.AccessibilityNodeInfo?) {
@@ -164,8 +231,9 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
                 visited++
                 if (node.isVisibleToUser) {
                     node.text?.toString()?.takeIf { it.isNotBlank() }?.let { accept(it) }
+                    if (earlyStop()) return
                     node.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let { accept(it) }
-                    if (seenSuccess && amountFound) return
+                    if (earlyStop()) return
                 }
                 for (i in 0 until node.childCount) {
                     node.getChild(i)?.let { child ->
@@ -180,17 +248,17 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         }
 
         traverse(rootInActiveWindow)
-        if (!(seenSuccess && amountFound)) {
+        if (!earlyStop()) {
             try {
                 windows?.forEach { window ->
                     traverse(window.root)
-                    if (seenSuccess && amountFound) return@forEach
+                    if (earlyStop()) return@forEach
                 }
             } catch (_: Exception) {
                 // 部分 ROM 上 windows 访问可能异常，忽略（活动窗口已遍历）
             }
         }
-        android.util.Log.d(TAG, "遍历完成: 窗口数=$windowCount visited=$visited collected=${out.size} 找到即停=${seenSuccess && amountFound}")
+        android.util.Log.d(TAG, "遍历完成: 窗口数=$windowCount visited=$visited collected=${out.size} 找到即停=${earlyStop()}")
         return out
     }
 
