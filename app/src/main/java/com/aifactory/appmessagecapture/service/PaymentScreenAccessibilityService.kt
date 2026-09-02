@@ -12,35 +12,48 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * 屏幕记账无障碍服务：监视支付 App 的「支付成功」页，从窗口文本中提取金额入账。
+ * 屏幕记账无障碍服务：监视支付 App 的「支付成功」页与淘宝闪购订单页，
+ * 从窗口文本中提取支付信息入账。
  *
- * 解决「付款了但不发系统通知 / 通知里没有金额」的场景（如京东 App）。
+ * 解决「付款了但不发系统通知 / 通知里没有金额」的场景（京东 App、淘宝闪购）。
  * 工作方式：
  * 1. 系统按 res/xml/payment_screen_accessibility_config.xml 的 packageNames
  *    只投递监视名单内应用（[SupportedPaymentApps.screenWatchPackages]）的
- *    窗口切换事件 —— 其他 App 的屏幕内容完全不会到达本服务；
- * 2. 事件到达后收集活动窗口的文本节点，先做页面级判断
- *    （[PaymentScreenParsing.isPaymentSuccessPage]，含「支付成功/付款成功」才继续）；
- * 3. 金额提取只认「支付/付款」动词后紧跟的数字
- *    （[PaymentScreenParsing.extractAmountLine]），排除满减/红包/到手价等营销金额；
+ *    窗口切换 + 内容变化事件 —— 其他 App 的屏幕内容完全不会到达本服务；
+ *    内容变化事件按包名 1 秒节流（me.ele 等单 Activity 应用的内部页面切换
+ *    只发内容变化事件，见 [CONTENT_SCAN_INTERVAL_MS]）；
+ * 2. 事件到达后收集窗口的文本节点，先做页面级判断
+ *    （[PaymentScreenParsing.isCapturePage] 按包名路由：京东「支付成功」页 /
+ *    淘宝闪购订单详情页）；
+ * 3. 金额提取：京东只认「支付/付款」动词后紧跟的数字；淘宝闪购只认
+ *    「实付」后紧跟的货币金额，排除满减/红包/到手价等营销金额；
  * 4. 入库走 [BillIngestor]（与通知捕获共用去重与跨 App 合并），同一笔支付
- *    「渠道通知 + 商户成功页」只记一条账。
+ *    「渠道通知 + 商户页」只记一条账。
  *
  * 隐私边界：仅白名单包名前台时读取窗口文本，不做截屏、不存储页面内容
  * （入库的 title 只有金额那一行文本）。
  */
 class PaymentScreenAccessibilityService : AccessibilityService() {
 
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-    /** 同一页面的重复窗口事件防抖：key = 包名|金额 → 上次入账时刻 */
-    private val recentCaptures = ConcurrentHashMap<String, Long>()
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        isLive = true
+        instance = this
+    }
 
     companion object {
         private const val TAG = "ScreenBill"
 
         /** 同一支付成功页可能触发多次窗口事件（Activity + Dialog），30 秒内同包同金额只记一次 */
         private const val DEBOUNCE_MS = 30_000L
+
+        /**
+         * 内容变化事件的按包名扫描间隔。淘宝闪购 App 是单 Activity 应用
+         * （订单列表→详情为内部页面切换，不发窗口切换事件），必须订阅
+         * TYPE_WINDOW_CONTENT_CHANGED 才能捕获；其页面动画/轮播会持续触发
+         * 内容事件，按包名 1 秒节流避免遍历刷屏。
+         */
+        private const val CONTENT_SCAN_INTERVAL_MS = 1_000L
 
         /** 无障碍树遍历兜底上限。实测京东成功页全树仅 236 节点，500 留一倍余量；
          *  正常情况下「找到即停」在此之前触发，不会触顶 */
@@ -59,22 +72,35 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
             private set
     }
 
-    override fun onServiceConnected() {
-        super.onServiceConnected()
-        isLive = true
-        instance = this
-    }
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** 同一页面的重复窗口事件防抖：key = 包名|金额|标题 → 上次入账时刻 */
+    private val recentCaptures = ConcurrentHashMap<String, Long>()
+
+    /** 内容变化事件的每包名上次扫描时刻 */
+    private val lastContentScan = ConcurrentHashMap<String, Long>()
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
-        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val packageName = event.packageName?.toString() ?: return
         if (packageName == this.packageName) return
         if (!SupportedPaymentApps.isScreenCaptureApp(packageName)) return
 
+        val isContentEvent = event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && !isContentEvent) return
+
+        // 内容变化事件按包名节流（窗口切换事件不节流，保持原实时性）
+        val now = System.currentTimeMillis()
+        if (isContentEvent) {
+            lastContentScan[packageName]?.let { last ->
+                if (now - last < CONTENT_SCAN_INTERVAL_MS) return
+            }
+            lastContentScan[packageName] = now
+        }
+
         // 树遍历是逐节点 binder IPC，放到 IO 线程；事件本身只携带窗口元数据
         serviceScope.launch {
-            val texts = collectWindowTexts()
+            val texts = collectWindowTexts(packageName)
             if (texts.isNotEmpty()) {
                 handlePageContent(packageName, texts)
             }
@@ -88,8 +114,10 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         val pageText = nodeTexts.joinToString("\n")
         if (!PaymentScreenParsing.isCapturePage(packageName, pageText)) return
 
-        if (packageName == SupportedPaymentApps.TAOBAO_PACKAGE) {
-            recordShangouOrder(nodeTexts, pageText)
+        if (packageName == SupportedPaymentApps.TAOBAO_PACKAGE ||
+            packageName == SupportedPaymentApps.ELE_PACKAGE
+        ) {
+            recordShangouOrder(packageName, nodeTexts, pageText)
             return
         }
 
@@ -126,34 +154,48 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * 淘宝闪购订单页入库：实付金额 + 商户名 + 下单时间。
+     * 淘宝闪购订单页入库：实付金额 + 商户名 + 时间。
      *
-     * 订单页是持久页面（历史订单可反复打开），幂等性靠两个确定性字段交给
-     * [BillIngestor] 内容去重：timestamp = 页面上的「下单时间」、title =
-     * 商户名 + 实付金额。同一订单再次打开时，同 App + 同金额 + 同标题 +
-     * 同方向且时间窗口锚定在下单时间上，必然判为重复丢弃。
+     * 订单页是持久页面（历史订单可反复打开），幂等分两路：
+     * - 淘宝内频道：页面默认可见「下单时间」（每单唯一）→ timestamp=下单时间，
+     *   同一订单再次打开由 [BillIngestor] 内容去重（窗口锚定下单时间）丢弃；
+     * - 独立 App（me.ele）：「下单时间」折叠在「订单信息」里不可见 →
+     *   timestamp 回退为捕获时刻（真实支付后页面立即打开，now≈下单时间），
+     *   幂等改按「订单号」查 [PreferencesManager] 的已见集合，未见过才入库，
+     *   入库后记录。
      */
-    private suspend fun recordShangouOrder(nodeTexts: List<String>, pageText: String) {
+    private suspend fun recordShangouOrder(
+        packageName: String,
+        nodeTexts: List<String>,
+        pageText: String
+    ) {
         val amount = TaobaoShangouParsing.extractPaidAmount(nodeTexts) ?: run {
             android.util.Log.d(TAG, "闪购订单页但未找到实付金额行 nodes=${nodeTexts.size} 样例=${nodeTexts.take(10)}")
             return
         }
         val merchant = TaobaoShangouParsing.extractMerchant(nodeTexts)
         val orderTime = TaobaoShangouParsing.parseOrderTimeMillis(nodeTexts)
+        val orderId = TaobaoShangouParsing.extractOrderId(nodeTexts)
+
+        // 独立 App 无下单时间：账单时间回退为捕获时刻，幂等改走订单号已见集合
+        val prefs = PreferencesManager.getInstance(this)
+        if (orderTime == null && orderId != null && prefs.isShangouOrderSeen(orderId)) {
+            android.util.Log.d(TAG, "闪购订单已捕获过（订单号 $orderId），跳过")
+            return
+        }
 
         val title = buildString {
             merchant?.let { append(it).append(' ') }
             append("实付¥").append(String.format("%.2f", amount))
         }
-        if (!passesDebounce("${SupportedPaymentApps.TAOBAO_PACKAGE}|$amount|$title")) return
+        if (!passesDebounce("$packageName|$amount|$title")) return
 
-        if (PreferencesManager.getInstance(this).isAppBlocked(SupportedPaymentApps.TAOBAO_PACKAGE)) return
+        if (prefs.isAppBlocked(packageName)) return
 
         val result = BillIngestor.record(
             context = this,
-            packageName = SupportedPaymentApps.TAOBAO_PACKAGE,
-            appName = SupportedPaymentApps.screenAppDisplayName(SupportedPaymentApps.TAOBAO_PACKAGE)
-                ?: resolveAppName(SupportedPaymentApps.TAOBAO_PACKAGE),
+            packageName = packageName,
+            appName = SupportedPaymentApps.screenAppDisplayName(packageName) ?: resolveAppName(packageName),
             title = title,
             fullText = pageText,
             amount = amount,
@@ -163,9 +205,12 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
             // 也是重复打开订单页时内容去重的锚点
             timestamp = orderTime ?: System.currentTimeMillis()
         )
+        if (orderTime == null && orderId != null) {
+            prefs.markShangouOrderSeen(orderId)
+        }
         android.util.Log.d(
             TAG,
-            "闪购订单记账 $title 下单时间=$orderTime → $result"
+            "闪购订单记账 $title 下单时间=$orderTime 订单号=$orderId → $result"
         )
     }
 
@@ -189,24 +234,34 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
      * 头部（「京东支付¥xx」金额行）渲染在独立弹窗窗口里，活动窗口里只有
      * 标题和下方活动区，只取活动窗口会漏掉金额行。
      */
-    private fun collectWindowTexts(): List<String> {
+    private fun collectWindowTexts(packageName: String): List<String> {
         val out = mutableListOf<String>()
         val seen = HashSet<String>()
         var visited = 0
         var windowCount = 0
 
         // 「找到即停」：门槛词与金额行都拿到后，剩余子树无需再遍历。
-        // 京东：成功页标题 + 支付动词金额行；淘宝闪购：闪购标 + 实付金额行
-        // + 完整下单时间戳（三者分别在不同的文本节点上，缺一会读不到关键字段）
+        // 京东：成功页标题 + 支付动词金额行；
+        // 淘宝闪购：闪购标 + 实付金额行 + 第三要素
         var seenSuccess = false
         var amountFound = false
         var seenShangou = false
         var seenPaidAmount = false
         var seenOrderDatetime = false
+        var seenOrderId = false
+
+        // 第三要素按包名区分：淘宝内页面「订单号」行在「下单时间」行之前，
+        // 若用 OR 条件会提前停而漏掉下单时间节点
+        val shangouThirdMarker: () -> Boolean =
+            if (packageName == SupportedPaymentApps.ELE_PACKAGE) {
+                { seenOrderId }
+            } else {
+                { seenOrderDatetime }
+            }
 
         fun earlyStop(): Boolean =
             (seenSuccess && amountFound) ||
-                (seenShangou && seenPaidAmount && seenOrderDatetime)
+                (seenShangou && seenPaidAmount && shangouThirdMarker())
 
         fun accept(text: String) {
             if (!seen.add(text)) return
@@ -217,6 +272,9 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
             if (TaobaoShangouParsing.parsePaidAmount(text) != null) seenPaidAmount = true
             if (text.contains("下单时间") || TaobaoShangouParsing.containsOrderDatetime(text)) {
                 seenOrderDatetime = true
+            }
+            if (text.contains("订单号") || TaobaoShangouParsing.containsOrderId(text)) {
+                seenOrderId = true
             }
         }
 

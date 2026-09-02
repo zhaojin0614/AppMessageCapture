@@ -47,3 +47,22 @@ screenshots/
 
 # 本地数据迁移备份（migrate_old_app.sh 产物，含账单数据库）
 migration_backup_*/
+
+# 调试临时文件
+a11y_dump*.txt
+ele*.png
+ele_*.png
+ele_*.xml
+uiele.xml
+mid.png
+after.png
+bday.png
+settings.png
+detail.png
+swipedel.png
+db_copy.db*
+ndb*.db*
+rec.mp4
+rec2.mp4
+rec3.mp4
+.gitignore.tmp

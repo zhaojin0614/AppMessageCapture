@@ -6,11 +6,11 @@
     新增监视应用时两处要同步更新。
 
     事件类型：
-    - typeWindowStateChanged：Activity/窗口切换（当前唯一订阅源）；
-      曾试验订阅 typeWindowContentChanged 以覆盖 Activity 内页面切换，
-      实测京东成功页的 Activity 切换本身会发窗口切换事件，已移除以省电
-    - 若重新需要，eventTypes 加回 typeWindowContentChanged，并在
-      PaymentScreenAccessibilityService 里恢复内容变化节流逻辑
+    - typeWindowStateChanged：Activity/窗口切换（京东成功页是独立 Activity，
+      靠它触发）；
+    - typeWindowContentChanged：内容变化（淘宝闪购 App 为单 Activity 应用，
+      订单列表→详情是内部页面切换、不发窗口切换事件，必须订阅内容变化才能
+      捕获；服务端按包名做了 1 秒节流，动画/轮播的连续事件不会刷屏遍历）
 
     accessibilityFlags：
     - flagRetrieveInteractiveWindows：getWindows() 返回全部窗口（金额行在
@@ -20,10 +20,10 @@
       自带此标志所以测试时能看到，服务端却看不到）
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
     android:canRetrieveWindowContent="true"
     android:description="@string/accessibility_service_description"
     android:notificationTimeout="200"
-    android:packageNames="com.jingdong.app.mall com.taobao.taobao" />
+    android:packageNames="com.jingdong.app.mall com.taobao.taobao me.ele" />

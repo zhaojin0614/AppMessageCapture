@@ -140,6 +140,12 @@ class PaymentScreenParsingTest {
         val listPage = "闪购\n袁记云饺(文汇路店)\n实付¥18.98"
         assertFalse(PaymentScreenParsing.isCapturePage(SupportedPaymentApps.TAOBAO_PACKAGE, listPage))
 
+        // 独立 App（me.ele）：订单号可替代下单时间
+        val elePage = "闪购 袁记云饺(文汇路店)\n总优惠¥33 实付¥18.98\n订单号 8023786204058882481"
+        assertTrue(PaymentScreenParsing.isCapturePage(SupportedPaymentApps.ELE_PACKAGE, elePage))
+        val eleNoId = "闪购 袁记云饺(文汇路店)\n总优惠¥33 实付¥18.98"
+        assertFalse(PaymentScreenParsing.isCapturePage(SupportedPaymentApps.ELE_PACKAGE, eleNoId))
+
         // 京东成功页：isCapturePage 保持原行为
         assertTrue(
             PaymentScreenParsing.isCapturePage("com.jingdong.app.mall", "支付成功\n京东支付¥30.38")
