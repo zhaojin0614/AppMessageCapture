@@ -104,6 +104,7 @@ import com.aifactory.appmessagecapture.ui.components.glassBorder
 import com.aifactory.appmessagecapture.ui.theme.AccentColor
 import com.aifactory.appmessagecapture.ui.theme.AccentColorRepository
 import com.aifactory.appmessagecapture.ui.theme.AccentVariant
+import com.aifactory.appmessagecapture.ui.theme.ComponentGap
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
 import com.aifactory.appmessagecapture.utils.NotificationServiceHelper
@@ -737,7 +738,9 @@ private fun SettingsGroup(
         text = title,
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 4.dp, top = 18.dp, bottom = 8.dp)
+        // 组间距遵循全局 ComponentGap（Dimens.kt），标题与所属卡片之间
+        // 用半间距派生值，让标题在视觉上紧贴自己的卡片
+        modifier = Modifier.padding(start = 4.dp, top = ComponentGap, bottom = ComponentGap / 2)
     )
     SoftCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
         Column(content = content)
