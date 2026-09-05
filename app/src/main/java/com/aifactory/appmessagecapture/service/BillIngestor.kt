@@ -2,6 +2,7 @@ package com.aifactory.appmessagecapture.service
 
 import android.content.Context
 import com.aifactory.appmessagecapture.AppMessageCaptureApplication
+import com.aifactory.appmessagecapture.data.AccountRepository
 import com.aifactory.appmessagecapture.data.BillEntity
 import com.aifactory.appmessagecapture.ui.ExpenseCategories
 import com.aifactory.appmessagecapture.utils.MerchantKey
@@ -15,6 +16,8 @@ import kotlinx.coroutines.sync.withLock
  * 从 [MessageCaptureService] 抽出：同 App 去重 → 跨 App 合并 → 插入 →
  * 「记账成功」提醒，两条来源通道对同一笔支付只记一条账。
  * 内部互斥锁串行化入库，避免两个服务同时处理同一笔支付时竞态。
+ * 插入/合并统一走 [AccountRepository] 事务：账单带上商户记忆匹配的平台时，
+ * 同步扣减/增加该平台余额，保证余额与账单始终一致。
  */
 object BillIngestor {
 
@@ -54,6 +57,7 @@ object BillIngestor {
     ): Result = mutex.withLock {
             val app = context.applicationContext as AppMessageCaptureApplication
             val dao = app.database.billDao()
+            val repository = AccountRepository(app.database, dao, app.database.platformAccountDao())
 
             // ── 0. 商户记忆 ─────────────────────────────────────────────
             // 同商户键最近一笔同方向账单的分类/平台优先于关键词猜测——
@@ -116,7 +120,7 @@ object BillIngestor {
                         platformAccountId = memory?.platformId ?: existing.platformAccountId,
                         merchantKey = merchantKey
                     )
-                    dao.update(updatedBill)
+                    repository.replaceBillAttribution(updatedBill)
                     BillNotificationHelper.showBillRecognizedNotification(
                         context = app,
                         billId = updatedBill.id
@@ -127,8 +131,8 @@ object BillIngestor {
                 return@withLock Result.KEPT_EXISTING
             }
 
-            // 无重复 —— 插入新账单
-            val newId = dao.insert(bill)
+            // 无重复 —— 插入新账单；商户记忆命中平台时在同一事务内联动余额
+            val newId = repository.addBillWithPlatform(bill)
             BillNotificationHelper.showBillRecognizedNotification(
                 context = app,
                 billId = newId

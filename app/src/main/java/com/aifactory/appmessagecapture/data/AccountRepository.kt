@@ -25,9 +25,10 @@ class AccountRepository(
      * 插入一笔账单，并在关联平台时同步调整余额。
      *
      * @param bill 待插入的账单（platformAccountId 已设置则对账，null 则待对账）
+     * @return 新账单 ID（自动捕获的「记账成功」通知定位需要）
      */
-    suspend fun addBillWithPlatform(bill: BillEntity) {
-        db.withTransaction {
+    suspend fun addBillWithPlatform(bill: BillEntity): Long {
+        return db.withTransaction {
             // 手动记账同样补齐商户键，使其参与商户记忆
             val normalized = if (bill.merchantKey.isNullOrBlank())
                 bill.copy(merchantKey = MerchantKey.of(bill.appName, bill.title))
@@ -37,6 +38,33 @@ class AccountRepository(
                 adjustPlatformForBill(platformId, bill.amount, bill.isIncome)
             }
             BirthdayLog.i("[AccountRepo] addBill id=$newId amount=${bill.amount} income=${bill.isIncome} platform=${bill.platformAccountId}")
+            newId
+        }
+    }
+
+    /**
+     * 自动捕获的跨 App 合并：整体替换既有账单的归属信息（来源应用/标题/分类/平台），
+     * 平台变化时在同一事务内联动余额——旧平台回滚、新平台扣减；平台相同则余额不动。
+     *
+     * @param updated 复制自旧账单（保留 ID）并覆盖归属字段的新数据；
+     *                金额与方向与原账单一致（合并门槛已保证）
+     */
+    suspend fun replaceBillAttribution(updated: BillEntity) {
+        db.withTransaction {
+            val existing = billDao.getBillByIdOnce(updated.id) ?: return@withTransaction
+            if (existing.platformAccountId != updated.platformAccountId) {
+                existing.platformAccountId?.let {
+                    adjustPlatformForBill(it, existing.amount, !existing.isIncome)
+                }
+                updated.platformAccountId?.let {
+                    adjustPlatformForBill(it, updated.amount, updated.isIncome)
+                }
+            }
+            billDao.update(updated)
+            BirthdayLog.i(
+                "[AccountRepo] replaceBillAttribution id=${updated.id} " +
+                    "oldPlatform=${existing.platformAccountId} newPlatform=${updated.platformAccountId}"
+            )
         }
     }
 
