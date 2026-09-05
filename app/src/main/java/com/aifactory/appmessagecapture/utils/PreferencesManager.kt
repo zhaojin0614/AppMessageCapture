@@ -59,10 +59,34 @@ class PreferencesManager(context: Context) {
         setFilteredApps(current)
     }
 
+    /**
+     * 拼多多订单号幂等集：订单详情页是持久页面且部分订单状态无时间横幅
+     * （内容去重的时间窗口无法锚定），用订单号做精确的"已入账"标记。
+     * @return true = 首次记录（应入账）；false = 已记录过（重复打开忽略）
+     */
+    fun markPddOrderCaptured(orderId: String): Boolean {
+        val seen = prefs.getStringSet(KEY_PDD_ORDER_IDS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val fresh = seen.add(orderId)
+        if (fresh) {
+            val trimmed = if (seen.size > MAX_CACHED_ORDER_IDS) {
+                // 超上限时随机裁剪一半（Set 无序，最坏情况个别订单重复入账一次）
+                seen.take(MAX_CACHED_ORDER_IDS / 2).toSet()
+            } else {
+                seen
+            }
+            prefs.edit().putStringSet(KEY_PDD_ORDER_IDS, trimmed).apply()
+        }
+        return fresh
+    }
+
     companion object {
         private const val PREFS_NAME = "app_message_capture_prefs"
         private const val KEY_BLOCKED_APPS = "blocked_apps"
         private const val KEY_FILTERED_APPS = "filtered_apps"
+        private const val KEY_PDD_ORDER_IDS = "pdd_captured_order_ids"
+
+        /** 拼多多订单号缓存上限（防偏好文件无限膨胀） */
+        private const val MAX_CACHED_ORDER_IDS = 512
 
         @Volatile
         private var INSTANCE: PreferencesManager? = null

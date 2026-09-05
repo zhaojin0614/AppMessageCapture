@@ -26,12 +26,14 @@ object PaymentScreenParsing {
      * 屏幕捕获的页面级门槛唯一入口：按包名路由到各自的页面判定。
      * 京东走「支付成功」页门槛；淘宝闪购（淘宝内频道 + 独立 App）走支付
      * 完成订单页门槛（[TaobaoShangouParsing.isOrderPage]，页面持久存在、
-     * 无「支付成功」字样）。
+     * 无「支付成功」字样）；拼多多走订单详情页门槛
+     * （[PddParsing.isOrderPage]，包名即来源）。
      */
     fun isCapturePage(packageName: String, pageText: String): Boolean =
         when (packageName) {
             SupportedPaymentApps.TAOBAO_PACKAGE,
             SupportedPaymentApps.ELE_PACKAGE -> TaobaoShangouParsing.isOrderPage(pageText)
+            SupportedPaymentApps.PDD_PACKAGE -> PddParsing.isOrderPage(pageText)
             else -> isPaymentSuccessPage(packageName, pageText)
         }
 

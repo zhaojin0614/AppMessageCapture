@@ -158,4 +158,23 @@ class PaymentScreenParsingTest {
             PaymentScreenParsing.isCapturePage("com.jingdong.app.mall", "商品详情\n¥59.0")
         )
     }
+
+    @Test
+    fun `页面门槛路由_拼多多走订单详情页门槛`() {
+        // 支付完成订单详情页：实付+订单编号+商品快照三要素齐备
+        val orderPage = listOf(
+            "打包中 预计16小时内发货", "订单确认，已通知商家配货", "2026-09-03 17:11:19",
+            "羊羊羊大叔", "今日已拼3.84元,再拼8.16元可返1元",
+            "实付: ¥3.84 (免运费)", "订单编号: 260903-071502425601469",
+            "商品快照: 发生交易争议时，可作为判断依据"
+        ).joinToString("\n")
+        assertTrue(PaymentScreenParsing.isCapturePage(SupportedPaymentApps.PDD_PACKAGE, orderPage))
+
+        // 订单列表页（有实付、无订单编号/商品快照）：不命中
+        val listPage = "待发货\n羊羊羊大叔\n小米手环5表带\n实付: ¥3.84"
+        assertFalse(PaymentScreenParsing.isCapturePage(SupportedPaymentApps.PDD_PACKAGE, listPage))
+
+        // 拼多多页不含「支付成功」，若误走京东门槛应不命中
+        assertFalse(PaymentScreenParsing.isPaymentSuccessPage(SupportedPaymentApps.PDD_PACKAGE, orderPage))
+    }
 }

@@ -13,7 +13,8 @@ import android.widget.Toast
  * 两种模式：
  * - 默认（通知模式）：喂给 [MessageCaptureService]（过滤 → 通知入库 → 账单提取）
  * - `screen` extra = true（屏幕模式）：喂给 [PaymentScreenAccessibilityService]
- *   （成功页判定 → 动词金额提取 → 防抖 → 入库），模拟无障碍读到的窗口文本节点
+ *   （成功页判定 → 动词金额提取 → 防抖 → 入库），模拟无障碍读到的窗口文本节点；
+ *   title 与 content 中的多行文本按 \n 拆成独立节点（与真实事件粒度一致）
  *
  * 触发方式（终端需 UTF-8，Git Bash 默认满足）：
  * ```

@@ -97,6 +97,11 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
             return
         }
 
+        if (packageName == SupportedPaymentApps.PDD_PACKAGE) {
+            recordPddOrder(packageName, nodeTexts, pageText)
+            return
+        }
+
         val (amountLine, amount) = PaymentScreenParsing.extractAmountLine(nodeTexts) ?: run {
             android.util.Log.d(
                 TAG,
@@ -177,6 +182,59 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         )
     }
 
+    /**
+     * 拼多多订单详情页入库：实付金额 + 商户名 + 订单号 + 订单确认时间。
+     *
+     * 幂等性靠两层：一是 [PddParsing.extractOrderId] 的订单号精确去重
+     * （部分订单状态页无「订单确认」时间横幅，内容去重的时间窗口无法锚定，
+     * 见 [PreferencesManager.markPddOrderCaptured]）；二是 [BillIngestor]
+     * 内容去重（有横幅时 timestamp = 横幅时间，窗口锚定其上）。
+     */
+    private suspend fun recordPddOrder(
+        packageName: String,
+        nodeTexts: List<String>,
+        pageText: String
+    ) {
+        val amount = PddParsing.extractPaidAmount(nodeTexts) ?: run {
+            android.util.Log.d(TAG, "拼多多订单页但未找到实付金额行 nodes=${nodeTexts.size} 样例=${nodeTexts.take(10)}")
+            return
+        }
+        val orderId = PddParsing.extractOrderId(nodeTexts)
+        val merchant = PddParsing.extractMerchant(nodeTexts)
+        val confirmTime = PddParsing.parseConfirmTimeMillis(nodeTexts)
+
+        val title = buildString {
+            merchant?.let { append(it).append(' ') }
+            append("实付¥").append(String.format("%.2f", amount))
+        }
+        if (!passesDebounce("$packageName|$amount|$title")) return
+        if (PreferencesManager.getInstance(this).isAppBlocked(packageName)) return
+        if (orderId != null &&
+            !PreferencesManager.getInstance(this).markPddOrderCaptured(orderId)
+        ) {
+            android.util.Log.d(TAG, "拼多多订单 $orderId 已入过账，重复打开忽略")
+            return
+        }
+
+        val result = BillIngestor.record(
+            context = this,
+            packageName = packageName,
+            appName = SupportedPaymentApps.screenAppDisplayName(packageName) ?: resolveAppName(packageName),
+            title = title,
+            fullText = pageText,
+            amount = amount,
+            // 页面含「可返1元」「免运费」等营销/优惠词，方向固定为支出
+            isIncome = false,
+            // 有「订单确认」横幅时是真实支付时间；无横幅回退当前时间
+            //（幂等性由订单号去重保证，不依赖时间锚点）
+            timestamp = confirmTime ?: System.currentTimeMillis()
+        )
+        android.util.Log.d(
+            TAG,
+            "拼多多订单记账 $title 订单号=$orderId 确认时间=$confirmTime → $result"
+        )
+    }
+
     /** 同一页面可能触发多次窗口事件（Activity + Dialog），30 秒内同 key 只处理一次 */
     private fun passesDebounce(key: String): Boolean {
         val now = System.currentTimeMillis()
@@ -206,16 +264,21 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         // 「找到即停」：门槛词与金额行都拿到后，剩余子树无需再遍历。
         // 京东：成功页标题 + 支付动词金额行；
         // 淘宝闪购：闪购标 + 实付金额行 + 下单时间（三者分别在不同的
-        // 文本节点上，缺一会读不到关键字段）
+        // 文本节点上，缺一会读不到关键字段）；
+        // 拼多多：实付金额行 + 订单编号 + 商品快照（页面门槛三要素）
         var seenSuccess = false
         var amountFound = false
         var seenShangou = false
         var seenPaidAmount = false
         var seenOrderDatetime = false
+        var seenPddPaidAmount = false
+        var seenPddOrderId = false
+        var seenPddSnapshot = false
 
         fun earlyStop(): Boolean =
             (seenSuccess && amountFound) ||
-                (seenShangou && seenPaidAmount && seenOrderDatetime)
+                (seenShangou && seenPaidAmount && seenOrderDatetime) ||
+                (seenPddPaidAmount && seenPddOrderId && seenPddSnapshot)
 
         fun accept(text: String) {
             if (!seen.add(text)) return
@@ -227,6 +290,9 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
             if (text.contains("下单时间") || TaobaoShangouParsing.containsOrderDatetime(text)) {
                 seenOrderDatetime = true
             }
+            if (PddParsing.parsePaidAmount(text) != null) seenPddPaidAmount = true
+            if (text.contains("订单编号")) seenPddOrderId = true
+            if (text.contains("商品快照")) seenPddSnapshot = true
         }
 
         fun traverse(root: android.view.accessibility.AccessibilityNodeInfo?) {
@@ -297,10 +363,11 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
     /**
      * Debug-only: 把构造的「页面文本」直接喂给与真实窗口事件相同的处理管线
      * （页面判定 → 金额提取 → 防抖 → 入库），用于在无真实支付时自测。
+     * 多行文本按 \n 拆成独立节点，与真实无障碍事件的节点粒度一致。
      */
     internal fun simulatePage(packageName: String, vararg lines: String) {
         serviceScope.launch {
-            handlePageContent(packageName, lines.toList())
+            handlePageContent(packageName, lines.flatMap { it.split('\n') })
         }
     }
 }

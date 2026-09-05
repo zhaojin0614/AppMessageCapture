@@ -22,6 +22,13 @@ object SupportedPaymentApps {
     const val ELE_PACKAGE = "me.ele"
 
     /**
+     * 拼多多 App 包名。支付完成后自动弹出订单详情页（无「拼多多」字样，
+     * 包名即来源），页面解析见 [PddParsing]，门槛「实付」+「订单编号」+
+     * 「商品快照」。
+     */
+    const val PDD_PACKAGE = "com.xunmeng.pinduoduo"
+
+    /**
      * 该通知是否为候选账单通知。仅放行已知支付应用，且各应用有独立的
      * 标题/正文门槛，用于排除营销推送、优惠券、后台服务等非消费通知。
      */
@@ -56,7 +63,8 @@ object SupportedPaymentApps {
     val screenWatchPackages = setOf(
         "com.jingdong.app.mall",   // 京东（支付成功页不发系统通知）
         TAOBAO_PACKAGE,            // 淘宝闪购（淘宝内频道，支付完成后的订单详情页）
-        ELE_PACKAGE                // 淘宝闪购（独立 App）
+        ELE_PACKAGE,               // 淘宝闪购（独立 App）
+        PDD_PACKAGE                // 拼多多（支付完成后的订单详情页）
     )
 
     fun isScreenCaptureApp(packageName: String): Boolean =
@@ -69,6 +77,7 @@ object SupportedPaymentApps {
      */
     fun screenAppDisplayName(packageName: String): String? = when (packageName) {
         TAOBAO_PACKAGE, ELE_PACKAGE -> "淘宝闪购"
+        PDD_PACKAGE -> "拼多多"
         else -> null
     }
 
@@ -86,7 +95,8 @@ object SupportedPaymentApps {
         SupportedCaptureApp("com.ss.android.ugc.lifeservices", "抖省省", CHANNEL_NOTIFY),
         SupportedCaptureApp("com.jingdong.app.mall", "京东", CHANNEL_SCREEN),
         SupportedCaptureApp(TAOBAO_PACKAGE, "淘宝闪购（淘宝内）", CHANNEL_SCREEN),
-        SupportedCaptureApp(ELE_PACKAGE, "淘宝闪购", CHANNEL_SCREEN)
+        SupportedCaptureApp(ELE_PACKAGE, "淘宝闪购", CHANNEL_SCREEN),
+        SupportedCaptureApp(PDD_PACKAGE, "拼多多", CHANNEL_SCREEN)
     )
 
     /**
@@ -101,6 +111,7 @@ object SupportedPaymentApps {
             "com.sankuai.meituan.takeoutnew" -> 100 // Meituan
             TAOBAO_PACKAGE,
             ELE_PACKAGE -> 90                        // 淘宝闪购（平台 + 商户信息）
+            PDD_PACKAGE -> 90                        // 拼多多（订单页含商户信息）
             "com.ss.android.ugc.lifeservices" -> 90  // 抖省省（团购商户）
             "com.jingdong.app.mall" -> 80            // 京东（屏幕捕获）
             "com.eg.android.AlipayGphone" -> 50      // Alipay
