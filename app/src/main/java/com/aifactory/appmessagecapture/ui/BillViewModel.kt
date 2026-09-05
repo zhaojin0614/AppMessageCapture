@@ -340,12 +340,4 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
             BillNotificationHelper.cancelNotificationsForBills(getApplication(), listOf(id))
         }
     }
-
-    fun deleteAll() {
-        viewModelScope.launch(Dispatchers.IO) {
-            billDao.deleteAll()
-            // 清空账单时移除全部账单通知
-            BillNotificationHelper.cancelNotificationsForBills(getApplication(), null)
-        }
-    }
 }
