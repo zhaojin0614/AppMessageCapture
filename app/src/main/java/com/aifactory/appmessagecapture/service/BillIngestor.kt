@@ -194,6 +194,10 @@ object BillIngestor {
                         secondaryAppName = existing.appName
                     )
                     repository.replaceBillAttribution(updatedBill)
+                    // 合并前后是同一笔账单，先把该账单旧的「记账成功」通知清掉
+                    // 再补发合并后归属的通知，避免通知栏残留两条（旧版本通知 ID
+                    // 滚动分配时会堆积）
+                    BillNotificationHelper.cancelNotificationsForBills(app, listOf(updatedBill.id))
                     BillNotificationHelper.showBillRecognizedNotification(
                         context = app,
                         billId = updatedBill.id

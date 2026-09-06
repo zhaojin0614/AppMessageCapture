@@ -39,15 +39,20 @@ object BillNotificationHelper {
     private const val CHANNEL_ID = "bill_recognized_v2_channel"
     private const val CHANNEL_NAME = "账单识别提醒"
 
-    /** 账单通知 ID 下限（id 从它起滚动分配），外部用于校验/清除 */
+    /** 账单通知 ID 下限（id 从它起按账单 ID 分配），外部用于校验/清除 */
     const val NOTIFICATION_ID_BASE = 10_000
-
-    private var notificationCounter = 0
 
     // intent extras
     const val EXTRA_BILL_ID = "bill_id"
     const val EXTRA_NOTIFICATION_ID = "notification_id"
     const val EXTRA_CANCEL_NOTIFICATION_ID = "cancel_notification_id"
+
+    /**
+     * 通知 ID 按账单 ID 稳定分配：同一账单入库后被合并更新时，通知原地替换，
+     * 不会在通知栏堆积多条；也不受进程重启影响（滚动计数器重启后归零，
+     * 会把新账单的通知发到旧账单的 ID 上，静默覆盖）。
+     */
+    fun notificationIdFor(billId: Long): Int = (NOTIFICATION_ID_BASE + billId).toInt()
 
     /**
      * 发送账单识别成功通知（入库后调用）。
@@ -58,12 +63,7 @@ object BillNotificationHelper {
             try {
                 val bill = AppDatabase.getDatabase(context).billDao().getBillByIdOnce(billId)
                     ?: return@withContext
-                val notificationId = synchronized(this) {
-                    NOTIFICATION_ID_BASE + notificationCounter.also {
-                        notificationCounter = (notificationCounter + 1) % 100
-                    }
-                }
-                post(context, bill, notificationId)
+                post(context, bill, notificationIdFor(billId))
             } catch (e: Exception) {
                 e.printStackTrace()
             }
