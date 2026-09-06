@@ -1,38 +1,41 @@
 package com.aifactory.appmessagecapture.service
 
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 
 /**
  * 拼多多订单详情页解析（纯函数，无 Android 依赖，可单元测试）。
  *
- * 捕获目标是支付完成后自动弹出的订单详情页（[SupportedPaymentApps.PDD_PACKAGE]）。
- * 页面无「拼多多」字样也无「支付成功」标题——来源由无障碍事件的包名保证（同京东），
- * 页面门槛为「实付」+「订单编号」+「商品快照」三个订单详情页固定骨架词：
- * - 订单列表页有「实付」但无「订单编号/商品快照」；
- * - 商品详情页/收银台只有价格，无后两者；
- * - 三个词均取自真实支付完成页截图（PddParsingTest）。
+ * 捕获目标是支付完成后自动弹出/用户打开的订单详情页
+ * （[SupportedPaymentApps.PDD_PACKAGE]）。页面无「拼多多」字样也无
+ * 「支付成功」标题——来源由无障碍事件的包名保证（同京东），
+ * 页面门槛为「实付」+「订单编号」两个标志词：
+ * - 订单列表页/商品详情页/收银台无「订单编号」骨架元素；
+ * - 「商品快照」标签在真实无障碍树中不出现（仅剩描述句），不能作为门槛。
  *
- * 字段提取：
- * - 金额：「实付: ¥13.62 (免运费)」——只认「实付」前缀后紧跟的货币金额，
- *   免疫「今日已拼3.84元,再拼8.16元可返1元」「最后59分钟¥29.96」等营销数字
- *   与底部广告价；
- * - 商户：店铺名节点（「官方旗舰/回头客好店/今日已拼」等店铺标签或促销行的
- *   前一个节点，且只在与「订单编号」之间的区域找——底部广告区同样含这些词）；
- * - 时间：顶部「订单确认，已通知商家配货 2026-09-03 17:11:19」横幅时间。
- *   部分订单状态不展示该横幅（无时间可解析），由服务端回退当前时间；
- * - 订单编号：260903-034141652481469（每单唯一，服务端幂等去重锚点）。
+ * 真实节点样例（2026-09 真机 dump，见 PddParsingTest）：
+ * - 金额行是「实付:,13.62元,(免运费)」——冒号后跟逗号、金额带元后缀、
+ *   货币符 ¥ 是绘制的图形不进文本；兼容「实付: ¥13.62 (免运费)」变体；
+ * - 时间：顶部「订单确认，已通知商家配货 2026-09-03 17:11:19」横幅（部分
+ *   订单状态无横幅）；
+ * - 订单编号「260903-034141652481469」前六位即下单日期 yyMMdd，无横幅时
+ *   用它把账单锚定到下单日中午（幂等去重的稳定时间锚点）。
  */
 object PddParsing {
 
     /** 金额数字语法与 [BillParsing] 一致：整数支持千分位，小数最多两位 */
     private const val AMOUNT_NUMBER = """(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d{1,2}))?"""
 
-    /** 「实付」后紧跟的货币金额（实付: ¥13.62 / 实付¥13.62，冒号与空格可选） */
-    private val PAID_AMOUNT = Regex("""实付[:：]?\s*[¥￥]\s*$AMOUNT_NUMBER""")
+    /**
+     * 「实付」后紧跟的货币金额。真实页面两种形态：
+     * 「实付:,13.62元,(免运费)」（冒号+逗号+元后缀，无货币符）与
+     * 「实付: ¥13.62 (免运费)」（空格+货币符）。分隔符兼容冒号/逗号/空白。
+     */
+    private val PAID_AMOUNT = Regex("""实付[:：]?[、,，\s]*[¥￥]?\s*$AMOUNT_NUMBER""")
 
     /** 订单编号：260903-034141652481469（前段为 yyMMdd 下单日期，后段为序列号） */
-    private val ORDER_ID = Regex("""\d{6}-\d{10,}""")
+    private val ORDER_ID = Regex("""(\d{2})(\d{2})(\d{2})-(\d{10,})""")
 
     /** 「订单确认」横幅时间：2026-09-03 17:11:19 */
     private val CONFIRM_DATETIME =
@@ -52,12 +55,12 @@ object PddParsing {
     )
 
     /**
-     * 页面是否为支付完成后的拼多多订单详情页。
-     * 「实付」是金额提取前提；「订单编号」「商品快照」区分订单列表页、
-     * 商品详情页与收银台（均无这两个合规展示元素）。
+     * 页面是否为拼多多订单详情页（含支付完成页与其后的物流/待取件视图，
+     * 同一订单族）。「实付」是金额提取前提；「订单编号」区分订单列表页、
+     * 商品详情页与收银台（均无该骨架元素）。
      */
     fun isOrderPage(pageText: String): Boolean =
-        pageText.contains("实付") && pageText.contains("订单编号") && pageText.contains("商品快照")
+        pageText.contains("实付") && pageText.contains("订单编号")
 
     /** 从单行文本提取「实付」金额；无「实付」前缀的货币数字（广告价/商品价）返回 null */
     fun parsePaidAmount(line: String): Double? =
@@ -75,6 +78,20 @@ object PddParsing {
     fun extractOrderId(nodes: List<String>): String? =
         nodes.firstNotNullOfOrNull { ORDER_ID.find(it)?.value }
             ?: ORDER_ID.find(nodes.joinToString(" "))?.value
+
+    /**
+     * 从订单编号前六位（yyMMdd）解析下单日期，取当日 12:00 为账单时间锚点。
+     * 用于无「订单确认」横幅的订单状态——同一订单无论何时重开，锚点稳定，
+     * 内容去重可幂等丢弃。日期非法（如月/日越界）返回 null。
+     */
+    fun parseOrderDateMillis(orderId: String, zone: ZoneId = ZoneId.systemDefault()): Long? {
+        val m = ORDER_ID.find(orderId) ?: return null
+        val (yy, mm, dd) = Triple(m.groupValues[1], m.groupValues[2], m.groupValues[3])
+        val date = runCatching {
+            LocalDate.of(2000 + yy.toInt(), mm.toInt(), dd.toInt())
+        }.getOrNull() ?: return null
+        return date.atTime(12, 0).atZone(zone).toInstant().toEpochMilli()
+    }
 
     /**
      * 商户名。只在与「订单编号」行之前的区域查找——底部广告区也含

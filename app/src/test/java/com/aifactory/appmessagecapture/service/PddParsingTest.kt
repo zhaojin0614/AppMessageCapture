@@ -94,15 +94,50 @@ class PddParsingTest {
         "催发货"
     )
 
+    /** 2026-09-06 真机 uiautomator dump：待取件状态的订单详情页（无「商品快照」标签、金额无货币符） */
+    private val realPickupOrderNodes = listOf(
+        "拼多多",
+        "待取件",
+        "返回",
+        "收货人信息: 徐,联系方式：13815251489,地址：上海市松江区人民北路2999号东华大学(松江校区)",
+        "多人团 享7000+件超低价商品",
+        "立享低价",
+        "7天无理由退货",
+        "分享商品",
+        "联系商家",
+        "申请退款",
+        "实付:,13.62元,(免运费)",
+        "订单编号： 260903-034141652481469 ",
+        "复制",
+        "发生交易争议时，可作为判断依据",
+        "查看更多订单信息",
+        // 店铺好货推荐区（位于订单编号行之后，含店铺名与广告价）
+        "丽邦家居生活官方旗舰店",
+        "·",
+        "精选好货",
+        "查看更多",
+        "¥21.9¥11.7¥20.2¥13.86¥3.01",
+        "确认收货",
+        "查看物流",
+        "再次拼单",
+        "更多",
+        "已抢2749件",
+        "最后58分钟",
+        "14.82",
+        "全店回购61万件"
+    )
+
     @Test
     fun `支付完成订单页被识别`() {
         assertTrue(PddParsing.isOrderPage(flagshipOrderNodes.joinToString("\n")))
         assertTrue(PddParsing.isOrderPage(personalOrderNodes.joinToString("\n")))
+        // 真机 dump 的待取件订单详情页（无商品快照标签、金额无货币符）也必须命中
+        assertTrue(PddParsing.isOrderPage(realPickupOrderNodes.joinToString("\n")))
     }
 
     @Test
     fun `订单列表页不识别`() {
-        // 列表项有实付金额，但无订单编号/商品快照骨架词
+        // 列表项有实付金额，但无订单编号骨架元素
         val listPage = listOf(
             "待发货", "丽邦家居生活官方旗舰店",
             "【320抽4大包】丽邦湿厕纸", "¥ 13.62", "实付: ¥13.62"
@@ -126,6 +161,8 @@ class PddParsingTest {
     fun `实付金额提取`() {
         assertEquals(13.62, PddParsing.extractPaidAmount(flagshipOrderNodes)!!, 0.001)
         assertEquals(3.84, PddParsing.extractPaidAmount(personalOrderNodes)!!, 0.001)
+        // 真实页面形态：冒号后逗号、金额带元后缀、无货币符
+        assertEquals(13.62, PddParsing.extractPaidAmount(realPickupOrderNodes)!!, 0.001)
     }
 
     @Test
@@ -133,6 +170,7 @@ class PddParsingTest {
         assertEquals(18.98, PddParsing.parsePaidAmount("实付¥18.98")!!, 0.001)
         assertEquals(13.62, PddParsing.parsePaidAmount("实付: ¥13.62 (免运费)")!!, 0.001)
         assertEquals(13.62, PddParsing.parsePaidAmount("实付：¥13.62")!!, 0.001)
+        assertEquals(13.62, PddParsing.parsePaidAmount("实付:,13.62元,(免运费)")!!, 0.001)
         assertEquals(1234.50, PddParsing.parsePaidAmount("实付: ¥1,234.50")!!, 0.001)
     }
 
@@ -172,11 +210,31 @@ class PddParsingTest {
     fun `订单编号提取`() {
         assertEquals("260903-034141652481469", PddParsing.extractOrderId(flagshipOrderNodes))
         assertEquals("260903-071502425601469", PddParsing.extractOrderId(personalOrderNodes))
+        assertEquals("260903-034141652481469", PddParsing.extractOrderId(realPickupOrderNodes))
         // 拆节点兜底
         assertEquals(
             "260903-034141652481469",
             PddParsing.extractOrderId(listOf("订单编号:", "260903-034141652481469"))
         )
+    }
+
+    @Test
+    fun `订单编号日期锚点_无横幅时账单时间落在下单日中午`() {
+        val expected = java.time.LocalDate.of(2026, 9, 3)
+            .atTime(12, 0)
+            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        assertEquals(
+            expected,
+            PddParsing.parseOrderDateMillis("260903-034141652481469")!!
+        )
+        assertNull(PddParsing.parseOrderDateMillis("随便一个字符串"))
+    }
+
+    @Test
+    fun `真实待取件页面商户为空且广告价不污染`() {
+        // 待取件布局顶部没有商户行（店铺名只出现在订单编号之后的推荐区）
+        assertNull(PddParsing.extractMerchant(realPickupOrderNodes))
+        assertNull(PddParsing.parseConfirmTimeMillis(realPickupOrderNodes))
     }
 
     @Test

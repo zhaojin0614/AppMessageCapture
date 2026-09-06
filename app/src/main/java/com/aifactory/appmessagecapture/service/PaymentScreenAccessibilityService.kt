@@ -202,7 +202,6 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         val orderId = PddParsing.extractOrderId(nodeTexts)
         val merchant = PddParsing.extractMerchant(nodeTexts)
         val confirmTime = PddParsing.parseConfirmTimeMillis(nodeTexts)
-
         val title = buildString {
             merchant?.let { append(it).append(' ') }
             append("实付¥").append(String.format("%.2f", amount))
@@ -216,23 +215,26 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
             return
         }
 
-        val result = BillIngestor.record(
-            context = this,
-            packageName = packageName,
-            appName = SupportedPaymentApps.screenAppDisplayName(packageName) ?: resolveAppName(packageName),
-            title = title,
-            fullText = pageText,
-            amount = amount,
-            // 页面含「可返1元」「免运费」等营销/优惠词，方向固定为支出
-            isIncome = false,
-            // 有「订单确认」横幅时是真实支付时间；无横幅回退当前时间
-            //（幂等性由订单号去重保证，不依赖时间锚点）
-            timestamp = confirmTime ?: System.currentTimeMillis()
-        )
-        android.util.Log.d(
-            TAG,
-            "拼多多订单记账 $title 订单号=$orderId 确认时间=$confirmTime → $result"
-        )
+            // 时间优先级：「订单确认」横幅（精确到秒）→ 订单编号前六位的
+            // 下单日中午（无横幅的订单状态也有稳定锚点）→ 当前时间兜底
+            val timestamp = confirmTime
+                ?: orderId?.let { PddParsing.parseOrderDateMillis(it) }
+                ?: System.currentTimeMillis()
+            val result = BillIngestor.record(
+                context = this,
+                packageName = packageName,
+                appName = SupportedPaymentApps.screenAppDisplayName(packageName) ?: resolveAppName(packageName),
+                title = title,
+                fullText = pageText,
+                amount = amount,
+                // 页面含「可返1元」「免运费」等营销/优惠词，方向固定为支出
+                isIncome = false,
+                timestamp = timestamp
+            )
+            android.util.Log.d(
+                TAG,
+                "拼多多订单记账 $title 订单号=$orderId 确认时间=$confirmTime → $result"
+            )
     }
 
     /** 同一页面可能触发多次窗口事件（Activity + Dialog），30 秒内同 key 只处理一次 */
@@ -265,7 +267,7 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         // 京东：成功页标题 + 支付动词金额行；
         // 淘宝闪购：闪购标 + 实付金额行 + 下单时间（三者分别在不同的
         // 文本节点上，缺一会读不到关键字段）；
-        // 拼多多：实付金额行 + 订单编号 + 商品快照（页面门槛三要素）
+        // 拼多多：实付金额行 + 订单编号（页面门槛两要素）
         var seenSuccess = false
         var amountFound = false
         var seenShangou = false
@@ -273,12 +275,11 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         var seenOrderDatetime = false
         var seenPddPaidAmount = false
         var seenPddOrderId = false
-        var seenPddSnapshot = false
 
         fun earlyStop(): Boolean =
             (seenSuccess && amountFound) ||
                 (seenShangou && seenPaidAmount && seenOrderDatetime) ||
-                (seenPddPaidAmount && seenPddOrderId && seenPddSnapshot)
+                (seenPddPaidAmount && seenPddOrderId)
 
         fun accept(text: String) {
             if (!seen.add(text)) return
@@ -292,7 +293,6 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
             }
             if (PddParsing.parsePaidAmount(text) != null) seenPddPaidAmount = true
             if (text.contains("订单编号")) seenPddOrderId = true
-            if (text.contains("商品快照")) seenPddSnapshot = true
         }
 
         fun traverse(root: android.view.accessibility.AccessibilityNodeInfo?) {
