@@ -44,6 +44,8 @@ object BillIngestor {
      * @param isIncome 收支方向。由调用方决定：通知来源从正文关键词推断；
      *                 屏幕来源固定 false（「支付成功」页含「领5元红包」等
      *                 营销词，不能让收入关键词污染方向判断）。
+     * @param orderId 电商平台订单号（拼多多捕获携带）：记入账单用于订单号
+     *                 去重——账单删除即解除绑定，同一订单可重新捕获
      */
     suspend fun record(
         context: Context,
@@ -53,7 +55,8 @@ object BillIngestor {
         fullText: String,
         amount: Double,
         isIncome: Boolean,
-        timestamp: Long
+        timestamp: Long,
+        orderId: String? = null
     ): Result = mutex.withLock {
             val app = context.applicationContext as AppMessageCaptureApplication
             val dao = app.database.billDao()
@@ -144,7 +147,8 @@ object BillIngestor {
                 timestamp = timestamp,
                 platformAccountId = platformId,
                 merchantKey = merchantKey,
-                memorySource = source
+                memorySource = source,
+                orderId = orderId
             )
 
             // ── 1. 同 App 去重 ─────────────────────────────────────────────
@@ -191,7 +195,8 @@ object BillIngestor {
                         merchantKey = merchantKey,
                         memorySource = source ?: existing.memorySource,
                         secondaryPackageName = existing.packageName,
-                        secondaryAppName = existing.appName
+                        secondaryAppName = existing.appName,
+                        orderId = orderId ?: existing.orderId
                     )
                     repository.replaceBillAttribution(updatedBill)
                     // 合并前后是同一笔账单，先把该账单旧的「记账成功」通知清掉
@@ -205,10 +210,11 @@ object BillIngestor {
                     return@withLock Result.MERGED_OVER_LOWER_WEIGHT
                 }
                 // 权重不低于当前来源 → 保留原账；当前来源（通常是渠道通知）的
-                // 包名回填到账单 secondary 上，作为该商户的渠道证据供下次推断
+                // 包名与订单号回填到账单上，作为渠道/订单证据供后续推断与去重
                 if (existing.secondaryPackageName == null) {
                     dao.updateSecondary(existing.id, packageName, appName)
                 }
+                orderId?.let { dao.backfillOrderId(existing.id, it) }
                 return@withLock Result.KEPT_EXISTING
             }
 

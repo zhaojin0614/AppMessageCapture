@@ -3,6 +3,7 @@ package com.aifactory.appmessagecapture.service
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
+import com.aifactory.appmessagecapture.data.AppDatabase
 import com.aifactory.appmessagecapture.utils.PreferencesManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -185,10 +186,9 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
     /**
      * 拼多多订单详情页入库：实付金额 + 商户名 + 订单号 + 订单确认时间。
      *
-     * 幂等性靠两层：一是 [PddParsing.extractOrderId] 的订单号精确去重
-     * （部分订单状态页无「订单确认」时间横幅，内容去重的时间窗口无法锚定，
-     * 见 [PreferencesManager.markPddOrderCaptured]）；二是 [BillIngestor]
-     * 内容去重（有横幅时 timestamp = 横幅时间，窗口锚定其上）。
+     * 幂等去重：订单号记在账单上（bills.orderId），按账单存在性判断——
+     * 同一订单再次打开直接忽略；用户删除账单后绑定自动解除，可重新捕获。
+     * 账单时间：「订单确认」横幅 → 订单编号前六位的下单日中午 → 当前时间。
      */
     private suspend fun recordPddOrder(
         packageName: String,
@@ -208,33 +208,35 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         }
         if (!passesDebounce("$packageName|$amount|$title")) return
         if (PreferencesManager.getInstance(this).isAppBlocked(packageName)) return
-        if (orderId != null &&
-            !PreferencesManager.getInstance(this).markPddOrderCaptured(orderId)
-        ) {
-            android.util.Log.d(TAG, "拼多多订单 $orderId 已入过账，重复打开忽略")
+
+        // 订单号按账单存在性去重（账单已删则放行重新捕获）
+        val billDao = AppDatabase.getDatabase(this).billDao()
+        if (orderId != null && billDao.findBillIdByOrderId(orderId) != null) {
+            android.util.Log.d(TAG, "拼多多订单 $orderId 已有对应账单，重复打开忽略")
             return
         }
 
-            // 时间优先级：「订单确认」横幅（精确到秒）→ 订单编号前六位的
-            // 下单日中午（无横幅的订单状态也有稳定锚点）→ 当前时间兜底
-            val timestamp = confirmTime
-                ?: orderId?.let { PddParsing.parseOrderDateMillis(it) }
-                ?: System.currentTimeMillis()
-            val result = BillIngestor.record(
-                context = this,
-                packageName = packageName,
-                appName = SupportedPaymentApps.screenAppDisplayName(packageName) ?: resolveAppName(packageName),
-                title = title,
-                fullText = pageText,
-                amount = amount,
-                // 页面含「可返1元」「免运费」等营销/优惠词，方向固定为支出
-                isIncome = false,
-                timestamp = timestamp
-            )
-            android.util.Log.d(
-                TAG,
-                "拼多多订单记账 $title 订单号=$orderId 确认时间=$confirmTime → $result"
-            )
+        // 时间优先级：「订单确认」横幅（精确到秒）→ 订单编号前六位的
+        // 下单日中午（无横幅的订单状态也有稳定锚点）→ 当前时间兜底
+        val timestamp = confirmTime
+            ?: orderId?.let { PddParsing.parseOrderDateMillis(it) }
+            ?: System.currentTimeMillis()
+        val result = BillIngestor.record(
+            context = this,
+            packageName = packageName,
+            appName = SupportedPaymentApps.screenAppDisplayName(packageName) ?: resolveAppName(packageName),
+            title = title,
+            fullText = pageText,
+            amount = amount,
+            // 页面含「可返1元」「免运费」等营销/优惠词，方向固定为支出
+            isIncome = false,
+            timestamp = timestamp,
+            orderId = orderId
+        )
+        android.util.Log.d(
+            TAG,
+            "拼多多订单记账 $title 订单号=$orderId 确认时间=$confirmTime → $result"
+        )
     }
 
     /** 同一页面可能触发多次窗口事件（Activity + Dialog），30 秒内同 key 只处理一次 */

@@ -17,7 +17,7 @@ import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
  */
 @Database(
     entities = [NotificationEntity::class, BillEntity::class, BirthdayEntity::class, RecurringBillEntity::class, PlatformAccountEntity::class, BudgetEntity::class, MerchantMemoryOverrideEntity::class],
-    version = 16,
+    version = 17,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -382,6 +382,19 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Migrate from v16 to v17:
+         * bills.orderId —— 电商平台订单号记在账单上（替代全局去重集合）：
+         * 订单号去重按账单存在性判断，删除账单即解除绑定，可重新捕获。
+         */
+        private val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                BirthdayLog.i("[DB Migration] Executing MIGRATION_16_17: bills.orderId")
+                db.execSQL("ALTER TABLE bills ADD COLUMN orderId TEXT")
+                BirthdayLog.i("[DB Migration] MIGRATION_16_17 completed")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -389,10 +402,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "notification_database"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
                     .build()
                 INSTANCE = instance
-                BirthdayLog.i("AppDatabase initialized. Version=16")
+                BirthdayLog.i("AppDatabase initialized. Version=17")
                 instance
             }
         }

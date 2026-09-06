@@ -108,6 +108,14 @@ interface BillDao {
     )
     suspend fun findMemoryGroups(limit: Int): List<MemoryGroupRow>
 
+    /** 订单号去重：按账单存在性判断（账单删除即解除绑定，可重新捕获） */
+    @Query("SELECT id FROM bills WHERE orderId = :orderId LIMIT 1")
+    suspend fun findBillIdByOrderId(orderId: String): Long?
+
+    /** 为无订单号的既有账单回填订单号（跨 App 合并保留原账分支用） */
+    @Query("UPDATE bills SET orderId = :orderId WHERE id = :id AND orderId IS NULL")
+    suspend fun backfillOrderId(id: Long, orderId: String)
+
     /** 跨 App 合并回填渠道：把被吸收渠道（通知来源）记到账单上，供渠道推断 */
     @Query("UPDATE bills SET secondaryPackageName = :pkg, secondaryAppName = :appName WHERE id = :id")
     suspend fun updateSecondary(id: Long, pkg: String, appName: String)

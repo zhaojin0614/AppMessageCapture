@@ -44,5 +44,10 @@ data class BillEntity(
      * 记忆来源标注：手动覆写 / 商户记忆 / 跨商户记忆 / 渠道推断 / 消费习惯。
      * null = 无记忆命中（关键词猜测或手动记账）。账单编辑弹窗展示。
      */
-    val memorySource: String? = null
+    val memorySource: String? = null,
+    /**
+     * 电商平台订单号（如拼多多订单详情页捕获）。
+     * 订单号去重按账单存在性判断：账单删除即解除绑定，同一订单可重新捕获。
+     */
+    val orderId: String? = null
 )
