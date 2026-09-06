@@ -4,6 +4,8 @@
     packageNames 把事件投递收紧到监视名单（与 SupportedPaymentApps.screenWatchPackages
     保持一致）：其他应用的窗口内容不会投递到服务，也省电。
     新增监视应用时两处要同步更新。
+    注意：packageNames 必须用「逗号」分隔——系统只按逗号切分，写成空格分隔
+    会解析成一个不存在的包名，事件被全部过滤（曾因此断捕数日，有单测防回归）。
 
     事件类型：
     - typeWindowStateChanged：Activity/窗口切换（唯一订阅源）。
@@ -27,4 +29,4 @@
     android:canRetrieveWindowContent="true"
     android:description="@string/accessibility_service_description"
     android:notificationTimeout="200"
-    android:packageNames="com.jingdong.app.mall com.taobao.taobao me.ele com.xunmeng.pinduoduo" />
+    android:packageNames="com.jingdong.app.mall,com.taobao.taobao,me.ele,com.xunmeng.pinduoduo" />

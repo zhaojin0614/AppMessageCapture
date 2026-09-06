@@ -166,6 +166,20 @@ class SupportedPaymentAppsTest {
     }
 
     @Test
+    fun `无障碍配置包名清单与监视名单一致且为逗号分隔`() {
+        val file = java.io.File("src/main/res/xml/payment_screen_accessibility_config.xml")
+        if (!file.exists()) return  // 工作目录不是 app 模块时跳过
+        val xml = file.readText()
+        val packageNames = Regex("""android:packageNames="([^"]+)"""").find(xml)!!
+            .groupValues[1]
+        // 系统只按逗号切分 packageNames：空格分隔会解析成一个不存在的包名，
+        // 所有窗口事件被静默过滤（曾因此断捕数日）
+        assertFalse("packageNames 禁止空格分隔", packageNames.contains(' '))
+        val configured = packageNames.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+        assertEquals(SupportedPaymentApps.screenWatchPackages, configured)
+    }
+
+    @Test
     fun `支持清单与捕获通道同步`() {
         // 屏幕通道：监视名单里的每个包都必须登记在支持清单中
         SupportedPaymentApps.screenWatchPackages.forEach { pkg ->
