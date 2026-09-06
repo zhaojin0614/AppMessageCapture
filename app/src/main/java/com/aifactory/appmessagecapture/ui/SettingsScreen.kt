@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -126,6 +127,7 @@ fun SettingsScreen(onBack: () -> Unit) {
 
     var showSupportedApps by remember { mutableStateOf(false) }
     var showPlatformAccounts by remember { mutableStateOf(false) }
+    var showMerchantMemories by remember { mutableStateOf(false) }
     var showRecurringBills by remember { mutableStateOf(false) }
     var showBackupDialog by remember { mutableStateOf(false) }
     var showRestoreConfirm by remember { mutableStateOf(false) }
@@ -196,6 +198,10 @@ fun SettingsScreen(onBack: () -> Unit) {
         PlatformAccountScreen(onBack = { showPlatformAccounts = false })
         return
     }
+    if (showMerchantMemories) {
+        MerchantMemoryScreen(onBack = { showMerchantMemories = false })
+        return
+    }
     if (showRecurringBills) {
         RecurringBillScreen(onBack = { showRecurringBills = false })
         return
@@ -257,6 +263,12 @@ fun SettingsScreen(onBack: () -> Unit) {
                     title = "平台账户管理",
                     value = "$platformCount 个",
                     onClick = { showPlatformAccounts = true }
+                )
+                SettingsNavigateRow(
+                    icon = Icons.Default.Memory,
+                    title = "商户记忆管理",
+                    value = "查看与修正",
+                    onClick = { showMerchantMemories = true }
                 )
                 SettingsNavigateRow(
                     icon = Icons.Default.Repeat,

@@ -22,6 +22,12 @@ data class PlatformAccountEntity(
     val balance: Double,                 // 当前余额
     val colorArgb: Int? = null,          // 品牌色 ARGB（报表平台构成用）；创建时随机分配，null 走回退色
     val icon: String? = null,            // 预留图标标识（暂用名称首字母展示）
+    /**
+     * 绑定的付款渠道 App 包名（如 com.tencent.mm）。
+     * 商户记忆的渠道推断据此把「该商户历史用微信付的」自动对账到本平台并扣余额；
+     * null = 未绑定渠道（不参与自动对账推断）。
+     */
+    val boundPackageName: String? = null,
     val sortOrder: Int = 0,              // 排序权重，越小越靠前
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()

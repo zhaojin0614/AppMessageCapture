@@ -39,5 +39,10 @@ data class BillEntity(
      * 商户记忆键：来源 App + 标题规范化（去数字/金额符号）。
      * 同键最近一笔账单的分类/平台会被新账单自动套用（商户记忆）。
      */
-    val merchantKey: String? = null
+    val merchantKey: String? = null,
+    /**
+     * 记忆来源标注：手动覆写 / 商户记忆 / 跨商户记忆 / 渠道推断 / 消费习惯。
+     * null = 无记忆命中（关键词猜测或手动记账）。账单编辑弹窗展示。
+     */
+    val memorySource: String? = null
 )

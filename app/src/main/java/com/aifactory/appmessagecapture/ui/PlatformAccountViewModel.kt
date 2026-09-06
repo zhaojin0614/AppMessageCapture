@@ -37,18 +37,23 @@ class PlatformAccountViewModel(application: Application) : AndroidViewModel(appl
     private val _lastDeleteLinkedCount = MutableStateFlow(-1)
     val lastDeleteLinkedCount: StateFlow<Int> = _lastDeleteLinkedCount
 
-    fun addAccount(name: String, balance: Double) {
+    fun addAccount(name: String, balance: Double, boundPackageName: String? = null) {
         if (name.isBlank()) return
         viewModelScope.launch(Dispatchers.IO) {
-            repository.addAccount(name.trim(), balance)
+            repository.addAccount(name.trim(), balance, boundPackageName)
         }
     }
 
-    fun updateAccount(account: PlatformAccountEntity, newName: String, newBalance: Double) {
+    fun updateAccount(
+        account: PlatformAccountEntity,
+        newName: String,
+        newBalance: Double,
+        newChannel: String?
+    ) {
         if (newName.isBlank()) return
         viewModelScope.launch(Dispatchers.IO) {
             repository.updateAccount(
-                account.copy(name = newName.trim(), balance = newBalance)
+                account.copy(name = newName.trim(), balance = newBalance, boundPackageName = newChannel)
             )
         }
     }

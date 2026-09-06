@@ -216,8 +216,9 @@ fun PlatformAccountScreen(
             title = "添加平台",
             initialName = "",
             initialBalance = "",
-            onConfirm = { name, balance ->
-                viewModel.addAccount(name, balance)
+            initialChannel = null,
+            onConfirm = { name, balance, channel ->
+                viewModel.addAccount(name, balance, channel)
                 showAddDialog = false
             },
             onDismiss = { showAddDialog = false }
@@ -231,8 +232,9 @@ fun PlatformAccountScreen(
             title = "编辑平台",
             initialName = account.name,
             initialBalance = String.format("%.2f", account.balance),
-            onConfirm = { name, balance ->
-                viewModel.updateAccount(account, name, balance)
+            initialChannel = account.boundPackageName,
+            onConfirm = { name, balance, channel ->
+                viewModel.updateAccount(account, name, balance, channel)
                 editingAccount = null
             },
             onDismiss = { editingAccount = null }
@@ -384,11 +386,13 @@ private fun PlatformEditDialog(
     title: String,
     initialName: String,
     initialBalance: String,
-    onConfirm: (name: String, balance: Double) -> Unit,
+    initialChannel: String?,
+    onConfirm: (name: String, balance: Double, channel: String?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var name by remember { mutableStateOf(initialName) }
     var balanceText by remember { mutableStateOf(initialBalance) }
+    var channel by remember { mutableStateOf(initialChannel) }
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -440,6 +444,18 @@ private fun PlatformEditDialog(
                     singleLine = true,
                     prefix = { Text("¥") }
                 )
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "绑定的付款渠道（该渠道的消费自动对账到本平台）",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                FlowChipRow(
+                    options = listOf<Pair<String?, String>>(null to "不绑定") + CHANNEL_BINDING_OPTIONS,
+                    selected = channel,
+                    onSelect = { channel = it }
+                )
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -454,7 +470,7 @@ private fun PlatformEditDialog(
                         text = "保存",
                         onClick = {
                             if (name.isNotBlank()) {
-                                onConfirm(name, balance)
+                                onConfirm(name, balance, channel)
                             }
                         },
                         modifier = Modifier.weight(1f),
@@ -504,3 +520,11 @@ private fun EmptyPlatformState() {
         }
     }
 }
+
+/** 可绑定的付款渠道（商户记忆的渠道推断自动对账用） */
+private val CHANNEL_BINDING_OPTIONS = listOf(
+    "com.tencent.mm" to "微信",
+    "com.eg.android.AlipayGphone" to "支付宝",
+    "com.unionpay" to "云闪付",
+    "com.android.bankabc" to "农业银行"
+)

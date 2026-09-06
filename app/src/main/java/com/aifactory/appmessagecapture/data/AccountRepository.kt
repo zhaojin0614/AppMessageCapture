@@ -109,13 +109,17 @@ class AccountRepository(
             platformId?.let {
                 adjustPlatformForBill(it, bill.amount, bill.isIncome)
             }
-            // 3. 更新账单（无商户键的旧账单回填，使纠正成为后续记忆）
+            // 3. 更新账单（无商户键的旧账单回填，使纠正成为后续记忆）；
+            //    平台改为人工指定，旧的记忆来源标注作废
             if (bill.merchantKey.isNullOrBlank()) {
                 billDao.update(
                     bill.copy(
-                        merchantKey = MerchantKey.of(bill.appName, bill.title)
+                        merchantKey = MerchantKey.of(bill.appName, bill.title),
+                        memorySource = null
                     )
                 )
+            } else {
+                billDao.updateMemorySource(billId, null)
             }
             billDao.updatePlatform(billId, platformId)
             BirthdayLog.i("[AccountRepo] reconcileBill id=$billId oldPlatform=$oldPlatformId newPlatform=$platformId")
@@ -143,7 +147,7 @@ class AccountRepository(
 
     /**
      * 用户纠正分类：写库并回填商户键（无键的旧账单按当前标题补键），
-     * 使这次纠正对之后同商户的捕获生效。
+     * 使这次纠正对之后同商户的捕获生效；旧的记忆来源标注作废。
      */
     suspend fun updateCategoryRemembered(billId: Long, category: String) {
         db.withTransaction {
@@ -152,11 +156,12 @@ class AccountRepository(
                 billDao.update(
                     bill.copy(
                         category = category,
-                        merchantKey = MerchantKey.of(bill.appName, bill.title)
+                        merchantKey = MerchantKey.of(bill.appName, bill.title),
+                        memorySource = null
                     )
                 )
             } else {
-                billDao.updateCategory(billId, category)
+                billDao.updateCategoryAndClearSource(billId, category)
             }
         }
     }
@@ -173,9 +178,14 @@ class AccountRepository(
 
     /**
      * 新增平台账户。
-     * 自动分配一个随机品牌候选色（colorArgb），报表平台构成据此区分颜色。
+     * 自动分配一个随机品牌候选色（colorArgb），报表平台构成据此区分颜色；
+     * [boundPackageName] 为绑定的付款渠道 App（渠道推断自动对账用），可空。
      */
-    suspend fun addAccount(name: String, balance: Double): Long {
+    suspend fun addAccount(
+        name: String,
+        balance: Double,
+        boundPackageName: String? = null
+    ): Long {
         val now = System.currentTimeMillis()
         val nextOrder = (platformDao.getMaxSortOrder() ?: -1) + 1
         val color = com.aifactory.appmessagecapture.ui.theme.PlatformColors.randomColor()
@@ -184,12 +194,13 @@ class AccountRepository(
                 name = name,
                 balance = balance,
                 colorArgb = color,
+                boundPackageName = boundPackageName,
                 sortOrder = nextOrder,
                 createdAt = now,
                 updatedAt = now
             )
         )
-        BirthdayLog.i("[AccountRepo] addAccount id=$id name=$name balance=$balance colorArgb=$color")
+        BirthdayLog.i("[AccountRepo] addAccount id=$id name=$name balance=$balance colorArgb=$color channel=$boundPackageName")
         return id
     }
 

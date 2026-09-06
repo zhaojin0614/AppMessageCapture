@@ -59,14 +59,80 @@ object BillIngestor {
             val dao = app.database.billDao()
             val repository = AccountRepository(app.database, dao, app.database.platformAccountDao())
 
-            // ── 0. 商户记忆 ─────────────────────────────────────────────
-            // 同商户键最近一笔同方向账单的分类/平台优先于关键词猜测——
-            // 用户纠正过一次，之后同商户的消费就自动归类对账。
+            // ── 0. 商户记忆推断（分层，置信度从高到低）──────────────────
+            // 1. 手动覆写（管理界面）→ 2. 同商户键投票 → 3. 跨商户指纹 →
+            // 4a. 渠道推断平台 → 4b. 消费习惯先验 → 兜底关键词猜测
             val merchantKey = MerchantKey.of(appName, title)
-            val memory = dao.findMerchantMemory(merchantKey, isIncome)
-            val category = memory?.category
-                ?: (if (isIncome) guessIncomeCategory(fullText, appName)
-                    else guessCategory(fullText, appName))
+            val core = MerchantMemory.core(appName, title)
+            val override = core?.let { app.database.merchantMemoryOverrideDao().getByFingerprint(it) }
+            val ignoreAuto = override?.ignoreAuto == true
+            var source: String? = null
+
+            var category = override?.category
+            var platformId = override?.platformAccountId
+            if (category != null) source = "手动覆写"
+
+            if ((category == null || platformId == null) && !ignoreAuto) {
+                // 2. 同商户键最近 N 笔多数投票（分类众数；平台取最近非空）
+                val vote = MerchantMemory.vote(
+                    dao.findMemorySamples(merchantKey, isIncome, MerchantMemory.VOTE_SAMPLE_SIZE)
+                        .map { MerchantMemory.MemorySample(it.category, it.platformAccountId) }
+                )
+                if (category == null && vote.category != null) {
+                    category = vote.category
+                    source = "商户记忆"
+                }
+                if (platformId == null) platformId = vote.platformId
+
+                // 3. 跨商户指纹：同一线下商户在不同 App（淘宝闪购/拼多多/美团）
+                //    标题不同、键不同，用归一核心跨键共享记忆
+                if ((category == null || platformId == null) && core != null) {
+                    val crossVote = MerchantMemory.vote(
+                        dao.findMemorySamplesByCore(core, isIncome, MerchantMemory.VOTE_SAMPLE_SIZE)
+                            .map { MerchantMemory.MemorySample(it.category, it.platformAccountId) }
+                    )
+                    if (category == null && crossVote.category != null) {
+                        category = crossVote.category
+                        source = "跨商户记忆"
+                    }
+                    if (platformId == null) platformId = crossVote.platformId
+                }
+            }
+
+            if (platformId == null && !ignoreAuto) {
+                // 4a. 渠道推断平台：该商户历史被合并吸收的渠道（「用微信付过」）
+                // 或渠道通知自身来源（com.tencent.mm 等），映射到用户绑定的平台。
+                // 只有用户在平台账户里绑定过渠道才生效——绑定即授权自动对账。
+                val platforms = app.database.platformAccountDao().getAllOnce()
+                val channel = core?.let {
+                    dao.findChannelEvidence(core, isIncome, MerchantMemory.VOTE_SAMPLE_SIZE).firstOrNull()
+                } ?: packageName
+                MerchantMemory.matchPlatform(channel, platforms.map { it.id to it.boundPackageName })
+                    ?.let {
+                        platformId = it
+                        source = "渠道推断"
+                    }
+            }
+
+            if (category == null && !ignoreAuto) {
+                // 4b. 消费习惯先验：商户身份不可知（「微信支付」类通知）时，
+                // 用自己的历史（渠道×时段×金额档）推断分类
+                val inferred = CategoryPrior.infer(
+                    dao.findRecentExpenseStats(200).map {
+                        CategoryPrior.ExpenseSample(it.category, it.packageName, it.timestamp, it.amount)
+                    },
+                    packageName, timestamp, amount
+                )
+                if (inferred != null) {
+                    category = inferred
+                    source = "消费习惯"
+                }
+            }
+
+            if (category == null) {
+                category = if (isIncome) guessIncomeCategory(fullText, appName)
+                else guessCategory(fullText, appName)
+            }
 
             val bill = BillEntity(
                 amount = amount,
@@ -76,8 +142,9 @@ object BillIngestor {
                 category = category,
                 isIncome = isIncome,
                 timestamp = timestamp,
-                platformAccountId = memory?.platformId,
-                merchantKey = merchantKey
+                platformAccountId = platformId,
+                merchantKey = merchantKey,
+                memorySource = source
             )
 
             // ── 1. 同 App 去重 ─────────────────────────────────────────────
@@ -112,13 +179,19 @@ object BillIngestor {
                 if (currentWeight > existingWeight) {
                     // 当前来源权重更高（如商户 App > 支付渠道）→ 整体替换原账单的
                     // 归属信息；低权重渠道的记录被吸收（单一条目，不做图标拼接）。
+                    // 渠道信息保留：被吸收方的来源 App 就是付款渠道，记入
+                    // secondary 供渠道推断；平台则优先用新推断结果，推断不出时
+                    // 保留原账单已有的平台（商户页通常比渠道通知少一个渠道信号）。
                     val updatedBill = existing.copy(
                         appName = appName,
                         packageName = packageName,
                         title = title,
                         category = category,
-                        platformAccountId = memory?.platformId ?: existing.platformAccountId,
-                        merchantKey = merchantKey
+                        platformAccountId = platformId ?: existing.platformAccountId,
+                        merchantKey = merchantKey,
+                        memorySource = source ?: existing.memorySource,
+                        secondaryPackageName = existing.packageName,
+                        secondaryAppName = existing.appName
                     )
                     repository.replaceBillAttribution(updatedBill)
                     BillNotificationHelper.showBillRecognizedNotification(
@@ -127,7 +200,11 @@ object BillIngestor {
                     )
                     return@withLock Result.MERGED_OVER_LOWER_WEIGHT
                 }
-                // 权重不低于当前来源 → 保留原账
+                // 权重不低于当前来源 → 保留原账；当前来源（通常是渠道通知）的
+                // 包名回填到账单 secondary 上，作为该商户的渠道证据供下次推断
+                if (existing.secondaryPackageName == null) {
+                    dao.updateSecondary(existing.id, packageName, appName)
+                }
                 return@withLock Result.KEPT_EXISTING
             }
 

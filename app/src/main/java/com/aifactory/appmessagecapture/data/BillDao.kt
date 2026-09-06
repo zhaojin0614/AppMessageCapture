@@ -39,22 +39,86 @@ interface BillDao {
     @Query("SELECT * FROM bills")
     suspend fun getAllBillsOnce(): List<BillEntity>
 
-    /**
-     * 商户记忆：同商户键最近一笔同方向账单的分类与平台。
-     * 平台已被删除的记忆不返回（LEFT JOIN 过滤）。
-     */
+    /** 记忆投票样本（最近在前）：同商户键最近 N 笔的分类与平台，已删除平台视为 null */
     @Query(
         """
-        SELECT b.category AS category, b.platformAccountId AS platformId
+        SELECT b.category AS category,
+               CASE WHEN p.id IS NOT NULL THEN b.platformAccountId END AS platformAccountId
         FROM bills b
         LEFT JOIN platform_accounts p ON p.id = b.platformAccountId
         WHERE b.merchantKey = :merchantKey AND b.isIncome = :isIncome
-          AND (b.platformAccountId IS NULL OR p.id IS NOT NULL)
         ORDER BY b.timestamp DESC
-        LIMIT 1
+        LIMIT :limit
         """
     )
-    suspend fun findMerchantMemory(merchantKey: String, isIncome: Boolean): MerchantMemory?
+    suspend fun findMemorySamples(merchantKey: String, isIncome: Boolean, limit: Int): List<MemorySampleRow>
+
+    /** 跨商户指纹投票样本：商户键的标题核心部分含指纹（跨 App 共享记忆） */
+    @Query(
+        """
+        SELECT b.category AS category,
+               CASE WHEN p.id IS NOT NULL THEN b.platformAccountId END AS platformAccountId
+        FROM bills b
+        LEFT JOIN platform_accounts p ON p.id = b.platformAccountId
+        WHERE b.merchantKey LIKE '%' || :core || '%' AND b.isIncome = :isIncome
+        ORDER BY b.timestamp DESC
+        LIMIT :limit
+        """
+    )
+    suspend fun findMemorySamplesByCore(core: String, isIncome: Boolean, limit: Int): List<MemorySampleRow>
+
+    /** 渠道证据：同指纹历史账单上记录过的被吸收渠道包名（最近在前） */
+    @Query(
+        """
+        SELECT b.secondaryPackageName FROM bills b
+        WHERE b.merchantKey LIKE '%' || :core || '%' AND b.isIncome = :isIncome
+          AND b.secondaryPackageName IS NOT NULL
+        ORDER BY b.timestamp DESC
+        LIMIT :limit
+        """
+    )
+    suspend fun findChannelEvidence(core: String, isIncome: Boolean, limit: Int): List<String>
+
+    /** 消费习惯统计样本：最近 N 笔支出（渠道/时段/金额档先验用） */
+    @Query(
+        """
+        SELECT category, packageName, timestamp, amount FROM bills
+        WHERE isIncome = 0
+        ORDER BY timestamp DESC
+        LIMIT :limit
+        """
+    )
+    suspend fun findRecentExpenseStats(limit: Int): List<ExpenseStatRow>
+
+    /** 商户记忆分组（管理界面展示）：每个商户键一行，分类/平台/渠道取最近值 */
+    @Query(
+        """
+        SELECT b.merchantKey AS merchantKey,
+            (SELECT s.category FROM bills s WHERE s.merchantKey = b.merchantKey ORDER BY s.timestamp DESC LIMIT 1) AS category,
+            (SELECT s.platformAccountId FROM bills s WHERE s.merchantKey = b.merchantKey AND s.platformAccountId IS NOT NULL ORDER BY s.timestamp DESC LIMIT 1) AS platformAccountId,
+            (SELECT s.secondaryPackageName FROM bills s WHERE s.merchantKey = b.merchantKey AND s.secondaryPackageName IS NOT NULL ORDER BY s.timestamp DESC LIMIT 1) AS channelPackage,
+            COUNT(*) AS billCount,
+            MAX(b.timestamp) AS lastTimestamp
+        FROM bills b
+        WHERE b.merchantKey IS NOT NULL AND b.merchantKey != ''
+        GROUP BY b.merchantKey
+        ORDER BY lastTimestamp DESC
+        LIMIT :limit
+        """
+    )
+    suspend fun findMemoryGroups(limit: Int): List<MemoryGroupRow>
+
+    /** 跨 App 合并回填渠道：把被吸收渠道（通知来源）记到账单上，供渠道推断 */
+    @Query("UPDATE bills SET secondaryPackageName = :pkg, secondaryAppName = :appName WHERE id = :id")
+    suspend fun updateSecondary(id: Long, pkg: String, appName: String)
+
+    /** 记忆来源标注更新（用户人工纠正分类/平台后作废旧标注） */
+    @Query("UPDATE bills SET memorySource = :source WHERE id = :id")
+    suspend fun updateMemorySource(id: Long, source: String?)
+
+    /** 分类纠正并作废旧来源标注（一条 SQL，避免先读后写） */
+    @Query("UPDATE bills SET category = :category, memorySource = NULL WHERE id = :id")
+    suspend fun updateCategoryAndClearSource(id: Long, category: String)
 
     /** 关键词搜索：标题/来源应用/分类模糊匹配 + 金额文本匹配，带类型/分类过滤与条数分页 */
     @Query(
@@ -238,9 +302,28 @@ data class TodayStats(
 )
 
 /** 商户记忆查询结果：最近一笔同商户账单的分类与平台 */
-data class MerchantMemory(
+/** 记忆投票样本行（同商户键最近一笔的分类与平台；已删除平台为 null） */
+data class MemorySampleRow(
     val category: String,
-    val platformId: Long?
+    val platformAccountId: Long?
+)
+
+/** 消费习惯统计样本行（渠道/时段/金额档先验用） */
+data class ExpenseStatRow(
+    val category: String,
+    val packageName: String,
+    val timestamp: Long,
+    val amount: Double
+)
+
+/** 商户记忆分组行（管理界面展示用） */
+data class MemoryGroupRow(
+    val merchantKey: String,
+    val category: String?,
+    val platformAccountId: Long?,
+    val channelPackage: String?,
+    val billCount: Int,
+    val lastTimestamp: Long
 )
 
 /** 分类月度支出汇总（预算进度用） */

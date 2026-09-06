@@ -835,6 +835,14 @@ fun BillScreen(
             title = if (bill.isIncome) "编辑收入账单" else "编辑支出账单",
             text = {
                 Column {
+                    bill.memorySource?.let { source ->
+                        Text(
+                            text = "记忆来源：$source（纠正后会更新该商户的记忆）",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                    }
                     TextField(
                         value = editTitle,
                          colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, disabledContainerColor = Color.Transparent),

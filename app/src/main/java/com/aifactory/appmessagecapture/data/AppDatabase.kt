@@ -16,8 +16,8 @@ import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
  * Room database for locally storing captured notifications and birthday records.
  */
 @Database(
-    entities = [NotificationEntity::class, BillEntity::class, BirthdayEntity::class, RecurringBillEntity::class, PlatformAccountEntity::class, BudgetEntity::class],
-    version = 15,
+    entities = [NotificationEntity::class, BillEntity::class, BirthdayEntity::class, RecurringBillEntity::class, PlatformAccountEntity::class, BudgetEntity::class, MerchantMemoryOverrideEntity::class],
+    version = 16,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -29,6 +29,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun recurringBillDao(): RecurringBillDao
     abstract fun platformAccountDao(): PlatformAccountDao
     abstract fun budgetDao(): BudgetDao
+    abstract fun merchantMemoryOverrideDao(): MerchantMemoryOverrideDao
 
     companion object {
         @Volatile
@@ -354,6 +355,33 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Migrate from v15 to v16:
+         * 商户记忆智能化：
+         * 1. platform_accounts.boundPackageName —— 平台绑定的付款渠道 App（渠道推断）
+         * 2. bills.memorySource —— 记忆来源标注（手动覆写/商户记忆/跨商户记忆/渠道推断/消费习惯）
+         * 3. merchant_memory_overrides 表 —— 管理界面的手动覆写
+         */
+        private val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                BirthdayLog.i("[DB Migration] Executing MIGRATION_15_16: merchant memory intelligence")
+                db.execSQL("ALTER TABLE platform_accounts ADD COLUMN boundPackageName TEXT")
+                db.execSQL("ALTER TABLE bills ADD COLUMN memorySource TEXT")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS merchant_memory_overrides (
+                        fingerprint TEXT NOT NULL PRIMARY KEY,
+                        category TEXT,
+                        platformAccountId INTEGER,
+                        ignoreAuto INTEGER NOT NULL DEFAULT 0,
+                        updatedAt INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                BirthdayLog.i("[DB Migration] MIGRATION_15_16 completed")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -361,10 +389,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "notification_database"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
                     .build()
                 INSTANCE = instance
-                BirthdayLog.i("AppDatabase initialized. Version=15")
+                BirthdayLog.i("AppDatabase initialized. Version=16")
                 instance
             }
         }
