@@ -9,13 +9,15 @@ import java.time.ZoneId
  * 淘宝闪购是淘宝 App（[SupportedPaymentApps.TAOBAO_PACKAGE]）内的频道，也是
  * 独立 App（[SupportedPaymentApps.ELE_PACKAGE]，原饿了么换牌）。两个入口的
  * 支付完成订单页布局一致，门槛统一为「闪购」+「实付」+「下单时间」：
- * - 「下单时间」（精确到毫秒、每单唯一）→ 账单 timestamp；同一订单再次打开
- *   时由 [BillIngestor] 内容去重（时间窗口锚定在下单时间上）幂等丢弃；
+ * - 「订单号」→ 账单 orderId 绑定键，重复打开按账单存在性去重（删账单即
+ *   解绑，可重新捕获），与拼多多订单页同一机制；
+ * - 「下单时间」（精确到毫秒、每单唯一）→ 账单 timestamp；
  * - 商户名 + 实付金额 → 账单 title；
- * - 历史订单详情页「下单时间」折叠在「订单信息」里不命中门槛，天然不触发
- *   （重复记账防护的另一半）。
+ * - 历史订单详情页「下单时间」折叠在「订单信息」里不命中门槛，天然不触发。
  *
  * 页面文本节点样例见 TaobaoShangouParsingTest（取自真实订单页截图）。
+ * 注意：me.ele 独立 App 部分页面为自绘渲染（无障碍树无文本节点），该场景
+ * 依赖支付平台通知捕获兜底，本解析只在页面可读时生效。
  */
 object TaobaoShangouParsing {
 
@@ -27,6 +29,9 @@ object TaobaoShangouParsing {
 
     /** 「闪购 商户名」形式的商户行（闪购标与名称同行，尾部可能带箭头装饰） */
     private val MERCHANT_LINE = Regex("""闪购\s+(\S.*)""")
+
+    /** 「订单号 208302618161614」形式，尾部可带「复制」按钮文本 */
+    private val ORDER_ID = Regex("""订单号[:：]?\s*(\d{8,})""")
 
     /** 「2026-08-30 18:16:14.118」形式的时间戳（毫秒段可选） */
     private val ORDER_DATETIME =
@@ -58,6 +63,13 @@ object TaobaoShangouParsing {
     /** 节点列表中第一条含「实付」金额的行 */
     fun extractPaidAmount(nodes: List<String>): Double? =
         nodes.firstNotNullOfOrNull { parsePaidAmount(it) }
+
+    /**
+     * 订单号：页面「订单号 xxx」行（历史订单页该行可见，与下单时间折叠与否无关），
+     * 作为账单绑定去重键；缺失返回 null（退回内容去重）。
+     */
+    fun extractOrderId(nodes: List<String>): String? =
+        nodes.firstNotNullOfOrNull { ORDER_ID.find(it)?.groupValues?.get(1) }
 
     /**
      * 商户名：优先「闪购 商户名」同行节点；闪购标与名称被拆成两个节点时退化为

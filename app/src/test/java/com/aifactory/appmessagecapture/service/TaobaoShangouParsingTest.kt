@@ -157,6 +157,25 @@ class TaobaoShangouParsingTest {
     }
 
     @Test
+    fun `订单号从订单号行提取`() {
+        assertEquals(
+            "208302618161614",
+            TaobaoShangouParsing.extractOrderId(shangouOrderPageNodes)
+        )
+        // 独立 App 历史订单页「订单号 xxx 复制」形式同样命中
+        assertEquals(
+            "8023786204058882481",
+            TaobaoShangouParsing.extractOrderId(eleOrderPageNodes)
+        )
+        assertEquals(
+            "208302618161614",
+            TaobaoShangouParsing.extractOrderId(listOf("订单号:208302618161614"))
+        )
+        assertNull(TaobaoShangouParsing.extractOrderId(listOf("订单号 复制", "价格明细")))
+        assertNull(TaobaoShangouParsing.extractOrderId(emptyList()))
+    }
+
+    @Test
     fun `下单时间解析为epoch毫秒`() {
         val expected = LocalDateTime.of(2026, 8, 30, 18, 16, 14, 118_000_000)
             .atZone(zone).toInstant().toEpochMilli()

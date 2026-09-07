@@ -136,13 +136,13 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * 淘宝闪购订单页入库：实付金额 + 商户名 + 下单时间。
+     * 淘宝闪购订单页入库：实付金额 + 商户名 + 订单号 + 下单时间。
      *
-     * 订单页是持久页面，幂等性靠两个确定性字段交给 [BillIngestor] 内容去重：
-     * timestamp = 页面上的「下单时间」（每单唯一，历史订单页该行折叠不可见、
-     * 不命中门槛，天然不会重复入账）、title = 商户名 + 实付金额。同一订单
-     * 再次打开时，同 App + 同金额 + 同标题 + 同方向且时间窗口锚定在下单时间
-     * 上，必然判为重复丢弃。
+     * 幂等去重与拼多多订单页一致：订单号记在账单上（bills.orderId），按账单
+     * 存在性判断——同一订单再次打开直接忽略；用户删除账单后绑定自动解除，
+     * 可重新捕获。订单号缺失时退回 [BillIngestor] 内容去重（timestamp =
+     * 页面上的「下单时间」，每单唯一，同样锚定时间窗口）。
+     * 历史订单详情页「下单时间」折叠不可见、不命中门槛，天然不会入账。
      */
     private suspend fun recordShangouOrder(
         packageName: String,
@@ -153,6 +153,7 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
             android.util.Log.d(TAG, "闪购订单页但未找到实付金额行 nodes=${nodeTexts.size} 样例=${nodeTexts.take(10)}")
             return
         }
+        val orderId = TaobaoShangouParsing.extractOrderId(nodeTexts)
         val merchant = TaobaoShangouParsing.extractMerchant(nodeTexts)
         val orderTime = TaobaoShangouParsing.parseOrderTimeMillis(nodeTexts)
 
@@ -164,6 +165,15 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
 
         if (PreferencesManager.getInstance(this).isAppBlocked(packageName)) return
 
+        // 订单号按账单存在性去重（账单已删则放行重新捕获）
+        if (orderId != null) {
+            val billDao = AppDatabase.getDatabase(this).billDao()
+            if (billDao.findBillIdByOrderId(orderId) != null) {
+                android.util.Log.d(TAG, "闪购订单 $orderId 已有对应账单，重复打开忽略")
+                return
+            }
+        }
+
         val result = BillIngestor.record(
             context = this,
             packageName = packageName,
@@ -174,12 +184,13 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
             // 页面含「返12元外卖红包」等营销词，方向固定为支出
             isIncome = false,
             // 下单时间是每单唯一的确定值：既是账单的真实发生时间，
-            // 也是重复打开订单页时内容去重的锚点
-            timestamp = orderTime ?: System.currentTimeMillis()
+            // 也是无订单号时内容去重的时间锚点
+            timestamp = orderTime ?: System.currentTimeMillis(),
+            orderId = orderId
         )
         android.util.Log.d(
             TAG,
-            "闪购订单记账 $title 下单时间=$orderTime → $result"
+            "闪购订单记账 $title 订单号=$orderId 下单时间=$orderTime → $result"
         )
     }
 
