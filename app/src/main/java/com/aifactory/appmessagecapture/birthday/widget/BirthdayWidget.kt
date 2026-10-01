@@ -121,6 +121,9 @@ private fun BirthdayWidgetRoot(result: WidgetData) {
     val compact = LocalSize.current.height < 150.dp
 
     Box(
+        // 根级 clickable 只覆盖标题行与边距：RemoteViews 里 LazyColumn 落地成
+        // ListView 会吞掉列表区域的触摸，列表行/空态/页脚必须各自挂 clickable
+        // 才能整块可点（Glance 对列表项走 PendingIntentTemplate + fill-in intent）
         modifier = GlanceModifier
             .fillMaxSize()
             .background(ColorProvider(R.color.widget_background))
@@ -204,6 +207,7 @@ private fun EmptyCard() {
             .fillMaxWidth()
             .background(ColorProvider(R.color.widget_card))
             .cornerRadius(10.dp)
+            .clickable(actionStartActivity<BirthdayWidgetActivity>())
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -266,6 +270,7 @@ private fun BirthdayCompactRow(
             .padding(bottom = 2.dp)
             .background(ColorProvider(R.color.widget_card))
             .cornerRadius(8.dp)
+            .clickable(actionStartActivity<BirthdayWidgetActivity>())
             .padding(horizontal = 6.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -337,6 +342,7 @@ private fun BirthdayCard(
             .padding(bottom = 3.dp)
             .background(ColorProvider(R.color.widget_card))
             .cornerRadius(10.dp)
+            .clickable(actionStartActivity<BirthdayWidgetActivity>())
             .padding(5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -382,12 +388,13 @@ private fun BirthdayCard(
     }
 }
 
-/** 标准档末尾的入口提示 */
+/** 标准档末尾的入口提示（整行可点，与卡片一致打开 App） */
 @Composable
 private fun FooterRow() {
     Row(
         modifier = GlanceModifier
             .fillMaxWidth()
+            .clickable(actionStartActivity<BirthdayWidgetActivity>())
             .padding(top = 2.dp, bottom = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
