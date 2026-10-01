@@ -4,6 +4,8 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
 import com.aifactory.appmessagecapture.data.AppDatabase
+import com.aifactory.appmessagecapture.features.FeatureModule
+import com.aifactory.appmessagecapture.features.FeatureRepository
 import com.aifactory.appmessagecapture.utils.PreferencesManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -74,6 +76,8 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
         val packageName = event.packageName?.toString() ?: return
         if (packageName == this.packageName) return
         if (!SupportedPaymentApps.isScreenCaptureApp(packageName)) return
+        // 模块开关：自动记账关闭时屏幕捕获通道不读取窗口内容
+        if (!FeatureRepository.isEnabled(FeatureModule.BILLS)) return
 
         // 树遍历是逐节点 binder IPC，放到 IO 线程；事件本身只携带窗口元数据
         serviceScope.launch {
@@ -88,6 +92,9 @@ class PaymentScreenAccessibilityService : AccessibilityService() {
      * 处理一个窗口的文本节点（真实事件与 debug 模拟共用入口）。
      */
     internal suspend fun handlePageContent(packageName: String, nodeTexts: List<String>) {
+        // 模块开关：自动记账关闭时不入库（含 debug 模拟路径）
+        if (!FeatureRepository.isEnabled(FeatureModule.BILLS)) return
+
         val pageText = nodeTexts.joinToString("\n")
         if (!PaymentScreenParsing.isCapturePage(packageName, pageText)) return
 

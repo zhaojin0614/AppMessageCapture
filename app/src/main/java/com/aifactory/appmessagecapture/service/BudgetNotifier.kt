@@ -8,6 +8,8 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import com.aifactory.appmessagecapture.MainActivity
 import com.aifactory.appmessagecapture.data.AppDatabase
+import com.aifactory.appmessagecapture.features.FeatureModule
+import com.aifactory.appmessagecapture.features.FeatureRepository
 import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
 import java.time.LocalDate
 import java.time.ZoneId
@@ -58,6 +60,8 @@ object BudgetNotifier {
     }
 
     suspend fun checkAndNotify(context: Context) {
+        // 模块开关：预算管理关闭时不做阈值检查、不发提醒
+        if (!FeatureRepository.isEnabled(FeatureModule.BUDGET)) return
         try {
             val db = AppDatabase.getDatabase(context)
             val allBudgets = db.budgetDao().getAllOnce()

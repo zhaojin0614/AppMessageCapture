@@ -34,6 +34,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Cake
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -66,6 +69,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -74,6 +78,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -94,8 +99,12 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import com.aifactory.appmessagecapture.BuildConfig
 import com.aifactory.appmessagecapture.data.AppDatabase
+import com.aifactory.appmessagecapture.birthday.service.BirthdayAlarmScheduler
+import com.aifactory.appmessagecapture.features.FeatureModule
+import com.aifactory.appmessagecapture.features.FeatureRepository
 import com.aifactory.appmessagecapture.service.PaymentScreenAccessibilityService
 import com.aifactory.appmessagecapture.service.SupportedCaptureApp
 import com.aifactory.appmessagecapture.service.SupportedPaymentApps
@@ -141,6 +150,10 @@ fun SettingsScreen(onBack: () -> Unit) {
 
     // 主色调：全局单例状态，选色后即时生效（读取处自动订阅重组）
     val currentAccent = AccentColorRepository.current
+
+    // 功能开关：全局模块显隐的唯一事实源（主导航/各入口/后台管线统一读取）
+    val disabledFeatures by FeatureRepository.disabled.collectAsState()
+    val scope = rememberCoroutineScope()
 
     // 从系统设置页/子页面返回时刷新权限状态与计数
     var resumeKey by remember { mutableStateOf(0) }
@@ -232,6 +245,31 @@ fun SettingsScreen(onBack: () -> Unit) {
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
         ) {
+            SettingsGroup("功能开关") {
+                FeatureModule.entries.forEach { module ->
+                    FeatureToggleRow(
+                        icon = module.settingsIcon(),
+                        title = module.label,
+                        subtitle = module.description,
+                        enabled = module !in disabledFeatures,
+                        onToggle = { checked ->
+                            val ok = FeatureRepository.setEnabled(context, module, checked)
+                            if (!ok) {
+                                Toast.makeText(
+                                    context, "至少保留一个主页模块开启", Toast.LENGTH_SHORT
+                                ).show()
+                            } else if (module == FeatureModule.BIRTHDAY) {
+                                // 关闭立即撤掉全部已注册闹钟；重新开启时重新注册
+                                scope.launch {
+                                    if (checked) BirthdayAlarmScheduler.rescheduleAll(context)
+                                    else BirthdayAlarmScheduler.cancelAll(context)
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+
             SettingsGroup("自动记账") {
                 SettingsNavigateRow(
                     icon = Icons.Default.FactCheck,
@@ -257,31 +295,49 @@ fun SettingsScreen(onBack: () -> Unit) {
                 )
             }
 
-            SettingsGroup("记账管理") {
-                SettingsNavigateRow(
-                    icon = Icons.Default.AccountBalanceWallet,
-                    title = "平台账户管理",
-                    value = "$platformCount 个",
-                    onClick = { showPlatformAccounts = true }
-                )
-                SettingsNavigateRow(
-                    icon = Icons.Default.Memory,
-                    title = "商户记忆管理",
-                    value = "查看与修正",
-                    onClick = { showMerchantMemories = true }
-                )
-                SettingsNavigateRow(
-                    icon = Icons.Default.Repeat,
-                    title = "周期账单",
-                    value = "启用 $activeRecurring 条",
-                    onClick = { showRecurringBills = true }
-                )
-                SettingsNavigateRow(
-                    icon = Icons.Default.Savings,
-                    title = "预算管理",
-                    value = totalBudget?.let { "¥%.0f/月".format(it) } ?: "未设置",
-                    onClick = { showBudgetDialog = true }
-                )
+            // 记账管理各行跟随对应模块开关：关闭的模块整行隐藏，
+            // 全部关闭时整个分组隐藏
+            val accountingRows = listOf(
+                FeatureModule.PLATFORMS,
+                FeatureModule.MERCHANT_MEMORY,
+                FeatureModule.RECURRING,
+                FeatureModule.BUDGET
+            )
+            if (accountingRows.any { it !in disabledFeatures }) {
+                SettingsGroup("记账管理") {
+                    if (FeatureModule.PLATFORMS !in disabledFeatures) {
+                        SettingsNavigateRow(
+                            icon = Icons.Default.AccountBalanceWallet,
+                            title = "平台账户管理",
+                            value = "$platformCount 个",
+                            onClick = { showPlatformAccounts = true }
+                        )
+                    }
+                    if (FeatureModule.MERCHANT_MEMORY !in disabledFeatures) {
+                        SettingsNavigateRow(
+                            icon = Icons.Default.Memory,
+                            title = "商户记忆管理",
+                            value = "查看与修正",
+                            onClick = { showMerchantMemories = true }
+                        )
+                    }
+                    if (FeatureModule.RECURRING !in disabledFeatures) {
+                        SettingsNavigateRow(
+                            icon = Icons.Default.Repeat,
+                            title = "周期账单",
+                            value = "启用 $activeRecurring 条",
+                            onClick = { showRecurringBills = true }
+                        )
+                    }
+                    if (FeatureModule.BUDGET !in disabledFeatures) {
+                        SettingsNavigateRow(
+                            icon = Icons.Default.Savings,
+                            title = "预算管理",
+                            value = totalBudget?.let { "¥%.0f/月".format(it) } ?: "未设置",
+                            onClick = { showBudgetDialog = true }
+                        )
+                    }
+                }
             }
 
             SettingsGroup("外观") {
@@ -875,6 +931,64 @@ private fun SettingsValueRow(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+/** 功能开关行：图标 + 标题/说明 + 开关（设置页「功能开关」组专用） */
+@Composable
+private fun FeatureToggleRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(19.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(checked = enabled, onCheckedChange = onToggle)
+    }
+}
+
+/** 功能模块在设置页的展示图标（与主导航/记账页入口的图标语义一致） */
+private fun FeatureModule.settingsIcon(): ImageVector = when (this) {
+    FeatureModule.MESSAGES -> Icons.Default.Notifications
+    FeatureModule.BILLS -> Icons.Default.Receipt
+    FeatureModule.BIRTHDAY -> Icons.Default.Cake
+    FeatureModule.REPORT -> Icons.Default.BarChart
+    FeatureModule.BUDGET -> Icons.Default.Savings
+    FeatureModule.PLATFORMS -> Icons.Default.AccountBalanceWallet
+    FeatureModule.MERCHANT_MEMORY -> Icons.Default.Memory
+    FeatureModule.RECURRING -> Icons.Default.Repeat
 }
 
 /** 备份弹窗的操作行：图标 + 标题 + 说明 */

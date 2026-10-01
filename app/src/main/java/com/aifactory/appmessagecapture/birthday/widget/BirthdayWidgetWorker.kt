@@ -8,6 +8,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
+import com.aifactory.appmessagecapture.features.FeatureModule
+import com.aifactory.appmessagecapture.features.FeatureRepository
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
@@ -19,6 +21,11 @@ import java.util.concurrent.TimeUnit
 class BirthdayWidgetWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
+        // 模块开关：生日提醒关闭时小组件不再定时刷新（保持最后一次内容）
+        if (!FeatureRepository.isEnabled(FeatureModule.BIRTHDAY)) {
+            BirthdayLog.i("[BirthdayWidgetWorker] Birthday module disabled, skipping refresh.")
+            return Result.success()
+        }
         BirthdayLog.i("[BirthdayWidgetWorker] doWork started.")
         return try {
             BirthdayWidget.updateAll(applicationContext)

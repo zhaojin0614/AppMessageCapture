@@ -163,6 +163,8 @@ import com.aifactory.appmessagecapture.ui.theme.CategorySocial
 import com.aifactory.appmessagecapture.ui.theme.CategoryTransport
 import com.aifactory.appmessagecapture.ui.theme.CategoryUncategorized
 import com.aifactory.appmessagecapture.R
+import com.aifactory.appmessagecapture.features.FeatureModule
+import com.aifactory.appmessagecapture.features.FeatureRepository
 import com.aifactory.appmessagecapture.service.PaymentScreenAccessibilityService
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.GradientExpenseEnd
@@ -197,6 +199,12 @@ fun BillScreen(
     val incomeCount by viewModel.incomeCount.collectAsState()
     val selectedIds by viewModel.selectedIds.collectAsState()
     val isSelectionMode by viewModel.isSelectionMode.collectAsState()
+
+    // 功能开关：报表/预算入口按模块显隐（设置页「功能开关」控制）
+    val disabledFeatures by FeatureRepository.disabled.collectAsState()
+    val reportEnabled = FeatureModule.REPORT !in disabledFeatures
+    val budgetEnabled = FeatureModule.BUDGET !in disabledFeatures
+    val platformsEnabled = FeatureModule.PLATFORMS !in disabledFeatures
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showDeleteSelectedDialog by remember { mutableStateOf(false) }
@@ -389,12 +397,14 @@ fun BillScreen(
                                 )
                             }
                         } else {
-                            IconButton(onClick = { showReport = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.BarChart,
-                                    contentDescription = "报表",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                            if (reportEnabled) {
+                                IconButton(onClick = { showReport = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.BarChart,
+                                        contentDescription = "报表",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                             IconButton(onClick = {
                                 showSearch = !showSearch
@@ -466,7 +476,8 @@ fun BillScreen(
                     incomeCount = incomeCount,
                     totalExpense = totalExpense,
                     totalIncome = totalIncome,
-                    totalAccountBalance = totalAccountBalance
+                    totalAccountBalance = totalAccountBalance,
+                    showAccountBalance = platformsEnabled
                 )
     
                 // Income / Expense Summary Cards
@@ -585,7 +596,7 @@ fun BillScreen(
                 Spacer(modifier = Modifier.height(ComponentGap))
 
                 val totalBudget = budgets.firstOrNull { it.category == "" }?.amount ?: 0.0
-                if (totalBudget > 0) {
+                if (totalBudget > 0 && budgetEnabled) {
                     val over = monthExpense > totalBudget
                     val ratio = (monthExpense / totalBudget).toFloat().coerceIn(0f, 1f)
                     // 与日卡片同款液态玻璃面板：glassFill + 顶部高光 + 渐变描边
@@ -1014,7 +1025,8 @@ fun BillPullDownStatsPanel(
     incomeCount: Int,
     totalExpense: Double,
     totalIncome: Double,
-    totalAccountBalance: Double
+    totalAccountBalance: Double,
+    showAccountBalance: Boolean
 ) {
     if (pullOffset <= 0f) return
 
@@ -1063,14 +1075,16 @@ fun BillPullDownStatsPanel(
                         alpha = contentAlpha
                     )
                 }
-                // 账户总金额（所有平台余额之和）
-                Text(
-                    text = "账户总额 ¥${String.format("%.2f", totalAccountBalance)}",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = contentAlpha),
-                    modifier = Modifier.padding(top = 2.dp)
-                )
+                // 账户总金额（所有平台余额之和）；平台账户模块关闭时隐藏
+                if (showAccountBalance) {
+                    Text(
+                        text = "账户总额 ¥${String.format("%.2f", totalAccountBalance)}",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = contentAlpha),
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
             }
         }
     }

@@ -10,6 +10,8 @@ import com.aifactory.appmessagecapture.birthday.data.ReminderType
 import com.aifactory.appmessagecapture.birthday.logic.DateCalculator
 import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
 import com.aifactory.appmessagecapture.data.AppDatabase
+import com.aifactory.appmessagecapture.features.FeatureModule
+import com.aifactory.appmessagecapture.features.FeatureRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Calendar
@@ -53,6 +55,13 @@ object BirthdayAlarmScheduler {
     fun schedule(context: Context, birthday: BirthdayEntity) {
         if (birthday.reminderType == ReminderType.NONE) {
             BirthdayLog.i("[$TAG] ReminderType is NONE, cancelling alarm for id=%d", birthday.id)
+            cancel(context, birthday.id)
+            return
+        }
+
+        // 模块开关：生日提醒关闭时不注册（并顺手撤掉已注册的闹钟）
+        if (!FeatureRepository.isEnabled(FeatureModule.BIRTHDAY)) {
+            BirthdayLog.i("[$TAG] Birthday module disabled, cancelling alarm for id=%d", birthday.id)
             cancel(context, birthday.id)
             return
         }
@@ -142,6 +151,11 @@ object BirthdayAlarmScheduler {
      */
     suspend fun rescheduleAll(context: Context) {
         BirthdayLog.i("[$TAG] rescheduleAll started.")
+        // 模块开关：生日提醒关闭时跳过批量重注册
+        if (!FeatureRepository.isEnabled(FeatureModule.BIRTHDAY)) {
+            BirthdayLog.i("[$TAG] Birthday module disabled, skipping rescheduleAll.")
+            return
+        }
         withContext(Dispatchers.IO) {
             try {
                 val dao = AppDatabase.getDatabase(context).birthdayDao()
@@ -170,6 +184,23 @@ object BirthdayAlarmScheduler {
     }
 
     /**
+     * 取消全部生日闹钟（设置里关闭生日模块时调用，保证立即生效）。
+     * 重新开启后由 [rescheduleAll]（列表打开/编辑时触发）恢复注册。
+     */
+    suspend fun cancelAll(context: Context) {
+        withContext(Dispatchers.IO) {
+            try {
+                val dao = AppDatabase.getDatabase(context).birthdayDao()
+                val all = dao.getAllOnce()
+                BirthdayLog.i("[$TAG] Cancelling alarms for %d birthday records.", all.size)
+                all.forEach { birthday -> cancel(context, birthday.id) }
+            } catch (e: Exception) {
+                BirthdayLog.logException("$TAG.cancelAll", e)
+            }
+        }
+    }
+
+    /**
      * 为下一年（或下一次）的生日注册闹钟。
      *
      * 与 [schedule] 不同，此方法直接取当前闹钟目标的年份 +1，
@@ -183,6 +214,12 @@ object BirthdayAlarmScheduler {
         if (birthday.reminderType == ReminderType.NONE) {
             BirthdayLog.i("[$TAG] ReminderType is NONE, cancelling alarm for id=%d", birthday.id)
             cancel(context, birthday.id)
+            return
+        }
+
+        // 模块开关：生日提醒关闭时不再续订下一年的闹钟
+        if (!FeatureRepository.isEnabled(FeatureModule.BIRTHDAY)) {
+            BirthdayLog.i("[$TAG] Birthday module disabled, skipping next-occurrence for id=%d", birthday.id)
             return
         }
 

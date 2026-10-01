@@ -38,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -64,6 +65,8 @@ import androidx.compose.ui.unit.dp
 import com.aifactory.appmessagecapture.birthday.ui.BirthdayScreen
 import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
 import com.aifactory.appmessagecapture.birthday.widget.BirthdayWidget
+import com.aifactory.appmessagecapture.features.FeatureModule
+import com.aifactory.appmessagecapture.features.FeatureRepository
 import com.aifactory.appmessagecapture.service.BillNotificationHelper
 import com.aifactory.appmessagecapture.service.MessageCaptureService
 import com.aifactory.appmessagecapture.ui.BillScreen
@@ -78,10 +81,19 @@ import com.aifactory.appmessagecapture.ui.theme.AppMessageCaptureTheme
 import com.aifactory.appmessagecapture.ui.theme.AccentColorRepository
 import kotlinx.coroutines.launch
 
-enum class AppTab(val label: String, val icon: ImageVector, val iconFilled: ImageVector) {
-    Messages("消息", Icons.Outlined.Notifications, Icons.Filled.Notifications),
-    Bills("记账", Icons.Outlined.Receipt, Icons.Filled.Receipt),
-    Birthday("生日", Icons.Outlined.Cake, Icons.Filled.Cake)
+/**
+ * 主导航 Tab 与功能模块绑定：模块在设置里关闭后（[FeatureModule.isTab]），
+ * 对应 Tab 从主导航消失（见 [MainApp] 的 visibleTabs 过滤）。
+ */
+enum class AppTab(
+    val label: String,
+    val icon: ImageVector,
+    val iconFilled: ImageVector,
+    val feature: FeatureModule
+) {
+    Messages("消息", Icons.Outlined.Notifications, Icons.Filled.Notifications, FeatureModule.MESSAGES),
+    Bills("记账", Icons.Outlined.Receipt, Icons.Filled.Receipt, FeatureModule.BILLS),
+    Birthday("生日", Icons.Outlined.Cake, Icons.Filled.Cake, FeatureModule.BIRTHDAY)
 }
 
 class MainActivity : ComponentActivity() {
@@ -128,23 +140,38 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainApp(initialTab: String? = null) {
+    // 功能开关：主导航只显示开启中的 Tab 级模块（设置页「功能开关」可改）
+    val disabledFeatures by FeatureRepository.disabled.collectAsState()
+    val visibleTabs = remember(disabledFeatures) {
+        AppTab.entries.filter { it.feature !in disabledFeatures }
+    }
+    // selectedTab 是 visibleTabs 内的索引；模块增减后由下方 effect 收拢越界
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
     val context = LocalContext.current
     // Widget 点击跳转：自动切换到生日 Tab，并强制刷新 widget
+    // （目标模块已被关闭时保持当前 Tab 不动）
     LaunchedEffect(initialTab) {
         when (initialTab) {
             "birthday" -> {
-                selectedTab = 2
-                try {
-                    BirthdayWidget.updateAll(context)
-                    BirthdayLog.i("[MainApp] BirthdayWidget.updateAll triggered after widget click.")
-                } catch (e: Exception) {
-                    BirthdayLog.logException("[MainApp] BirthdayWidget.updateAll", e)
+                val index = visibleTabs.indexOf(AppTab.Birthday)
+                if (index >= 0) {
+                    selectedTab = index
+                    try {
+                        BirthdayWidget.updateAll(context)
+                        BirthdayLog.i("[MainApp] BirthdayWidget.updateAll triggered after widget click.")
+                    } catch (e: Exception) {
+                        BirthdayLog.logException("[MainApp] BirthdayWidget.updateAll", e)
+                    }
                 }
             }
-            "bills" -> selectedTab = 1
+            "bills" -> visibleTabs.indexOf(AppTab.Bills).takeIf { it >= 0 }?.let { selectedTab = it }
         }
+    }
+
+    // 模块开关变化后索引可能越界，收拢回第一个可见 Tab
+    LaunchedEffect(visibleTabs.size) {
+        if (selectedTab >= visibleTabs.size) selectedTab = 0
     }
 
     // Single ambient background for the whole app: the bottom nav area and
@@ -172,6 +199,7 @@ fun MainApp(initialTab: String? = null) {
                 containerColor = Color.Transparent,
                 bottomBar = {
                     SoftNavBar(
+                        tabs = visibleTabs,
                         selectedIndex = selectedTab,
                         onSelect = { selectedTab = it }
                     )
@@ -185,14 +213,15 @@ fun MainApp(initialTab: String? = null) {
                 // Crossfade：切 tab 时内容轻微淡入淡出，与滑块滑动节奏配合。
                 val stateHolder = rememberSaveableStateHolder()
                 Crossfade(
-                    targetState = selectedTab,
+                    // 开关变化导致越界的过渡瞬间回退到第一个可见 Tab
+                    targetState = visibleTabs.getOrNull(selectedTab) ?: AppTab.Messages,
                     animationSpec = tween(100, easing = FastOutSlowInEasing),
                     label = "tabContentFade"
                 ) { tab ->
                     when (tab) {
-                        0 -> stateHolder.SaveableStateProvider(key = "tab_messages") { MainScreen() }
-                        1 -> stateHolder.SaveableStateProvider(key = "tab_bills") { BillScreen() }
-                        2 -> stateHolder.SaveableStateProvider(key = "tab_birthday") { BirthdayScreen() }
+                        AppTab.Messages -> stateHolder.SaveableStateProvider(key = "tab_messages") { MainScreen() }
+                        AppTab.Bills -> stateHolder.SaveableStateProvider(key = "tab_bills") { BillScreen() }
+                        AppTab.Birthday -> stateHolder.SaveableStateProvider(key = "tab_birthday") { BirthdayScreen() }
                     }
                 }
             }
@@ -206,6 +235,7 @@ fun MainApp(initialTab: String? = null) {
 
 @Composable
 private fun SoftNavBar(
+    tabs: List<AppTab>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier
@@ -218,9 +248,10 @@ private fun SoftNavBar(
         contentAlignment = Alignment.Center
     ) {
         // 导航项几何（px，相对内容区原点）；首次布局测量后直接落位，之后切换才滑动
-        var itemLefts by remember { mutableStateOf(FloatArray(AppTab.entries.size)) }
-        var itemWidths by remember { mutableStateOf(IntArray(AppTab.entries.size)) }
-        var measured by remember { mutableStateOf(false) }
+        // （模块开关增减 Tab 时随 tabs 重建，重新走一次「直接落位」）
+        var itemLefts by remember(tabs) { mutableStateOf(FloatArray(tabs.size)) }
+        var itemWidths by remember(tabs) { mutableStateOf(IntArray(tabs.size)) }
+        var measured by remember(tabs) { mutableStateOf(false) }
         val sliderLeft = remember { Animatable(0f) }
         val sliderWidth = remember { Animatable(0f) }
         val accent = AccentColorRepository.current
@@ -283,7 +314,7 @@ private fun SoftNavBar(
                 .padding(6.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                AppTab.entries.forEachIndexed { index, tab ->
+                tabs.forEachIndexed { index, tab ->
                     SoftNavItem(
                         tab = tab,
                         selected = selectedIndex == index,

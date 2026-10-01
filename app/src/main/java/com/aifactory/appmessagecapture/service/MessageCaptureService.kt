@@ -9,6 +9,8 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.aifactory.appmessagecapture.AppMessageCaptureApplication
 import com.aifactory.appmessagecapture.data.NotificationEntity
+import com.aifactory.appmessagecapture.features.FeatureModule
+import com.aifactory.appmessagecapture.features.FeatureRepository
 import com.aifactory.appmessagecapture.utils.PendingIntentCache
 import com.aifactory.appmessagecapture.utils.PreferencesManager
 import kotlinx.coroutines.CoroutineScope
@@ -100,6 +102,9 @@ class MessageCaptureService : NotificationListenerService() {
         // PackageManager lookups are binder IPC) — keep it off the main thread.
         // Notification storms (media/IM apps) otherwise jank the service thread.
         serviceScope.launch {
+            // 模块开关：消息捕获关闭时整条通知管线停止（不入库、不提取账单）
+            if (!FeatureRepository.isEnabled(FeatureModule.MESSAGES)) return@launch
+
             // Filter: blocked apps (service-level block list)
             if (PreferencesManager.getInstance(this@MessageCaptureService)
                     .isAppBlocked(packageName)
@@ -246,6 +251,9 @@ class MessageCaptureService : NotificationListenerService() {
     ) {
         val packageName = sbn.packageName ?: return
         val fullText = "$title $content"
+
+        // 模块开关：自动记账关闭时只保存通知，不做账单提取
+        if (!FeatureRepository.isEnabled(FeatureModule.BILLS)) return
 
         // Per-app gate: known payment apps only, with app-specific title/content
         // filters to exclude non-payment noise (coupons, marketing pushes, etc.)

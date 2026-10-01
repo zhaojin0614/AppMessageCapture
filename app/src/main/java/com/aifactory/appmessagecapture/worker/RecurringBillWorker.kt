@@ -11,6 +11,8 @@ import androidx.work.WorkerParameters
 import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
 import com.aifactory.appmessagecapture.data.AppDatabase
 import com.aifactory.appmessagecapture.data.RecurringBillProcessor
+import com.aifactory.appmessagecapture.features.FeatureModule
+import com.aifactory.appmessagecapture.features.FeatureRepository
 import java.util.concurrent.TimeUnit
 
 /**
@@ -65,6 +67,11 @@ class RecurringBillWorker(
     }
 
     override suspend fun doWork(): Result {
+        // 模块开关：周期账单关闭时不补记（重新开启后下次执行自动恢复）
+        if (!FeatureRepository.isEnabled(FeatureModule.RECURRING)) {
+            BirthdayLog.i("[$TAG] Recurring module disabled, skipping check")
+            return Result.success()
+        }
         BirthdayLog.i("[$TAG] Executing recurring bill check")
 
         val db = AppDatabase.getDatabase(applicationContext)

@@ -17,6 +17,8 @@ import com.aifactory.appmessagecapture.data.AppDatabase
 import com.aifactory.appmessagecapture.birthday.logic.DateCalculator
 import com.aifactory.appmessagecapture.birthday.ui.AlarmActivity
 import com.aifactory.appmessagecapture.birthday.utils.BirthdayLog
+import com.aifactory.appmessagecapture.features.FeatureModule
+import com.aifactory.appmessagecapture.features.FeatureRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -37,6 +39,9 @@ class BirthdayAlarmReceiver : BroadcastReceiver() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onReceive(context: Context, intent: Intent) {
+        // 模块开关：生日提醒关闭后不再响应（拦截关闭前残留的已注册闹钟）
+        if (!FeatureRepository.isEnabled(FeatureModule.BIRTHDAY)) return
+
         val pendingResult = goAsync()
         val birthdayId = intent.getIntExtra(EXTRA_BIRTHDAY_ID, -1)
         BirthdayLog.i(
