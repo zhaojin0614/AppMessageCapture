@@ -796,9 +796,9 @@ private fun parseHexColor(input: String): Int? {
     return if (valid) 0xFF000000.toInt() or clean.toInt(16) else null
 }
 
-/** 分组卡片：组标题 + 圆角玻璃卡片内的若干行 */
+/** 分组卡片：组标题 + 圆角玻璃卡片内的若干行（MineScreen 复用，故 internal） */
 @Composable
-private fun SettingsGroup(
+internal fun SettingsGroup(
     title: String,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -858,9 +858,9 @@ private fun SettingsRow(
     }
 }
 
-/** 导航行：右侧值 + 箭头 */
+/** 导航行：右侧值 + 箭头（MineScreen 复用，故 internal） */
 @Composable
-private fun SettingsNavigateRow(
+internal fun SettingsNavigateRow(
     icon: ImageVector,
     title: String,
     value: String,

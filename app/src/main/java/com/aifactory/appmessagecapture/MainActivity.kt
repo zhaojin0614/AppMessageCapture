@@ -27,9 +27,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Receipt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -71,6 +73,7 @@ import com.aifactory.appmessagecapture.service.BillNotificationHelper
 import com.aifactory.appmessagecapture.service.MessageCaptureService
 import com.aifactory.appmessagecapture.ui.BillScreen
 import com.aifactory.appmessagecapture.ui.MainScreen
+import com.aifactory.appmessagecapture.ui.MineScreen
 import com.aifactory.appmessagecapture.ui.components.AmbientBackground
 import com.aifactory.appmessagecapture.ui.components.GlassBackdropRoot
 import com.aifactory.appmessagecapture.ui.components.SliderStiffness
@@ -82,18 +85,22 @@ import com.aifactory.appmessagecapture.ui.theme.AccentColorRepository
 import kotlinx.coroutines.launch
 
 /**
- * 主导航 Tab 与功能模块绑定：模块在设置里关闭后（[FeatureModule.isTab]），
- * 对应 Tab 从主导航消失（见 [MainApp] 的 visibleTabs 过滤）。
+ * 主导航 Tab。功能 Tab 绑定 [FeatureModule]（模块关闭后 Tab 隐藏，见 [MainApp]
+ * 的 visibleTabs 过滤）；[Mine] 是壳层 Tab（feature = null），不参与模块开关
+ * 过滤、永不可关——全局设置入口常驻其下，保证任意开关组合下设置可达
+ * （修复：设置入口曾寄生在可关闭的记账 Tab，关闭「自动记账」后设置不可达）。
  */
 enum class AppTab(
     val label: String,
     val icon: ImageVector,
     val iconFilled: ImageVector,
-    val feature: FeatureModule
+    /** 绑定的功能模块；null = 壳层 Tab，不受功能开关影响 */
+    val feature: FeatureModule?
 ) {
     Messages("消息", Icons.Outlined.Notifications, Icons.Filled.Notifications, FeatureModule.MESSAGES),
     Bills("记账", Icons.Outlined.Receipt, Icons.Filled.Receipt, FeatureModule.BILLS),
-    Birthday("生日", Icons.Outlined.Cake, Icons.Filled.Cake, FeatureModule.BIRTHDAY)
+    Birthday("生日", Icons.Outlined.Cake, Icons.Filled.Cake, FeatureModule.BIRTHDAY),
+    Mine("我的", Icons.Outlined.Person, Icons.Filled.Person, null)
 }
 
 class MainActivity : ComponentActivity() {
@@ -140,10 +147,10 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainApp(initialTab: String? = null) {
-    // 功能开关：主导航只显示开启中的 Tab 级模块（设置页「功能开关」可改）
+    // 功能开关：主导航只显示开启中的功能 Tab；「我的」是壳层 Tab 永远显示
     val disabledFeatures by FeatureRepository.disabled.collectAsState()
     val visibleTabs = remember(disabledFeatures) {
-        AppTab.entries.filter { it.feature !in disabledFeatures }
+        AppTab.entries.filter { it.feature == null || it.feature !in disabledFeatures }
     }
     // selectedTab 是 visibleTabs 内的索引；模块增减后由下方 effect 收拢越界
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -222,6 +229,7 @@ fun MainApp(initialTab: String? = null) {
                         AppTab.Messages -> stateHolder.SaveableStateProvider(key = "tab_messages") { MainScreen() }
                         AppTab.Bills -> stateHolder.SaveableStateProvider(key = "tab_bills") { BillScreen() }
                         AppTab.Birthday -> stateHolder.SaveableStateProvider(key = "tab_birthday") { BirthdayScreen() }
+                        AppTab.Mine -> stateHolder.SaveableStateProvider(key = "tab_mine") { MineScreen() }
                     }
                 }
             }

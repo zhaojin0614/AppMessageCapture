@@ -49,7 +49,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.SettingsBackupRestore
@@ -219,8 +218,6 @@ fun BillScreen(
 
     val context = LocalContext.current
 
-    // 设置页
-    var showSettings by remember { mutableStateOf(false) }
     // 账单搜索
     var showSearch by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
@@ -248,11 +245,6 @@ fun BillScreen(
         com.aifactory.appmessagecapture.ui.report.ReportScreen(
               onBack = { showReport = false }
         )
-        return
-    }
-
-    if (showSettings) {
-        SettingsScreen(onBack = { showSettings = false })
         return
     }
 
@@ -418,13 +410,6 @@ fun BillScreen(
                                     contentDescription = "搜索账单",
                                     tint = if (showSearch) MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            IconButton(onClick = { showSettings = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.Settings,
-                                    contentDescription = "设置",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
