@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -424,7 +425,13 @@ fun MineScreen(modifier: Modifier = Modifier) {
                 value = BuildConfig.VERSION_NAME
             )
         }
-        Spacer(modifier = Modifier.height(24.dp))
+        // 底部留空：与消息/记账页的 96dp 一致，外加手势条避让——
+        // 否则滚动到底时悬浮导航胶囊会盖住「版本」行
+        Spacer(
+            modifier = Modifier
+                .navigationBarsPadding()
+                .height(96.dp)
+        )
     }
 
     if (showSupportedApps) {
