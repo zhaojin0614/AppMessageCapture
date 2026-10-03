@@ -152,8 +152,11 @@ fun MainApp(initialTab: String? = null) {
     val visibleTabs = remember(disabledFeatures) {
         AppTab.entries.filter { it.feature == null || it.feature !in disabledFeatures }
     }
-    // selectedTab 是 visibleTabs 内的索引；模块增减后由下方 effect 收拢越界
+    // selectedTab 是 visibleTabs 内的索引；模块增减后可能瞬时越界——
+    // 渲染层一律用收拢后的 selectedTabSafe（coerce 保证永不越界），
+    // 持久化值由下方 effect 写回收拢后的索引
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    val selectedTabSafe = selectedTab.coerceIn(0, visibleTabs.lastIndex)
 
     val context = LocalContext.current
     // Widget 点击跳转：自动切换到生日 Tab，并强制刷新 widget
@@ -176,9 +179,11 @@ fun MainApp(initialTab: String? = null) {
         }
     }
 
-    // 模块开关变化后索引可能越界，收拢回第一个可见 Tab
+    // 模块开关变化后把持久化索引写回收拢值：coerce 到收拢后的位置
+    // （如「我的」在尾部，关掉其它模块后仍停留在「我的」而不是跳回第一个 Tab）
     LaunchedEffect(visibleTabs.size) {
-        if (selectedTab >= visibleTabs.size) selectedTab = 0
+        val clamped = selectedTab.coerceIn(0, visibleTabs.lastIndex)
+        if (selectedTab != clamped) selectedTab = clamped
     }
 
     // Single ambient background for the whole app: the bottom nav area and
@@ -207,7 +212,7 @@ fun MainApp(initialTab: String? = null) {
                 bottomBar = {
                     SoftNavBar(
                         tabs = visibleTabs,
-                        selectedIndex = selectedTab,
+                        selectedIndex = selectedTabSafe,
                         onSelect = { selectedTab = it }
                     )
                 }
@@ -220,8 +225,9 @@ fun MainApp(initialTab: String? = null) {
                 // Crossfade：切 tab 时内容轻微淡入淡出，与滑块滑动节奏配合。
                 val stateHolder = rememberSaveableStateHolder()
                 Crossfade(
-                    // 开关变化导致越界的过渡瞬间回退到第一个可见 Tab
-                    targetState = visibleTabs.getOrNull(selectedTab) ?: AppTab.Messages,
+                    // coerce 保证索引恒在界内；fallback 仅防空表（不会发生，
+                    // 「我的」壳层 Tab 永远存在）
+                    targetState = visibleTabs.getOrNull(selectedTabSafe) ?: AppTab.Messages,
                     animationSpec = tween(100, easing = FastOutSlowInEasing),
                     label = "tabContentFade"
                 ) { tab ->
@@ -266,6 +272,10 @@ private fun SoftNavBar(
 
         LaunchedEffect(itemLefts, itemWidths, selectedIndex) {
             if (!measured) return@LaunchedEffect
+            // 防御：模块开关增减 Tab 的过渡帧里 selectedIndex 可能仍指向旧
+            // 布局（如 4 项的尾部索引撞上 3 项数组），越界直接跳过本次动画，
+            // 等 clamp 写回后随新 key 重启
+            if (selectedIndex < 0 || selectedIndex >= itemLefts.size) return@LaunchedEffect
             val targetLeft = itemLefts[selectedIndex]
             val targetWidth = itemWidths[selectedIndex].toFloat()
             if (sliderWidth.value == 0f) {
