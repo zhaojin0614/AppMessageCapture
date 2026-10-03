@@ -42,7 +42,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -152,38 +151,31 @@ fun MainApp(initialTab: String? = null) {
     val visibleTabs = remember(disabledFeatures) {
         AppTab.entries.filter { it.feature == null || it.feature !in disabledFeatures }
     }
-    // selectedTab 是 visibleTabs 内的索引；模块增减后可能瞬时越界——
-    // 渲染层一律用收拢后的 selectedTabSafe（coerce 保证永不越界），
-    // 持久化值由下方 effect 写回收拢后的索引
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-    val selectedTabSafe = selectedTab.coerceIn(0, visibleTabs.lastIndex)
+    // 选中 Tab 按「身份」持久化（存 enum 名，随布局变化按名解析）：
+    // 按索引追踪会被功能开关增删的 Tab 顶偏——如在「我的」上重新开启
+    // 消息捕获，其后所有 Tab 索引右移，索引 2 会落到生日上；按名解析
+    // 并对已被关闭的 Tab 回退到「我的」（壳层 Tab 永不消失）
+    var selectedTabId by rememberSaveable { mutableStateOf(AppTab.Messages.name) }
+    val selectedTab = visibleTabs.firstOrNull { it.name == selectedTabId } ?: AppTab.Mine
 
     val context = LocalContext.current
     // Widget 点击跳转：自动切换到生日 Tab，并强制刷新 widget
     // （目标模块已被关闭时保持当前 Tab 不动）
     LaunchedEffect(initialTab) {
         when (initialTab) {
-            "birthday" -> {
-                val index = visibleTabs.indexOf(AppTab.Birthday)
-                if (index >= 0) {
-                    selectedTab = index
-                    try {
-                        BirthdayWidget.updateAll(context)
-                        BirthdayLog.i("[MainApp] BirthdayWidget.updateAll triggered after widget click.")
-                    } catch (e: Exception) {
-                        BirthdayLog.logException("[MainApp] BirthdayWidget.updateAll", e)
-                    }
+            "birthday" -> if (AppTab.Birthday in visibleTabs) {
+                selectedTabId = AppTab.Birthday.name
+                try {
+                    BirthdayWidget.updateAll(context)
+                    BirthdayLog.i("[MainApp] BirthdayWidget.updateAll triggered after widget click.")
+                } catch (e: Exception) {
+                    BirthdayLog.logException("[MainApp] BirthdayWidget.updateAll", e)
                 }
             }
-            "bills" -> visibleTabs.indexOf(AppTab.Bills).takeIf { it >= 0 }?.let { selectedTab = it }
+            "bills" -> if (AppTab.Bills in visibleTabs) {
+                selectedTabId = AppTab.Bills.name
+            }
         }
-    }
-
-    // 模块开关变化后把持久化索引写回收拢值：coerce 到收拢后的位置
-    // （如「我的」在尾部，关掉其它模块后仍停留在「我的」而不是跳回第一个 Tab）
-    LaunchedEffect(visibleTabs.size) {
-        val clamped = selectedTab.coerceIn(0, visibleTabs.lastIndex)
-        if (selectedTab != clamped) selectedTab = clamped
     }
 
     // Single ambient background for the whole app: the bottom nav area and
@@ -212,8 +204,8 @@ fun MainApp(initialTab: String? = null) {
                 bottomBar = {
                     SoftNavBar(
                         tabs = visibleTabs,
-                        selectedIndex = selectedTabSafe,
-                        onSelect = { selectedTab = it }
+                        selectedIndex = visibleTabs.indexOf(selectedTab),
+                        onSelect = { index -> selectedTabId = visibleTabs[index].name }
                     )
                 }
             ) { _ ->
@@ -225,9 +217,7 @@ fun MainApp(initialTab: String? = null) {
                 // Crossfade：切 tab 时内容轻微淡入淡出，与滑块滑动节奏配合。
                 val stateHolder = rememberSaveableStateHolder()
                 Crossfade(
-                    // coerce 保证索引恒在界内；fallback 仅防空表（不会发生，
-                    // 「我的」壳层 Tab 永远存在）
-                    targetState = visibleTabs.getOrNull(selectedTabSafe) ?: AppTab.Messages,
+                    targetState = selectedTab,
                     animationSpec = tween(100, easing = FastOutSlowInEasing),
                     label = "tabContentFade"
                 ) { tab ->
