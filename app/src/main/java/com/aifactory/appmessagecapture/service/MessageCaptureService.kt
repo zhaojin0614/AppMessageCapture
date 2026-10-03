@@ -18,6 +18,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Service that listens to system notifications and persists them locally.
@@ -38,6 +40,18 @@ class MessageCaptureService : NotificationListenerService() {
         @Volatile
         internal var instance: MessageCaptureService? = null
             private set
+
+        /**
+         * 通知「查重 + 插入」的串行化锁。
+         *
+         * HyperOS 会把同一条通知背靠背投递两次（postTime/标题/内容完全相同），
+         * 两个回调在 Dispatchers.IO 上并行执行「查重 → 插入」时，双方都查不到
+         * 对方尚未提交的插入（TOCTOU），导致每条通知入库两行（真机实测出现
+         * 2164 对 id 相邻、字段全同的重复行）。查重与插入必须在同一把锁内完成；
+         * 放在 companion 是为了让 rebind 重建服务实例后新旧实例仍共用一把锁，
+         * 与 [BillIngestor] 对账单入库的互斥同一思路。
+         */
+        private val insertMutex = Mutex()
     }
 
     override fun onCreate() {
@@ -128,12 +142,14 @@ class MessageCaptureService : NotificationListenerService() {
 
             // Filter 6: exact-duplicate suppression. ROMs (MIUI/HyperOS) re-deliver
             // the same StatusBarNotification to the listener — identical postTime,
-            // title and content — which used to produce adjacent duplicate rows.
-            if (dao.findExactDuplicate(postTime, packageName, title, content) != null) {
-                return@launch
+            // title and content. 查重与插入在 insertMutex 内串行完成，背靠背的
+            // 重复投递第二次进锁时必然能查到第一次已提交的行（见 companion 注释）。
+            val insertedId = insertMutex.withLock {
+                if (dao.findExactDuplicate(postTime, packageName, title, content) != null) {
+                    return@launch
+                }
+                dao.insert(entity)
             }
-
-            val insertedId = dao.insert(entity)
             // Cache the PendingIntent in memory so the UI can replay the click action.
             // Room auto-increment ID is used as the cache key.
             if (contentIntent != null) {
