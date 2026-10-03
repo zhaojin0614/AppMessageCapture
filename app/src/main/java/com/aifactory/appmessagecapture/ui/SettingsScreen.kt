@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.AutoDelete
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -118,7 +119,9 @@ import com.aifactory.appmessagecapture.ui.theme.ComponentGap
 import com.aifactory.appmessagecapture.ui.theme.ExpenseRed
 import com.aifactory.appmessagecapture.ui.theme.IncomeGreen
 import com.aifactory.appmessagecapture.utils.NotificationServiceHelper
+import com.aifactory.appmessagecapture.utils.PreferencesManager
 import com.aifactory.appmessagecapture.utils.rememberAppIcon
+import com.aifactory.appmessagecapture.worker.NotificationCleanupWorker
 
 /** xlsx 的标准 MIME（备份导出命名 / 导入过滤共用） */
 private const val XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -143,6 +146,11 @@ fun SettingsScreen(onBack: () -> Unit) {
     var showBudgetDialog by remember { mutableStateOf(false) }
     var showAccentDialog by remember { mutableStateOf(false) }
     var showCustomPicker by remember { mutableStateOf(false) }
+    var showRetentionDialog by remember { mutableStateOf(false) }
+    // 消息保留天数：0 = 永久保留；改动即持久化并触发一次立即清理
+    var retentionDays by remember {
+        mutableStateOf(PreferencesManager.getInstance(context).getNotificationRetentionDays())
+    }
     // 弹窗内的草稿选择：点色块/调色板只改草稿，「使用此颜色」统一应用
     var draftAccent by remember { mutableStateOf(AccentVariant.fromPreset(AccentColor.MINT)) }
     var draftCustomColor by remember { mutableStateOf(AccentColor.MINT.primary) }
@@ -381,6 +389,12 @@ fun SettingsScreen(onBack: () -> Unit) {
                     value = "导出 / 导入",
                     onClick = { showBackupDialog = true }
                 )
+                SettingsNavigateRow(
+                    icon = Icons.Default.AutoDelete,
+                    title = "消息保留时长",
+                    value = retentionLabel(retentionDays),
+                    onClick = { showRetentionDialog = true }
+                )
             }
 
             SettingsGroup("关于") {
@@ -606,6 +620,74 @@ fun SettingsScreen(onBack: () -> Unit) {
                 TextButton(onClick = { showRestoreConfirm = false }) { Text("取消") }
             }
         )
+    }
+
+    if (showRetentionDialog) {
+        GlassCompactDialog(
+            onDismissRequest = { showRetentionDialog = false },
+            title = "消息保留时长",
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "超过保留时长的消息会在每日清理时删除，修改后立即清理一次。账单不受影响。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    listOf(7, 30, 90, 0).forEach { days ->
+                        RetentionOptionRow(
+                            label = retentionLabel(days),
+                            selected = retentionDays == days,
+                            onClick = {
+                                retentionDays = days
+                                PreferencesManager.getInstance(context)
+                                    .setNotificationRetentionDays(days)
+                                NotificationCleanupWorker.runNow(context)
+                                showRetentionDialog = false
+                            }
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showRetentionDialog = false }) { Text("取消") }
+            }
+        )
+    }
+}
+
+/** 保留天数的展示文案：0 = 永久保留 */
+private fun retentionLabel(days: Int): String = if (days <= 0) "永久保留" else "$days 天"
+
+/** 消息保留时长弹窗的选项行：标签 + 选中对勾 */
+@Composable
+private fun RetentionOptionRow(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        if (selected) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = "已选择",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp)
+            )
+        }
     }
 }
 
