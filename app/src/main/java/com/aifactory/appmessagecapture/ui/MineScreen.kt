@@ -4,8 +4,6 @@ import android.content.Intent
 import android.graphics.Color as AndroidColor
 import android.provider.Settings
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -37,7 +35,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AutoDelete
-import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Check
@@ -53,9 +50,6 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Savings
-import androidx.compose.material.icons.filled.SettingsBackupRestore
-import androidx.compose.material.icons.filled.TableChart
-import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -120,9 +114,6 @@ import com.aifactory.appmessagecapture.utils.rememberAppIcon
 import com.aifactory.appmessagecapture.worker.NotificationCleanupWorker
 import kotlinx.coroutines.launch
 
-/** xlsx 的标准 MIME（备份导出命名 / 导入过滤共用） */
-private const val XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-
 /**
  * 「我的」页：全局设置的正式宿主（不属于任何功能模块、不可被关闭）。
  *
@@ -141,8 +132,6 @@ fun MineScreen(modifier: Modifier = Modifier) {
     var showPlatformAccounts by remember { mutableStateOf(false) }
     var showMerchantMemories by remember { mutableStateOf(false) }
     var showRecurringBills by remember { mutableStateOf(false) }
-    var showBackupDialog by remember { mutableStateOf(false) }
-    var showRestoreConfirm by remember { mutableStateOf(false) }
     var showBudgetDialog by remember { mutableStateOf(false) }
     var showAccentDialog by remember { mutableStateOf(false) }
     var showCustomPicker by remember { mutableStateOf(false) }
@@ -154,7 +143,6 @@ fun MineScreen(modifier: Modifier = Modifier) {
     // 弹窗内的草稿选择：点色块/调色板只改草稿，「使用此颜色」统一应用
     var draftAccent by remember { mutableStateOf(AccentVariant.fromPreset(AccentColor.MINT)) }
     var draftCustomColor by remember { mutableStateOf(AccentColor.MINT.primary) }
-    var importOverwrite by remember { mutableStateOf(false) }
 
     // 主色调：全局单例状态，选色后即时生效（读取处自动订阅重组）
     val currentAccent = AccentColorRepository.current
@@ -197,23 +185,6 @@ fun MineScreen(modifier: Modifier = Modifier) {
     val activeRecurring by db.recurringBillDao().getActiveCount().collectAsState(initial = 0)
     val budgets by viewModel.budgets.collectAsState()
     val totalBudget = budgets.firstOrNull { it.category == "" }?.amount
-
-    // 备份导出/导入的 SAF 启动器
-    val backupBusy by viewModel.backupBusy.collectAsState()
-    val exportBackupLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument(XLSX_MIME)
-    ) { uri -> uri?.let { viewModel.exportBackup(it) } }
-    val importBackupLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri -> uri?.let { viewModel.importBackup(it, importOverwrite) } }
-    LaunchedEffect(Unit) {
-        viewModel.backupMessage.collect { message ->
-            message?.let {
-                Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-                viewModel.consumeBackupMessage()
-            }
-        }
-    }
 
     if (showPlatformAccounts) {
         PlatformAccountScreen(onBack = { showPlatformAccounts = false })
@@ -410,12 +381,6 @@ fun MineScreen(modifier: Modifier = Modifier) {
                 value = retentionLabel(retentionDays),
                 onClick = { showRetentionDialog = true }
             )
-            SettingsNavigateRow(
-                icon = Icons.Default.Backup,
-                title = "备份与恢复",
-                value = "导出 / 导入",
-                onClick = { showBackupDialog = true }
-            )
         }
 
         SettingsGroup("关于") {
@@ -572,78 +537,6 @@ fun MineScreen(modifier: Modifier = Modifier) {
             },
             dismissButton = {
                 TextButton(onClick = { showAccentDialog = false }) { Text("取消") }
-            }
-        )
-    }
-
-    if (showBackupDialog) {
-        GlassCompactDialog(
-            onDismissRequest = { showBackupDialog = false },
-            title = "备份与恢复",
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    BackupActionRow(
-                        icon = Icons.Default.TableChart,
-                        title = "导出表格（Excel）",
-                        subtitle = "支出/收入分表 + 平台账户余额",
-                        enabled = !backupBusy,
-                        onClick = {
-                            showBackupDialog = false
-                            val date = java.time.LocalDate.now()
-                                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                            exportBackupLauncher.launch("捕账_备份_$date.xlsx")
-                        }
-                    )
-                    BackupActionRow(
-                        icon = Icons.Default.UploadFile,
-                        title = "导入数据（合并）",
-                        subtitle = "与现有账单去重，不改动现有平台余额",
-                        enabled = !backupBusy,
-                        onClick = {
-                            showBackupDialog = false
-                            importOverwrite = false
-                            importBackupLauncher.launch(arrayOf(XLSX_MIME, "application/octet-stream"))
-                        }
-                    )
-                    BackupActionRow(
-                        icon = Icons.Default.SettingsBackupRestore,
-                        title = "恢复备份（覆盖）",
-                        subtitle = "清空当前账单与平台账户后按文件重建",
-                        enabled = !backupBusy,
-                        onClick = {
-                            showBackupDialog = false
-                            showRestoreConfirm = true
-                        }
-                    )
-                    Text(
-                        text = "平台余额以导出文件中的快照为准；导入不重复计算余额",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showBackupDialog = false }) { Text("关闭") }
-            }
-        )
-    }
-
-    if (showRestoreConfirm) {
-        GlassCompactDialog(
-            onDismissRequest = { showRestoreConfirm = false },
-            title = "恢复备份",
-            text = { Text("将清空当前所有账单与平台账户，并按所选文件重建，此操作不可撤销。确定继续吗？") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showRestoreConfirm = false
-                        importOverwrite = true
-                        importBackupLauncher.launch(arrayOf(XLSX_MIME, "application/octet-stream"))
-                    }
-                ) { Text("确定恢复", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRestoreConfirm = false }) { Text("取消") }
             }
         )
     }
@@ -1096,47 +989,6 @@ private fun SettingsValueRow(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-    }
-}
-
-/** 备份弹窗的操作行：图标 + 标题 + 说明 */
-@Composable
-private fun BackupActionRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    enabled: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(22.dp)
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
     }
 }
 

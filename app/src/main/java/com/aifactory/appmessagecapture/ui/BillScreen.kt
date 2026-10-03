@@ -48,6 +48,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Savings
@@ -214,6 +215,8 @@ fun BillScreen(
     var showEditDialog by remember { mutableStateOf(false) }
     var billToEdit by remember { mutableStateOf<BillEntity?>(null) }
     var showReport by remember { mutableStateOf(false) }
+    // 备份与恢复（记账页顶栏入口）
+    var showBackupDialog by remember { mutableStateOf(false) }
 
 
     val context = LocalContext.current
@@ -397,6 +400,13 @@ fun BillScreen(
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
+                            }
+                            IconButton(onClick = { showBackupDialog = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.Backup,
+                                    contentDescription = "备份与恢复",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                             IconButton(onClick = {
                                 showSearch = !showSearch
@@ -791,6 +801,13 @@ fun BillScreen(
     if (showBudgetEditDialog) {
         BudgetDialog(viewModel = viewModel, onDismiss = { showBudgetEditDialog = false })
     }
+
+    // 备份与恢复（顶栏入口；宿主须常驻组合，SAF 结果回调不随弹窗销毁）
+    BackupRestoreHost(
+        viewModel = viewModel,
+        show = showBackupDialog,
+        onDismiss = { showBackupDialog = false }
+    )
 
     // Add bill dialog
     if (showAddDialog) {
