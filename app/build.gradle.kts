@@ -18,8 +18,8 @@ android {
             "com.zhaojin.billcatch"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "2.2.7"
+        versionCode = 4
+        versionName = "2.2.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

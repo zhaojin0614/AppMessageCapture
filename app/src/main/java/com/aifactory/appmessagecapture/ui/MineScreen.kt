@@ -1,6 +1,7 @@
 package com.aifactory.appmessagecapture.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -64,13 +66,28 @@ fun MineScreen(modifier: Modifier = Modifier) {
                 .padding(top = 24.dp, bottom = ComponentGap),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Image(
-                painter = painterResource(id = R.mipmap.ic_launcher),
-                contentDescription = null,
+            // 不能用 painterResource(R.mipmap.ic_launcher)：自适应图标是
+            // AdaptiveIconDrawable，painterResource 只支持 Vector/位图，会抛
+            // IllegalArgumentException（点击「我的」即崩溃）。改为手动叠层
+            // 复现自适应图标：背景层 + 前景层（均为 vector drawable）。
+            Box(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(RoundedCornerShape(16.dp))
-            )
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_launcher_background),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.matchParentSize()
+                )
+                Image(
+                    painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.matchParentSize()
+                )
+            }
             Spacer(modifier = Modifier.width(14.dp))
             Column {
                 Text(
